@@ -1,8 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload } from './types';
 import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './constants';
 import { GeminiService } from './services/geminiService';
+import { StorageManager } from './utils/storage';
 import { 
   ShieldAlert, 
   Terminal, 
@@ -21,7 +22,8 @@ import {
   ArrowRight,
   ArrowLeft,
   Settings2,
-  Code2
+  Code2,
+  Trash2
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -49,6 +51,52 @@ export default function App() {
       default: return OWASP_TACTICS;
     }
   }, [activeTab]);
+
+  // Load persisted state on mount
+  useEffect(() => {
+    const savedState = StorageManager.loadState();
+    if (savedState) {
+      // Restore framework
+      if (savedState.activeFramework) {
+        const framework = savedState.activeFramework as Framework;
+        if (Object.values(Framework).includes(framework)) {
+          setActiveTab(framework);
+        }
+      }
+
+      // Restore selected tactic
+      if (savedState.selectedTacticId) {
+        const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
+        const tactic = allTactics.find(t => t.id === savedState.selectedTacticId);
+        if (tactic) {
+          handleTacticSelect(tactic);
+          // Restore vectors and step after tactic is loaded
+          if (savedState.selectedVectors) {
+            setSelectedVectors(savedState.selectedVectors);
+          }
+          if (savedState.currentStep) {
+            setCurrentStep(savedState.currentStep);
+          }
+          if (savedState.selectedPayloadIndices) {
+            setSelectedPayloadIndices(savedState.selectedPayloadIndices);
+          }
+        }
+      }
+    }
+  }, []); // Run only once on mount
+
+  // Save state whenever it changes
+  useEffect(() => {
+    if (selectedTactic) {
+      StorageManager.updateState({
+        selectedTacticId: selectedTactic.id,
+        currentStep,
+        selectedVectors,
+        selectedPayloadIndices,
+        activeFramework: activeTab
+      });
+    }
+  }, [selectedTactic, currentStep, selectedVectors, selectedPayloadIndices, activeTab]);
 
   const handleTacticSelect = async (tactic: TacticMetadata) => {
     // 1. Instant UI update to Vector Step
@@ -119,6 +167,18 @@ export default function App() {
     downloadJson(data, `ARES_EXEC_${selectedTactic.id}_${Date.now()}.json`);
   };
 
+  const clearProgress = () => {
+    StorageManager.clearState();
+    setSelectedTactic(null);
+    setCurrentStep('vectors');
+    setSelectedVectors([]);
+    setSelectedPayloadIndices([]);
+    setResult(null);
+    setError(null);
+    setNotification("Progress cleared");
+    setTimeout(() => setNotification(null), 2000);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-200">
       {/* Notification Toast */}
@@ -151,6 +211,16 @@ export default function App() {
                </div>
              ) : (
                <span className="text-emerald-500/60">SYSTEM READY</span>
+             )}
+             {selectedTactic && (
+               <button 
+                 onClick={clearProgress}
+                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+                 title="Clear saved progress"
+               >
+                 <Trash2 className="w-3 h-3" />
+                 <span className="hidden sm:inline">CLEAR</span>
+               </button>
              )}
           </div>
         </div>

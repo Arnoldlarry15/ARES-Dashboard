@@ -39,6 +39,7 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState<BuilderStep>('vectors');
   const [selectedVectors, setSelectedVectors] = useState<string[]>([]);
   const [selectedPayloadIndices, setSelectedPayloadIndices] = useState<number[]>([]);
+  const [notification, setNotification] = useState<string | null>(null);
 
   const tactics = useMemo(() => {
     switch (activeTab) {
@@ -84,7 +85,8 @@ export default function App() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Copied to clipboard");
+    setNotification("Copied to clipboard");
+    setTimeout(() => setNotification(null), 2000);
   };
 
   const downloadJson = (data: any, filename: string) => {
@@ -119,6 +121,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-200">
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-4 right-4 z-[100] animate-in fade-in slide-in-from-top-2">
+          <div className="bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 border border-emerald-400">
+            <CheckCircle2 className="w-5 h-5" />
+            <span className="font-medium">{notification}</span>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <header className="border-b border-slate-800/60 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">

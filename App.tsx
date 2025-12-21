@@ -27,7 +27,8 @@ import {
   Trash2,
   Save,
   FolderOpen,
-  X
+  X,
+  Keyboard
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -53,6 +54,7 @@ export default function App() {
   const [showSaveCampaignModal, setShowSaveCampaignModal] = useState(false);
   const [campaignName, setCampaignName] = useState('');
   const [campaignDescription, setCampaignDescription] = useState('');
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,6 +125,62 @@ export default function App() {
       });
     }
   }, [selectedTactic, currentStep, selectedVectors, selectedPayloadIndices, activeTab]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Close modals with ESC
+      if (e.key === 'Escape') {
+        if (showCampaignModal) setShowCampaignModal(false);
+        if (showSaveCampaignModal) setShowSaveCampaignModal(false);
+        if (showKeyboardShortcuts) setShowKeyboardShortcuts(false);
+        return;
+      }
+
+      // Show keyboard shortcuts help
+      if (e.key === '?') {
+        e.preventDefault();
+        setShowKeyboardShortcuts(true);
+        return;
+      }
+
+      // Prevent shortcuts when typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Navigation shortcuts
+      if (selectedTactic) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          if (currentStep === 'payloads') setCurrentStep('vectors');
+          else if (currentStep === 'export') setCurrentStep('payloads');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          if (currentStep === 'vectors' && selectedVectors.length > 0) setCurrentStep('payloads');
+          else if (currentStep === 'payloads' && selectedPayloadIndices.length > 0) setCurrentStep('export');
+        }
+      }
+
+      // Global shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (selectedTactic && selectedVectors.length > 0) {
+          setShowSaveCampaignModal(true);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        setShowCampaignModal(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"][placeholder="Search tactics..."]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTactic, currentStep, selectedVectors, selectedPayloadIndices, showCampaignModal, showSaveCampaignModal, showKeyboardShortcuts]);
 
   const handleTacticSelect = async (tactic: TacticMetadata) => {
     // 1. Instant UI update to Vector Step
@@ -698,9 +756,99 @@ export default function App() {
               <span className="w-1 h-1 bg-slate-800 rounded-full"></span>
               <span>Gemini 3 Pro Reasoning</span>
            </div>
-           <span>ARES v1.4.1</span>
+           <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowKeyboardShortcuts(true)}
+                className="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-all"
+                title="Keyboard shortcuts"
+              >
+                <Keyboard className="w-3 h-3" />
+                <span className="hidden sm:inline">Shortcuts</span>
+              </button>
+              <span>ARES v1.4.1</span>
+           </div>
         </div>
       </footer>
+
+      {/* Keyboard Shortcuts Modal */}
+      {showKeyboardShortcuts && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Keyboard className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-bold text-white">Keyboard Shortcuts</h3>
+              </div>
+              <button 
+                onClick={() => setShowKeyboardShortcuts(false)}
+                className="p-1 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Global</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                    <span className="text-sm text-slate-300">Show shortcuts</span>
+                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">?</kbd>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                    <span className="text-sm text-slate-300">Open campaigns</span>
+                    <div className="flex items-center gap-1">
+                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Ctrl</kbd>
+                      <span className="text-slate-600">+</span>
+                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">O</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                    <span className="text-sm text-slate-300">Save campaign</span>
+                    <div className="flex items-center gap-1">
+                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Ctrl</kbd>
+                      <span className="text-slate-600">+</span>
+                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">S</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                    <span className="text-sm text-slate-300">Focus search</span>
+                    <div className="flex items-center gap-1">
+                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Ctrl</kbd>
+                      <span className="text-slate-600">+</span>
+                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">K</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-slate-300">Close modal</span>
+                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Esc</kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Navigation</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                    <span className="text-sm text-slate-300">Previous step</span>
+                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">←</kbd>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-slate-300">Next step</span>
+                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">→</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+              <p className="text-xs text-slate-500">
+                <span className="text-emerald-400">Tip:</span> Press <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono">?</kbd> anytime to see this help
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save Campaign Modal */}
       {showSaveCampaignModal && (

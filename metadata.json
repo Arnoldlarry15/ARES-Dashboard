@@ -1,0 +1,8 @@
+{
+  "name": "ARES: AI Red-Teaming & Evaluation System",
+  "description": "An automated AI red-teaming dashboard generating structured, schema-compliant JSON payloads and attack strategies based on OWASP Top 10 for LLMs and MITRE ATLAS.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

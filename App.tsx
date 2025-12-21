@@ -42,6 +42,9 @@ export default function App() {
   const [selectedVectors, setSelectedVectors] = useState<string[]>([]);
   const [selectedPayloadIndices, setSelectedPayloadIndices] = useState<number[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
+  
+  // Search and Filter State
+  const [searchQuery, setSearchQuery] = useState('');
 
   const tactics = useMemo(() => {
     switch (activeTab) {
@@ -51,6 +54,18 @@ export default function App() {
       default: return OWASP_TACTICS;
     }
   }, [activeTab]);
+
+  // Filtered tactics based on search query
+  const filteredTactics = useMemo(() => {
+    if (!searchQuery.trim()) return tactics;
+    
+    const query = searchQuery.toLowerCase();
+    return tactics.filter(tactic => 
+      tactic.id.toLowerCase().includes(query) ||
+      tactic.name.toLowerCase().includes(query) ||
+      tactic.shortDesc.toLowerCase().includes(query)
+    );
+  }, [tactics, searchQuery]);
 
   // Load persisted state on mount
   useEffect(() => {
@@ -242,12 +257,40 @@ export default function App() {
           </div>
 
           <div className="flex-1 bg-slate-900/40 border border-slate-800/60 rounded-xl flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-slate-800/60 flex items-center justify-between bg-slate-900/60">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tactics List</span>
-              <Layers className="w-4 h-4 text-slate-600" />
+            <div className="p-4 border-b border-slate-800/60 bg-slate-900/60">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tactics List</span>
+                <Layers className="w-4 h-4 text-slate-600" />
+              </div>
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search tactics..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-800 rounded transition-all"
+                  >
+                    <span className="text-slate-500 text-xs">✕</span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {tactics.map((t) => (
+              {filteredTactics.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Search className="w-8 h-8 text-slate-700 mb-2" />
+                  <p className="text-sm text-slate-500">No tactics found</p>
+                  <p className="text-xs text-slate-600 mt-1">Try a different search</p>
+                </div>
+              ) : (
+                filteredTactics.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => handleTacticSelect(t)}
@@ -270,7 +313,7 @@ export default function App() {
                   </div>
                   <ChevronRight className={`w-4 h-4 mt-1 transition-transform ${selectedTactic?.id === t.id ? 'translate-x-1 text-emerald-400' : 'opacity-0 group-hover:opacity-100'}`} />
                 </button>
-              ))}
+              )))}
             </div>
           </div>
         </div>

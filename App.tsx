@@ -4,6 +4,7 @@ import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload } from './t
 import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './constants';
 import { GeminiService } from './services/geminiService';
 import { StorageManager } from './utils/storage';
+import { CampaignManager, Campaign } from './utils/campaigns';
 import { 
   ShieldAlert, 
   Terminal, 
@@ -23,7 +24,10 @@ import {
   ArrowLeft,
   Settings2,
   Code2,
-  Trash2
+  Trash2,
+  Save,
+  FolderOpen,
+  X
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -42,6 +46,13 @@ export default function App() {
   const [selectedVectors, setSelectedVectors] = useState<string[]>([]);
   const [selectedPayloadIndices, setSelectedPayloadIndices] = useState<number[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
+  
+  // Campaign Management State
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showSaveCampaignModal, setShowSaveCampaignModal] = useState(false);
+  const [campaignName, setCampaignName] = useState('');
+  const [campaignDescription, setCampaignDescription] = useState('');
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -194,6 +205,63 @@ export default function App() {
     setTimeout(() => setNotification(null), 2000);
   };
 
+  // Campaign Management Functions
+  useEffect(() => {
+    setCampaigns(CampaignManager.getAllCampaigns());
+  }, []);
+
+  const saveCampaign = () => {
+    if (!selectedTactic || !campaignName.trim()) return;
+    
+    try {
+      const campaign = CampaignManager.saveCampaign({
+        name: campaignName,
+        description: campaignDescription,
+        tactic_id: selectedTactic.id,
+        tactic_name: selectedTactic.name,
+        framework: selectedTactic.framework,
+        selected_vectors: selectedVectors,
+        selected_payload_indices: selectedPayloadIndices
+      });
+      
+      setCampaigns(CampaignManager.getAllCampaigns());
+      setShowSaveCampaignModal(false);
+      setCampaignName('');
+      setCampaignDescription('');
+      setNotification(`Campaign "${campaign.name}" saved`);
+      setTimeout(() => setNotification(null), 2000);
+    } catch (error) {
+      setNotification("Failed to save campaign");
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
+
+  const loadCampaign = async (campaign: Campaign) => {
+    const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
+    const tactic = allTactics.find(t => t.id === campaign.tactic_id);
+    
+    if (!tactic) {
+      setNotification("Tactic not found");
+      setTimeout(() => setNotification(null), 2000);
+      return;
+    }
+    
+    await handleTacticSelect(tactic);
+    setSelectedVectors(campaign.selected_vectors);
+    setSelectedPayloadIndices(campaign.selected_payload_indices);
+    setShowCampaignModal(false);
+    setNotification(`Campaign "${campaign.name}" loaded`);
+    setTimeout(() => setNotification(null), 2000);
+  };
+
+  const deleteCampaign = (id: string, name: string) => {
+    if (CampaignManager.deleteCampaign(id)) {
+      setCampaigns(CampaignManager.getAllCampaigns());
+      setNotification(`Campaign "${name}" deleted`);
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-200">
       {/* Notification Toast */}
@@ -226,6 +294,29 @@ export default function App() {
                </div>
              ) : (
                <span className="text-emerald-500/60">SYSTEM READY</span>
+             )}
+             <button 
+               onClick={() => setShowCampaignModal(true)}
+               className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+               title="Load campaign"
+             >
+               <FolderOpen className="w-3 h-3" />
+               <span className="hidden sm:inline">CAMPAIGNS</span>
+               {campaigns.length > 0 && (
+                 <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[8px] font-bold">
+                   {campaigns.length}
+                 </span>
+               )}
+             </button>
+             {selectedTactic && selectedVectors.length > 0 && (
+               <button 
+                 onClick={() => setShowSaveCampaignModal(true)}
+                 className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 rounded-lg transition-all text-emerald-400 hover:text-emerald-300"
+                 title="Save as campaign"
+               >
+                 <Save className="w-3 h-3" />
+                 <span className="hidden sm:inline">SAVE</span>
+               </button>
              )}
              {selectedTactic && (
                <button 
@@ -610,6 +701,141 @@ export default function App() {
            <span>ARES v1.4.1</span>
         </div>
       </footer>
+
+      {/* Save Campaign Modal */}
+      {showSaveCampaignModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-white">Save Campaign</h3>
+              <button 
+                onClick={() => setShowSaveCampaignModal(false)}
+                className="p-1 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Campaign Name *</label>
+                <input
+                  type="text"
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  placeholder="e.g., Prompt Injection Test Suite"
+                  className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 transition-all"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Description (Optional)</label>
+                <textarea
+                  value={campaignDescription}
+                  onChange={(e) => setCampaignDescription(e.target.value)}
+                  placeholder="Brief description of this attack campaign..."
+                  rows={3}
+                  className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 transition-all resize-none"
+                />
+              </div>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3">
+                <div className="text-xs text-slate-400 space-y-1">
+                  <p><span className="text-slate-500">Tactic:</span> {selectedTactic?.name}</p>
+                  <p><span className="text-slate-500">Vectors:</span> {selectedVectors.length} selected</p>
+                  <p><span className="text-slate-500">Payloads:</span> {selectedPayloadIndices.length} selected</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowSaveCampaignModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCampaign}
+                disabled={!campaignName.trim()}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save Campaign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Load Campaign Modal */}
+      {showCampaignModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-white">Saved Campaigns</h3>
+              <button 
+                onClick={() => setShowCampaignModal(false)}
+                className="p-1 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {campaigns.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FolderOpen className="w-12 h-12 text-slate-700 mb-4" />
+                <h4 className="text-sm font-bold text-slate-300 mb-2">No Campaigns Yet</h4>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  Create attack scenarios and save them as campaigns for quick access later.
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                {campaigns.map((campaign) => (
+                  <div key={campaign.id} className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition-all group">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-bold text-white truncate">{campaign.name}</h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded shrink-0">
+                            {campaign.tactic_id}
+                          </span>
+                        </div>
+                        {campaign.description && (
+                          <p className="text-xs text-slate-400 mb-2 line-clamp-2">{campaign.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                          <span>{campaign.selected_vectors.length} vectors</span>
+                          <span>•</span>
+                          <span>{campaign.selected_payload_indices.length} payloads</span>
+                          <span>•</span>
+                          <span>{new Date(campaign.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => loadCampaign(campaign)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all"
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => deleteCampaign(campaign.id, campaign.name)}
+                          className="p-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 rounded-lg transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

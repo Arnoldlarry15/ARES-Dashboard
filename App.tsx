@@ -338,8 +338,22 @@ export default function App() {
                           <p className="text-xs text-slate-500">Delivery methods identified for {selectedTactic.name}.</p>
                         </div>
                       </div>
-                      <div className="text-[10px] font-bold text-slate-600 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-tighter">
-                        {selectedVectors.length} Selected
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedVectors(selectedTactic.staticVectors)}
+                          className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => setSelectedVectors([])}
+                          className="text-[10px] font-bold text-slate-400 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                        >
+                          Clear All
+                        </button>
+                        <div className="text-[10px] font-bold text-slate-600 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-tighter">
+                          {selectedVectors.length} Selected
+                        </div>
                       </div>
                     </div>
 
@@ -393,6 +407,25 @@ export default function App() {
                           <p className="text-xs text-slate-500">Attack payloads based on threat intelligence.</p>
                         </div>
                       </div>
+                      {result && result.example_payloads.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedPayloadIndices(result.example_payloads.map((_, idx) => idx))}
+                            className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            onClick={() => setSelectedPayloadIndices([])}
+                            className="text-[10px] font-bold text-slate-400 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                          >
+                            Clear All
+                          </button>
+                          <div className="text-[10px] font-bold text-slate-600 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-tighter">
+                            {selectedPayloadIndices.length} Selected
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {isGenerating && !result ? (

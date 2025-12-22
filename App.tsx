@@ -8,6 +8,7 @@ import { CampaignManager, Campaign } from './utils/campaigns';
 import { AuthService } from './services/authService';
 import { User, hasPermission } from './types/auth';
 import { AuthLogin } from './components/AuthLogin';
+import { TeamManagement } from './components/TeamManagement';
 import { 
   ShieldAlert, 
   Terminal, 
@@ -33,7 +34,8 @@ import {
   X,
   Keyboard,
   LogOut,
-  User as UserIcon
+  UserIcon,
+  Users
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -64,6 +66,9 @@ export default function App() {
   const [campaignName, setCampaignName] = useState('');
   const [campaignDescription, setCampaignDescription] = useState('');
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  
+  // Team Management State
+  const [showTeamManagement, setShowTeamManagement] = useState(false);
 
   // Check authentication on mount
   useEffect(() => {
@@ -460,6 +465,15 @@ export default function App() {
                  <span className="font-bold text-emerald-400">SYSTEM READY</span>
                </div>
              )}
+             <button 
+               onClick={() => setShowTeamManagement(true)}
+               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
+               title="Team management"
+             >
+               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+               <Users className="w-3.5 h-3.5 relative z-10" />
+               <span className="hidden sm:inline font-bold relative z-10">TEAM</span>
+             </button>
              <button 
                onClick={() => setShowCampaignModal(true)}
                className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
@@ -915,6 +929,11 @@ export default function App() {
            </div>
         </div>
       </footer>
+
+      {/* Team Management Modal */}
+      {showTeamManagement && (
+        <TeamManagement onClose={() => setShowTeamManagement(false)} />
+      )}
 
       {/* Keyboard Shortcuts Modal */}
       {showKeyboardShortcuts && (

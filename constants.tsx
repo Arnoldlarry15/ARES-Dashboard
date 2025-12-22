@@ -76,111 +76,202 @@ export const OWASP_TACTICS: TacticMetadata[] = [
 
 export const MITRE_ATLAS_TACTICS: TacticMetadata[] = [
   { 
-    id: 'AML.T0001', 
+    id: 'AML.TA0001', 
     name: 'Reconnaissance', 
     framework: Framework.MITRE_ATLAS, 
     shortDesc: 'Gathering information on model architectures and APIs.',
     staticVectors: ['API Endpoint Probing', 'Model Fingerprinting', 'Hyperparameter Extraction', 'Public Repository Mining', 'Inference Latency Analysis']
   },
   { 
-    id: 'AML.T0002', 
+    id: 'AML.TA0002', 
     name: 'Resource Development', 
     framework: Framework.MITRE_ATLAS, 
     shortDesc: 'Acquiring infrastructure or datasets to support attacks.',
     staticVectors: ['Adversarial Dataset Generation', 'GPU Cluster Acquisition', 'Compute Resource Hijacking', 'Stolen API Key Aggregation']
   },
   { 
-    id: 'AML.T0004', 
+    id: 'AML.TA0003', 
     name: 'Initial Access', 
     framework: Framework.MITRE_ATLAS, 
     shortDesc: 'Gaining a foothold into the AI system environment.',
     staticVectors: ['Valid API Credentials', 'Supply Chain Compromise', 'Social Engineering (ML Researchers)', 'Exploiting Model Serving Vulns']
   },
   { 
-    id: 'AML.T0015', 
-    name: 'Evade ML Model', 
+    id: 'AML.TA0004', 
+    name: 'ML Model Access', 
     framework: Framework.MITRE_ATLAS, 
-    shortDesc: 'Crafting inputs that bypass detection or classification.',
-    staticVectors: ['Adversarial Perturbations', 'Noise Injection', 'Boundary Probing', 'Black-box Optimization', 'Stochastic Gradient Evasion']
+    shortDesc: 'Obtaining access to machine learning models for analysis or manipulation.',
+    staticVectors: ['Full Model Access', 'Physical Model Access', 'Inference API Access', 'Model Repository Access', 'Publicly Shared Model Access']
   },
   { 
-    id: 'AML.T0016', 
-    name: 'Inhibit Model Performance', 
+    id: 'AML.TA0005', 
+    name: 'Execution', 
     framework: Framework.MITRE_ATLAS, 
-    shortDesc: 'Degrading the model accuracy or availability.',
-    staticVectors: ['Model Spamming', 'Input-based Resource Exhaustion', 'Cache Poisoning', 'Feedback Loop Sabotage']
+    shortDesc: 'Running malicious code within ML systems or training pipelines.',
+    staticVectors: ['Command and Scripting Interpreter', 'User Execution via ML Tools', 'Execution through Model Serving', 'Container Execution', 'Serverless Execution']
   },
   { 
-    id: 'AML.T0024', 
-    name: 'Exfiltrate Model', 
-    framework: Framework.MITRE_ATLAS, 
-    shortDesc: 'Stealing the underlying intellectual property.',
-    staticVectors: ['Model Inversion', 'Weight Stealing (Extraction)', 'Architecture Replication', 'Function Approximation', 'Checkpoint Exfiltration']
-  },
-  { 
-    id: 'AML.T0006', 
+    id: 'AML.TA0006', 
     name: 'Persistence', 
     framework: Framework.MITRE_ATLAS, 
     shortDesc: 'Maintaining access to the ML environment.',
     staticVectors: ['Backdoored Model Checkpoints', 'Persistence via ML Orchestrators', 'Scheduled Training Tasks', 'Poisoned Validation Scripts']
   },
   { 
-    id: 'AML.T0000', 
+    id: 'AML.TA0007', 
+    name: 'Defense Evasion', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Avoiding detection by security mechanisms in ML systems.',
+    staticVectors: ['Evade ML Model', 'Obfuscate Artifacts', 'Adversarial Perturbations', 'Data Obfuscation', 'Model Evasion Techniques']
+  },
+  { 
+    id: 'AML.TA0008', 
     name: 'Discovery', 
     framework: Framework.MITRE_ATLAS, 
     shortDesc: 'Discovering assets in the ML environment.',
-    staticVectors: ['ML Metadata Discovery', 'Model Registry Probing', 'Internal Documentation Harvesting', 'Environment Variable Scanning']
+    staticVectors: ['ML Metadata Discovery', 'Model Registry Probing', 'Internal Documentation Harvesting', 'Environment Variable Scanning', 'System Information Discovery']
+  },
+  { 
+    id: 'AML.TA0009', 
+    name: 'Collection', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Gathering data and information from ML systems.',
+    staticVectors: ['Data from Local System', 'Training Data Collection', 'Model Artifact Collection', 'Inference Data Harvesting', 'Log File Collection']
+  },
+  { 
+    id: 'AML.TA0010', 
+    name: 'ML Attack Staging', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Preparing and positioning resources for ML-specific attacks.',
+    staticVectors: ['Craft Adversarial Data', 'Poison Training Data', 'Prepare Backdoor Trigger', 'Stage Attack Infrastructure', 'Generate Adversarial Examples']
+  },
+  { 
+    id: 'AML.TA0011', 
+    name: 'Exfiltration', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Stealing ML models, training data, or model outputs.',
+    staticVectors: ['Model Inversion', 'Weight Stealing (Extraction)', 'Architecture Replication', 'Function Approximation', 'Checkpoint Exfiltration', 'Training Data Extraction']
+  },
+  { 
+    id: 'AML.TA0012', 
+    name: 'Impact', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Disrupting availability or integrity of ML systems.',
+    staticVectors: ['Inhibit Model Performance', 'Model Spamming', 'Input-based Resource Exhaustion', 'Cache Poisoning', 'Feedback Loop Sabotage', 'Data Destruction']
+  },
+  { 
+    id: 'AML.TA0040', 
+    name: 'Defense Neutralization', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Disabling or bypassing ML security controls and monitoring.',
+    staticVectors: ['Disable Security Tools', 'Impair Defenses', 'Bypass ML Monitors', 'Disable Anomaly Detection', 'Tamper with Security Logs']
+  },
+  { 
+    id: 'AML.TA0041', 
+    name: 'Defense Degradation', 
+    framework: Framework.MITRE_ATLAS, 
+    shortDesc: 'Reducing effectiveness of ML-based defensive systems.',
+    staticVectors: ['Adversarial Examples Against Detectors', 'Poisoning Security Models', 'Concept Drift Exploitation', 'Gradual Model Degradation', 'Adaptive Attack Evolution']
   }
 ];
 
 export const MITRE_ATTACK_TACTICS: TacticMetadata[] = [
   { 
-    id: 'T1566', 
-    name: 'Phishing', 
+    id: 'TA0043', 
+    name: 'Reconnaissance', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Gaining initial access via social engineering to pivot to AI systems.',
-    staticVectors: ['Spearphishing Attachment', 'Spearphishing Link', 'Business Email Compromise (BEC)', 'Voice Phishing (Vishing)']
+    shortDesc: 'Gathering information about target AI systems and infrastructure.',
+    staticVectors: ['Active Scanning of ML Endpoints', 'Search Open Technical Databases', 'Phishing for Information', 'Gather Victim Network Information', 'Search Closed Sources']
   },
   { 
-    id: 'T1059', 
-    name: 'Command & Scripting', 
+    id: 'TA0042', 
+    name: 'Resource Development', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Executing malicious code within the model host.',
-    staticVectors: ['Python/Jupyter Execution', 'PowerShell Execution', 'Unix Shell Injection', 'API Shell Hijacking', 'Remote Plugin Execution']
+    shortDesc: 'Establishing resources to support targeting AI systems.',
+    staticVectors: ['Acquire Infrastructure', 'Compromise Infrastructure', 'Develop Capabilities', 'Obtain Capabilities', 'Stage Capabilities']
   },
   { 
-    id: 'T1210', 
-    name: 'Exploitation of Remote Services', 
+    id: 'TA0001', 
+    name: 'Initial Access', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Abusing vulnerabilities in model-serving APIs.',
-    staticVectors: ['Unauthenticated API Access', 'Insecure Deserialization', 'Buffer Overflow in Inference Engines', 'SQL Injection in Prompt Logs']
+    shortDesc: 'Gaining initial foothold in AI system networks.',
+    staticVectors: ['Phishing (T1566)', 'Valid Accounts (T1078)', 'External Remote Services (T1133)', 'Exploit Public-Facing Application', 'Supply Chain Compromise']
   },
   { 
-    id: 'T1078', 
-    name: 'Valid Accounts', 
+    id: 'TA0002', 
+    name: 'Execution', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Using legitimate credentials to access AI orchestration layers.',
-    staticVectors: ['Default Cloud Credentials', 'Stolen API Keys', 'Session Token Hijacking', 'Compromised Dev Containers']
+    shortDesc: 'Running malicious code in AI infrastructure.',
+    staticVectors: ['Command & Scripting Interpreter', 'Container Administration Command', 'User Execution', 'Scheduled Task/Job', 'Cloud Administration Command']
   },
   { 
-    id: 'T1133', 
-    name: 'External Remote Services', 
+    id: 'TA0003', 
+    name: 'Persistence', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Leveraging VPNs or gateways to access model training environments.',
-    staticVectors: ['VPN Credential Theft', 'Exploiting Exposed Jupyter Notebooks', 'SSH Key Exfiltration', 'RDP Hijacking']
+    shortDesc: 'Maintaining presence in AI systems across restarts.',
+    staticVectors: ['Account Manipulation', 'Boot or Logon Autostart', 'Create or Modify System Process', 'Scheduled Task/Job', 'Valid Accounts']
   },
   { 
-    id: 'T1567', 
-    name: 'Exfiltration Over Web Service', 
+    id: 'TA0004', 
+    name: 'Privilege Escalation', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Exfiltrating model data via standard web protocols.',
-    staticVectors: ['HTTPS Exfiltration to Attacker Cloud', 'DNS Tunneling', 'Webhook Data Leakage', 'Messenger Protocol Abuse']
+    shortDesc: 'Gaining higher-level permissions in AI environments.',
+    staticVectors: ['Abuse Elevation Control Mechanism', 'Access Token Manipulation', 'Create or Modify System Process', 'Domain Policy Modification', 'Exploitation for Privilege Escalation']
   },
   { 
-    id: 'T1588', 
-    name: 'Obtain Capabilities', 
+    id: 'TA0005', 
+    name: 'Defense Evasion', 
     framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Acquiring tools like adversarial ML toolkits.',
-    staticVectors: ['Acquiring Open-source Exploit Kits', 'Purchasing Stolen Datasets', 'Developing Custom Fuzzers', 'Buying Access to Shadow LLMs']
+    shortDesc: 'Avoiding detection in AI system security mechanisms.',
+    staticVectors: ['Obfuscated Files or Information', 'Masquerading', 'Impair Defenses', 'Modify Cloud Compute Infrastructure', 'Use Alternate Authentication Material']
+  },
+  { 
+    id: 'TA0006', 
+    name: 'Credential Access', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Stealing credentials for AI systems and cloud services.',
+    staticVectors: ['Brute Force', 'Credentials from Password Stores', 'Unsecured Credentials', 'Steal Application Access Token', 'Multi-Factor Authentication Interception']
+  },
+  { 
+    id: 'TA0007', 
+    name: 'Discovery', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Gaining knowledge about AI system configurations.',
+    staticVectors: ['Account Discovery', 'Cloud Infrastructure Discovery', 'Cloud Service Discovery', 'Container and Resource Discovery', 'System Information Discovery']
+  },
+  { 
+    id: 'TA0008', 
+    name: 'Lateral Movement', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Moving through AI infrastructure to reach additional systems.',
+    staticVectors: ['Remote Services', 'Use Alternate Authentication Material', 'Exploitation of Remote Services', 'Internal Spearphishing', 'Software Deployment Tools']
+  },
+  { 
+    id: 'TA0009', 
+    name: 'Collection', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Gathering data of interest from AI systems.',
+    staticVectors: ['Data from Cloud Storage', 'Data from Local System', 'Data from Information Repositories', 'Input Capture', 'Screen Capture']
+  },
+  { 
+    id: 'TA0010', 
+    name: 'Exfiltration', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Stealing data including models and training datasets.',
+    staticVectors: ['Exfiltration Over Web Service (T1567)', 'Exfiltration Over C2 Channel', 'Transfer Data to Cloud Account', 'Automated Exfiltration', 'Scheduled Transfer']
+  },
+  { 
+    id: 'TA0011', 
+    name: 'Command and Control', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Communicating with compromised AI systems.',
+    staticVectors: ['Application Layer Protocol', 'Encrypted Channel', 'Web Service', 'Protocol Tunneling', 'Non-Application Layer Protocol']
+  },
+  { 
+    id: 'TA0040', 
+    name: 'Impact', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Disrupting availability or integrity of AI systems.',
+    staticVectors: ['Data Destruction', 'Data Encrypted for Impact', 'Defacement', 'Resource Hijacking', 'Service Stop']
   }
 ];

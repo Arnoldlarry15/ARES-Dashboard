@@ -5,6 +5,9 @@ import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './cons
 import { GeminiService } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { CampaignManager, Campaign } from './utils/campaigns';
+import { AuthService } from './services/authService';
+import { User, hasPermission } from './types/auth';
+import { AuthLogin } from './components/AuthLogin';
 import { 
   ShieldAlert, 
   Terminal, 
@@ -28,7 +31,9 @@ import {
   Save,
   FolderOpen,
   X,
-  Keyboard
+  Keyboard,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -36,6 +41,10 @@ const gemini = new GeminiService();
 type BuilderStep = 'vectors' | 'payloads' | 'export';
 
 export default function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   const [activeTab, setActiveTab] = useState<Framework>(Framework.OWASP);
   const [selectedTactic, setSelectedTactic] = useState<TacticMetadata | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -55,6 +64,40 @@ export default function App() {
   const [campaignName, setCampaignName] = useState('');
   const [campaignDescription, setCampaignDescription] = useState('');
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const user = AuthService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // Handle login
+  const handleLogin = () => {
+    const user = AuthService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      setNotification(`Welcome, ${user.name}!`);
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    AuthService.clearSession();
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setNotification('Logged out successfully');
+    setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthLogin onLogin={handleLogin} />;
+  }
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -282,6 +325,21 @@ export default function App() {
         selected_payload_indices: selectedPayloadIndices
       });
       
+      // Audit log
+      AuthService.logAuditEvent({
+        user_id: currentUser?.id || 'unknown',
+        user_email: currentUser?.email || 'unknown',
+        action: 'create',
+        resource_type: 'campaign',
+        resource_id: campaign.id,
+        details: { 
+          campaign_name: campaign.name,
+          tactic_id: selectedTactic.id,
+          vectors_count: selectedVectors.length,
+          payloads_count: selectedPayloadIndices.length
+        }
+      });
+      
       setCampaigns(CampaignManager.getAllCampaigns());
       setShowSaveCampaignModal(false);
       setCampaignName('');
@@ -304,6 +362,16 @@ export default function App() {
       return;
     }
     
+    // Audit log
+    AuthService.logAuditEvent({
+      user_id: currentUser?.id || 'unknown',
+      user_email: currentUser?.email || 'unknown',
+      action: 'load',
+      resource_type: 'campaign',
+      resource_id: campaign.id,
+      details: { campaign_name: campaign.name, tactic_id: campaign.tactic_id }
+    });
+    
     await handleTacticSelect(tactic);
     setSelectedVectors(campaign.selected_vectors);
     setSelectedPayloadIndices(campaign.selected_payload_indices);
@@ -314,6 +382,16 @@ export default function App() {
 
   const deleteCampaign = (id: string, name: string) => {
     if (CampaignManager.deleteCampaign(id)) {
+      // Audit log
+      AuthService.logAuditEvent({
+        user_id: currentUser?.id || 'unknown',
+        user_email: currentUser?.email || 'unknown',
+        action: 'delete',
+        resource_type: 'campaign',
+        resource_id: id,
+        details: { campaign_name: name }
+      });
+      
       setCampaigns(CampaignManager.getAllCampaigns());
       setNotification(`Campaign "${name}" deleted`);
       setTimeout(() => setNotification(null), 2000);
@@ -360,6 +438,17 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-3 text-[10px] mono text-slate-400">
+             {/* User profile */}
+             {currentUser && (
+               <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl border border-white/10">
+                 <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
+                 <div className="flex flex-col">
+                   <span className="text-[9px] font-bold text-slate-500 uppercase">Logged in as</span>
+                   <span className="text-[10px] font-bold text-white">{currentUser.name}</span>
+                 </div>
+               </div>
+             )}
+
              {isGenerating ? (
                <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl">
                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
@@ -405,6 +494,14 @@ export default function App() {
                  <span className="hidden sm:inline font-bold">CLEAR</span>
                </button>
              )}
+             <button 
+               onClick={handleLogout}
+               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-400 hover:text-white group"
+               title="Logout"
+             >
+               <LogOut className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+               <span className="hidden sm:inline font-bold">LOGOUT</span>
+             </button>
           </div>
         </div>
       </header>

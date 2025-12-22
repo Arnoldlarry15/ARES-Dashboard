@@ -82,82 +82,10 @@ export default function App() {
   const [showPayloadEditor, setShowPayloadEditor] = useState(false);
   const [editingPayload, setEditingPayload] = useState<{index: number, payload: string, title: string} | null>(null);
 
-  // Initialize theme on mount
-  useEffect(() => {
-    ThemeManager.initializeTheme();
-    setTheme(ThemeManager.getTheme());
-  }, []);
-
-  // Check authentication on mount
-  useEffect(() => {
-    const user = AuthService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  // Handle login
-  const handleLogin = () => {
-    const user = AuthService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      setNotification(`Welcome, ${user.name}!`);
-      setTimeout(() => setNotification(null), 2000);
-    }
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    AuthService.clearSession();
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setNotification('Logged out successfully');
-    setTimeout(() => setNotification(null), 2000);
-  };
-
-  // Handle theme toggle
-  const handleThemeToggle = () => {
-    const newTheme = ThemeManager.toggleTheme();
-    setTheme(newTheme);
-    setNotification(`Switched to ${newTheme} mode`);
-    setTimeout(() => setNotification(null), 2000);
-  };
-
-  // Handle payload edit
-  const handleEditPayload = (index: number, payload: string, description: string) => {
-    setEditingPayload({ index, payload, title: description });
-    setShowPayloadEditor(true);
-  };
-
-  // Handle payload save from editor
-  const handleSavePayload = (editedPayload: string) => {
-    if (editingPayload && result) {
-      const updatedPayloads = [...result.example_payloads];
-      updatedPayloads[editingPayload.index] = {
-        ...updatedPayloads[editingPayload.index],
-        payload: editedPayload
-      };
-      setResult({
-        ...result,
-        example_payloads: updatedPayloads
-      });
-      setNotification('Payload updated successfully');
-      setTimeout(() => setNotification(null), 2000);
-    }
-    setShowPayloadEditor(false);
-    setEditingPayload(null);
-  };
-
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return <AuthLogin onLogin={handleLogin} />;
-  }
-  
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Computed values (must be before early return)
   const tactics = useMemo(() => {
     switch (activeTab) {
       case Framework.OWASP: return OWASP_TACTICS;
@@ -178,6 +106,21 @@ export default function App() {
       tactic.shortDesc.toLowerCase().includes(query)
     );
   }, [tactics, searchQuery]);
+
+  // Initialize theme on mount
+  useEffect(() => {
+    ThemeManager.initializeTheme();
+    setTheme(ThemeManager.getTheme());
+  }, []);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const user = AuthService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+    }
+  }, []);
 
   // Load persisted state on mount
   useEffect(() => {
@@ -281,6 +224,69 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTactic, currentStep, selectedVectors, selectedPayloadIndices, showCampaignModal, showSaveCampaignModal, showKeyboardShortcuts]);
 
+  // Campaign Management Functions
+  useEffect(() => {
+    setCampaigns(CampaignManager.getAllCampaigns());
+  }, []);
+
+  // Handle login
+  const handleLogin = () => {
+    const user = AuthService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      setNotification(`Welcome, ${user.name}!`);
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    AuthService.clearSession();
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setNotification('Logged out successfully');
+    setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Handle theme toggle
+  const handleThemeToggle = () => {
+    const newTheme = ThemeManager.toggleTheme();
+    setTheme(newTheme);
+    setNotification(`Switched to ${newTheme} mode`);
+    setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Handle payload edit
+  const handleEditPayload = (index: number, payload: string, description: string) => {
+    setEditingPayload({ index, payload, title: description });
+    setShowPayloadEditor(true);
+  };
+
+  // Handle payload save from editor
+  const handleSavePayload = (editedPayload: string) => {
+    if (editingPayload && result) {
+      const updatedPayloads = [...result.example_payloads];
+      updatedPayloads[editingPayload.index] = {
+        ...updatedPayloads[editingPayload.index],
+        payload: editedPayload
+      };
+      setResult({
+        ...result,
+        example_payloads: updatedPayloads
+      });
+      setNotification('Payload updated successfully');
+      setTimeout(() => setNotification(null), 2000);
+    }
+    setShowPayloadEditor(false);
+    setEditingPayload(null);
+  };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthLogin onLogin={handleLogin} />;
+  }
+
   const handleTacticSelect = async (tactic: TacticMetadata) => {
     // 1. Instant UI update to Vector Step
     setSelectedTactic(tactic);
@@ -361,11 +367,6 @@ export default function App() {
     setNotification("Progress cleared");
     setTimeout(() => setNotification(null), 2000);
   };
-
-  // Campaign Management Functions
-  useEffect(() => {
-    setCampaigns(CampaignManager.getAllCampaigns());
-  }, []);
 
   const saveCampaign = () => {
     if (!selectedTactic || !campaignName.trim()) return;

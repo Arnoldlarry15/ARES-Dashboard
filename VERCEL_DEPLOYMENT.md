@@ -102,7 +102,7 @@ Vercel provides free built-in monitoring:
 
 **Build fails?**
 - Check the build logs in Vercel Dashboard
-- Ensure Node.js 20.x, 22.x, or 24.x is being used
+- Ensure Node.js 20.0.0 or higher is being used (compatible with 20.x, 22.x, 24.x)
 
 **Environment variables not working?**
 - Make sure variable name is `GEMINI_API_KEY` (without `VITE_` prefix)

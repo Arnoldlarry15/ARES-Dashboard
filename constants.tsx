@@ -254,18 +254,18 @@ export const MITRE_ATTACK_TACTICS: TacticMetadata[] = [
     staticVectors: ['Data from Cloud Storage', 'Data from Local System', 'Data from Information Repositories', 'Input Capture', 'Screen Capture']
   },
   { 
-    id: 'TA0011', 
-    name: 'Command and Control', 
-    framework: Framework.MITRE_ATTACK, 
-    shortDesc: 'Communicating with compromised AI systems.',
-    staticVectors: ['Application Layer Protocol', 'Encrypted Channel', 'Web Service', 'Protocol Tunneling', 'Non-Application Layer Protocol']
-  },
-  { 
     id: 'TA0010', 
     name: 'Exfiltration', 
     framework: Framework.MITRE_ATTACK, 
     shortDesc: 'Stealing data including models and training datasets.',
     staticVectors: ['Exfiltration Over Web Service (T1567)', 'Exfiltration Over C2 Channel', 'Transfer Data to Cloud Account', 'Automated Exfiltration', 'Scheduled Transfer']
+  },
+  { 
+    id: 'TA0011', 
+    name: 'Command and Control', 
+    framework: Framework.MITRE_ATTACK, 
+    shortDesc: 'Communicating with compromised AI systems.',
+    staticVectors: ['Application Layer Protocol', 'Encrypted Channel', 'Web Service', 'Protocol Tunneling', 'Non-Application Layer Protocol']
   },
   { 
     id: 'TA0040', 

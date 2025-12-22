@@ -23,5 +23,10 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "overrides": {
+    "esbuild": "^0.25.0",
+    "path-to-regexp": "^6.3.0",
+    "undici": "^6.0.0"
   }
 }

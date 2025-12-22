@@ -9,6 +9,8 @@ import { AuthService } from './services/authService';
 import { User, hasPermission } from './types/auth';
 import { AuthLogin } from './components/AuthLogin';
 import { TeamManagement } from './components/TeamManagement';
+import { PayloadEditor } from './components/PayloadEditor';
+import { ThemeManager, Theme } from './utils/themeManager';
 import { 
   ShieldAlert, 
   Terminal, 
@@ -35,7 +37,10 @@ import {
   Keyboard,
   LogOut,
   UserIcon,
-  Users
+  Users,
+  Sun,
+  Moon,
+  Edit3
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -70,6 +75,19 @@ export default function App() {
   // Team Management State
   const [showTeamManagement, setShowTeamManagement] = useState(false);
 
+  // Theme State
+  const [theme, setTheme] = useState<Theme>('dark');
+
+  // Payload Editor State
+  const [showPayloadEditor, setShowPayloadEditor] = useState(false);
+  const [editingPayload, setEditingPayload] = useState<{index: number, payload: string, title: string} | null>(null);
+
+  // Initialize theme on mount
+  useEffect(() => {
+    ThemeManager.initializeTheme();
+    setTheme(ThemeManager.getTheme());
+  }, []);
+
   // Check authentication on mount
   useEffect(() => {
     const user = AuthService.getCurrentUser();
@@ -97,6 +115,39 @@ export default function App() {
     setIsAuthenticated(false);
     setNotification('Logged out successfully');
     setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Handle theme toggle
+  const handleThemeToggle = () => {
+    const newTheme = ThemeManager.toggleTheme();
+    setTheme(newTheme);
+    setNotification(`Switched to ${newTheme} mode`);
+    setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Handle payload edit
+  const handleEditPayload = (index: number, payload: string, description: string) => {
+    setEditingPayload({ index, payload, title: description });
+    setShowPayloadEditor(true);
+  };
+
+  // Handle payload save from editor
+  const handleSavePayload = (editedPayload: string) => {
+    if (editingPayload && result) {
+      const updatedPayloads = [...result.example_payloads];
+      updatedPayloads[editingPayload.index] = {
+        ...updatedPayloads[editingPayload.index],
+        payload: editedPayload
+      };
+      setResult({
+        ...result,
+        example_payloads: updatedPayloads
+      });
+      setNotification('Payload updated successfully');
+      setTimeout(() => setNotification(null), 2000);
+    }
+    setShowPayloadEditor(false);
+    setEditingPayload(null);
   };
 
   // Show login screen if not authenticated
@@ -466,6 +517,21 @@ export default function App() {
                </div>
              )}
              <button 
+               onClick={handleThemeToggle}
+               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
+               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+             >
+               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+               {theme === 'dark' ? (
+                 <Sun className="w-3.5 h-3.5 relative z-10" />
+               ) : (
+                 <Moon className="w-3.5 h-3.5 relative z-10" />
+               )}
+               <span className="hidden sm:inline font-bold relative z-10">
+                 {theme === 'dark' ? 'LIGHT' : 'DARK'}
+               </span>
+             </button>
+             <button 
                onClick={() => setShowTeamManagement(true)}
                className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
                title="Team management"
@@ -817,9 +883,18 @@ export default function App() {
                                   <pre className={`text-xs mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto ${isSelected ? 'text-emerald-300' : 'text-emerald-500/50'}`}>
                                     {p.payload}
                                   </pre>
-                                  <button onClick={() => copyToClipboard(p.payload)} className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 opacity-0 group-hover:opacity-100 transition-all text-slate-400">
-                                    <Copy className="w-3 h-3" />
-                                  </button>
+                                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button 
+                                      onClick={() => handleEditPayload(idx, p.payload, p.description)} 
+                                      className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400 hover:text-emerald-400"
+                                      title="Edit payload"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => copyToClipboard(p.payload)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400">
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                </div>
                             </div>
                           );
@@ -933,6 +1008,19 @@ export default function App() {
       {/* Team Management Modal */}
       {showTeamManagement && (
         <TeamManagement onClose={() => setShowTeamManagement(false)} />
+      )}
+
+      {/* Payload Editor Modal */}
+      {showPayloadEditor && editingPayload && (
+        <PayloadEditor
+          payload={editingPayload.payload}
+          title={editingPayload.title}
+          onSave={handleSavePayload}
+          onClose={() => {
+            setShowPayloadEditor(false);
+            setEditingPayload(null);
+          }}
+        />
       )}
 
       {/* Keyboard Shortcuts Modal */}

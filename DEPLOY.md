@@ -25,16 +25,18 @@ vercel
 
 Add these to your Vercel project settings (Settings → Environment Variables):
 
-### Required
-- `VITE_GEMINI_API_KEY` (optional) - Your Google Gemini API key
+### Optional
+- `GEMINI_API_KEY` - Your Google Gemini API key (for AI-powered payload generation)
   - If not provided, the app will use mock data for testing
+  - **Important**: Use `GEMINI_API_KEY` (NOT `VITE_GEMINI_API_KEY`) - the API key is now secured in the backend
 
 ### How to Add Environment Variables in Vercel
 1. Go to your project in Vercel dashboard
 2. Navigate to **Settings** → **Environment Variables**
-3. Add `VITE_GEMINI_API_KEY` with your API key value
+3. Add `GEMINI_API_KEY` with your API key value
 4. Select all environments (Production, Preview, Development)
 5. Click **Save**
+6. **Redeploy** your project for changes to take effect
 
 ## Build Configuration
 
@@ -67,9 +69,12 @@ After deployment, Vercel will provide you with:
 
 ## Security Recommendations
 
+### Security Recommendations
+
 ### For Production Use
 1. **Enable Authentication**: The dashboard includes demo RBAC - integrate with your auth provider
-2. **Set Environment Variables**: Add your Gemini API key in Vercel settings
+2. **Set Environment Variables**: Add your Gemini API key (`GEMINI_API_KEY`) in Vercel settings
+   - The API key is now secured in the backend (not exposed to the frontend)
 3. **Enable HTTPS**: Vercel provides this by default
 4. **Review Access**: Use Vercel's team/access controls for multi-user management
 

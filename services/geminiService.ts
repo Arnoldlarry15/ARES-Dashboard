@@ -1,76 +1,34 @@
-import { GoogleGenAI } from '@google/genai';
 import { TacticMetadata, RedTeamTactic } from '../types';
 
 export class GeminiService {
-  private genAI: GoogleGenAI | null = null;
-  private model: any = null;
+  private apiEndpoint: string;
 
   constructor() {
-    // Check if API key is available
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-    
-    if (apiKey && apiKey !== 'PLACEHOLDER_API_KEY') {
-      try {
-        this.genAI = new GoogleGenAI({ apiKey });
-        this.model = this.genAI.models.get('gemini-2.0-flash-thinking-exp-1219');
-      } catch (error) {
-        console.error('Failed to initialize Gemini API:', error);
-      }
-    }
+    // Use the Vercel serverless function endpoint
+    // In development, Vercel CLI will handle this at /api/generate-tactic
+    // In production, it will be at https://your-domain.vercel.app/api/generate-tactic
+    this.apiEndpoint = '/api/generate-tactic';
   }
 
   async generateTacticDetails(tactic: TacticMetadata): Promise<RedTeamTactic> {
-    // If no API key or model available, return mock data
-    if (!this.model) {
-      return this.generateMockTacticDetails(tactic);
-    }
-
     try {
-      const prompt = `You are a cybersecurity expert specializing in AI red-teaming. Generate detailed information about the following tactic:
+      const response = await fetch(this.apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tactic),
+      });
 
-Tactic ID: ${tactic.id}
-Tactic Name: ${tactic.name}
-Framework: ${tactic.framework}
-Description: ${tactic.shortDesc}
-
-Please provide a comprehensive analysis in the following JSON format:
-{
-  "id": "${tactic.id}",
-  "name": "${tactic.name}",
-  "framework": "${tactic.framework}",
-  "severity": "Critical|High|Medium|Low",
-  "description": "Detailed description of the tactic",
-  "technical_summary": "Technical explanation of how this attack works",
-  "attack_vectors": ["vector1", "vector2", "vector3"],
-  "example_payloads": [
-    {
-      "description": "Payload description",
-      "payload": "actual payload code or example",
-      "format": "JSON|Python|Prompt|Text"
-    }
-  ],
-  "mitigation_strategies": ["strategy1", "strategy2"],
-  "references": ["reference1", "reference2"]
-}
-
-Generate 5-7 realistic and diverse example payloads that demonstrate this tactic. Make them practical and executable.`;
-
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      
-      // Extract JSON from the response (handle markdown code blocks)
-      const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || text.match(/(\{[\s\S]*\})/);
-      
-      if (jsonMatch) {
-        const tacticDetails = JSON.parse(jsonMatch[1]);
-        return tacticDetails;
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
       }
-      
-      throw new Error('Failed to parse AI response');
+
+      const data = await response.json();
+      return data;
     } catch (error: any) {
-      console.error('Error generating tactic details:', error);
-      // Fallback to mock data if AI generation fails
+      console.error('Error calling tactic generation API:', error);
+      // Fallback to mock data if API call fails
       return this.generateMockTacticDetails(tactic);
     }
   }

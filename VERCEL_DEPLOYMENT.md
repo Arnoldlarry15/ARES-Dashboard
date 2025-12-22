@@ -42,11 +42,13 @@ If you want AI-powered payload generation, add this in Vercel:
 1. Go to your project in Vercel Dashboard
 2. Navigate to **Settings** → **Environment Variables**
 3. Add:
-   - **Key:** `VITE_GEMINI_API_KEY`
+   - **Key:** `GEMINI_API_KEY`
    - **Value:** Your Google Gemini API key (get it from https://aistudio.google.com/apikey)
    - **Environments:** Select all (Production, Preview, Development)
 4. Click **Save**
 5. **Redeploy** your project for changes to take effect
+
+**Important Security Note:** The API key is now secured in the backend serverless function and is NOT exposed to the frontend. Use `GEMINI_API_KEY` (without the `VITE_` prefix).
 
 ## ✅ What's Already Configured
 
@@ -103,7 +105,8 @@ Vercel provides free built-in monitoring:
 - Ensure Node.js 18+ is being used
 
 **Environment variables not working?**
-- Make sure variable name has `VITE_` prefix
+- Make sure variable name is `GEMINI_API_KEY` (without `VITE_` prefix)
+- The API key is now used by the backend serverless function
 - Redeploy after adding variables
 
 **404 errors?**

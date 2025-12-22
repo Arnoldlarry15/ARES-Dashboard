@@ -42,10 +42,12 @@ An enterprise-grade interactive red-teaming dashboard for AI security profession
 1. Click the "Deploy" button above
 2. Sign in to Vercel (free account)
 3. Configure your project name
-4. Add environment variables (optional - see below)
+4. (Optional) Add `GEMINI_API_KEY` environment variable for AI-powered payloads
 5. Click "Deploy"
 
-For detailed deployment instructions, see [DEPLOY.md](DEPLOY.md)
+**Important**: The API key is now secured in the backend. Use `GEMINI_API_KEY` (not `VITE_GEMINI_API_KEY`).
+
+For detailed deployment instructions, see [DEPLOY.md](DEPLOY.md) or [QUICK_START.md](QUICK_START.md)
 
 ### Local Development
 
@@ -66,20 +68,28 @@ cd ARES-Dashboard
 npm install
 ```
 
-3. (Optional) Set up Gemini API key:
+3. (Optional) Set up Gemini API key for local development:
    - Copy `.env.example` to `.env.local`
    - Add your API key:
    ```bash
-   VITE_GEMINI_API_KEY=your_actual_api_key_here
+   GEMINI_API_KEY=your_actual_api_key_here
    ```
    - Get your API key from: https://aistudio.google.com/apikey
+   - **Note**: For local development with API, use `vercel dev` instead of `npm run dev`
 
 4. Start the development server:
 ```bash
+# Without API key (uses mock data)
 npm run dev
+
+# With API key (requires Vercel CLI)
+npm install -g vercel
+vercel dev
 ```
 
-5. Open your browser to `http://localhost:5173`
+5. Open your browser to:
+   - `http://localhost:5173` (npm run dev)
+   - `http://localhost:3000` (vercel dev)
 
 ## 📖 Usage
 
@@ -103,10 +113,11 @@ Works perfectly without an API key using realistic mock data:
 - Ideal for testing and demonstration
 
 #### AI Mode (With API Key)
-Enhanced with Google Gemini:
+Enhanced with Google Gemini via secure backend API:
 - Dynamic, context-aware payload generation
 - More diverse and sophisticated attack examples
 - Tailored mitigation strategies and references
+- **Secure**: API key never exposed to the browser
 
 ### Key Workflows
 
@@ -141,9 +152,10 @@ npm run preview
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 19, TypeScript
+- **Backend**: Vercel Serverless Functions
 - **Styling**: Tailwind CSS (inline), Glassmorphism effects
 - **Icons**: Lucide React
-- **AI**: Google Gemini API
+- **AI**: Google Gemini API (secure backend integration)
 - **Build Tool**: Vite
 - **State Management**: React Hooks, LocalStorage
 - **Deployment**: Vercel (recommended)
@@ -154,12 +166,15 @@ npm run preview
 ├── App.tsx                      # Main application component
 ├── constants.tsx                # Framework tactics and metadata
 ├── types.ts                     # TypeScript type definitions
+├── api/
+│   ├── generate-tactic.ts      # Serverless API for AI (secure)
+│   └── tsconfig.json           # API TypeScript config
 ├── components/
 │   ├── AuthLogin.tsx           # Authentication UI
 │   ├── TeamManagement.tsx      # Team workspace management
 │   └── PayloadEditor.tsx       # In-line payload editor
 ├── services/
-│   ├── geminiService.ts        # AI integration service
+│   ├── geminiService.ts        # AI integration service (calls backend)
 │   ├── authService.ts          # Authentication & RBAC
 │   └── workspaceService.ts     # Team collaboration
 ├── utils/
@@ -173,6 +188,8 @@ npm run preview
 ├── index.html                  # HTML template
 ├── vercel.json                 # Vercel configuration
 ├── DEPLOY.md                   # Deployment guide
+├── QUICK_START.md              # Quick deployment reference
+├── BACKEND_MIGRATION.md        # Backend migration guide
 └── package.json                # Dependencies and scripts
 ```
 
@@ -230,10 +247,24 @@ npm run preview
 ## 🔒 Security
 
 - **Zero Vulnerabilities**: Passed npm audit with 0 vulnerabilities
+- **Secure API Keys**: Gemini API key protected on backend, never exposed to client
+- **Serverless Architecture**: API calls routed through secure backend functions
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
 - **Authentication**: Demo RBAC system (integrate with your auth provider)
 - **Audit Logging**: Comprehensive activity tracking for compliance
 - **Session Management**: 24-hour JWT-style tokens with device tracking
+
+### API Security Architecture
+
+```
+Browser (Frontend)
+    ↓ POST /api/generate-tactic
+Vercel Serverless Function (Backend)
+    ↓ Uses GEMINI_API_KEY (secure)
+Gemini API (Google)
+```
+
+The API key is stored in Vercel environment variables and accessed only by the backend, ensuring it's never exposed to the browser or visible in the JavaScript bundle.
 
 ## 📄 License
 

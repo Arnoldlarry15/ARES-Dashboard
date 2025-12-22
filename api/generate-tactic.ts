@@ -191,7 +191,6 @@ export default async function handler(
     // Initialize Gemini API
     try {
       const genAI = new GoogleGenAI({ apiKey });
-      const model = genAI.models.get('gemini-2.0-flash-thinking-exp-1219');
 
       const prompt = `You are a cybersecurity expert specializing in AI red-teaming. Generate detailed information about the following tactic:
 
@@ -222,9 +221,12 @@ Please provide a comprehensive analysis in the following JSON format:
 
 Generate 5-7 realistic and diverse example payloads that demonstrate this tactic. Make them practical and executable.`;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const response = await genAI.models.generateContent({
+        model: 'gemini-2.0-flash-thinking-exp-1219',
+        contents: prompt,
+      });
+
+      const text = response.text;
 
       // Extract JSON from the response (handle markdown code blocks)
       const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || text.match(/(\{[\s\S]*\})/);

@@ -96,7 +96,7 @@ Vercel provides built-in:
 
 ### Build Fails
 - Check that all dependencies are in `package.json`
-- Verify Node.js version compatibility (18.0.0 or higher required; compatible with 18.x, 20.x, 22.x)
+- Verify Node.js version compatibility (18.x required)
 - Review build logs in Vercel dashboard
 
 ### Environment Variables Not Working

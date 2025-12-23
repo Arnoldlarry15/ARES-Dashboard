@@ -56,9 +56,7 @@ After this PR is merged:
 
 ## ⚠️ Known Warnings (Safe to Ignore)
 
-During `npm install`, you'll see warnings about:
-- `@google/genai` requiring Node >=20.0.0
-- `@vitejs/plugin-react` requiring Node ^20.19.0
+During `npm install`, you may see warnings about some packages requiring Node 20+ versions.
 
 **These are safe to ignore.** NPM allows installation with warnings, and the build works correctly despite these warnings. Vercel will install the dependencies the same way.
 

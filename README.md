@@ -52,7 +52,7 @@ For detailed deployment instructions, see [DEPLOY.md](DEPLOY.md) or [QUICK_START
 ### Local Development
 
 **Prerequisites:**
-- Node.js 18.x and npm
+- Node.js 20.x and npm
 - (Optional) Google Gemini API key for AI-generated payloads
 
 **Installation:**

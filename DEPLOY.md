@@ -96,11 +96,18 @@ Vercel provides built-in:
 
 ### Build Fails
 - Check that all dependencies are in `package.json`
-- Verify Node.js version compatibility (18.x required)
+- Verify Node.js version compatibility (20.x required)
 - Review build logs in Vercel dashboard
 
+### Blank White Page in Production
+- Check browser console for JavaScript errors
+- Verify the build output contains index.html in the `dist` directory
+- Ensure vite.config.ts has `base: '/'` set correctly
+- Verify SPA routing is configured in vercel.json with proper rewrites
+- Check that all assets are properly referenced with absolute paths
+
 ### Environment Variables Not Working
-- Ensure variable names start with `VITE_` prefix
+- Ensure variable names are correct (no `VITE_` prefix for backend variables)
 - Redeploy after adding environment variables
 - Check that variables are set for correct environments
 

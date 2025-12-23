@@ -102,7 +102,14 @@ Vercel provides free built-in monitoring:
 
 **Build fails?**
 - Check the build logs in Vercel Dashboard
-- Ensure Node.js 18.x is being used
+- Ensure Node.js 20.x is being used (configured in package.json)
+- Verify all dependencies are correctly installed
+
+**Blank white page in production?**
+- Check browser console for errors (F12 → Console)
+- Verify that the `dist` folder contains index.html and assets
+- Ensure SPA routing is configured in vercel.json
+- Check that BASE_URL in vite.config.ts is set to '/'
 
 **Environment variables not working?**
 - Make sure variable name is `GEMINI_API_KEY` (without `VITE_` prefix)

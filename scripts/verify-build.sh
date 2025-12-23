@@ -88,7 +88,7 @@ echo "📊 Build statistics:"
 DIST_SIZE=$(du -sh dist | cut -f1)
 echo "   Total size: $DIST_SIZE"
 echo "   Files:"
-ls -lh dist/assets/*.js 2>/dev/null | awk '{print "     "$9" - "$5}'
+find dist/assets -name "*.js" -exec sh -c 'echo "     $(basename "$1") - $(du -h "$1" | cut -f1)"' _ {} \;
 
 echo ""
 echo "✅ Build verification complete!"

@@ -8,10 +8,52 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        /* CSS Variables for theming */
+        :root {
+            /* Dark theme (default) */
+            --bg-primary: #0a0f1e;
+            --bg-gradient-start: #0a0f1e;
+            --bg-gradient-mid: #1a0a0f;
+            --bg-gradient-end: #050813;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-tertiary: #94a3b8;
+            --text-muted: #94a3b8;
+            --glass-bg: rgba(15, 23, 42, 0.6);
+            --glass-strong-bg: rgba(15, 23, 42, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-strong-border: rgba(255, 255, 255, 0.12);
+            --surface-primary: #0f172a;
+            --surface-secondary: #1e293b;
+            --surface-tertiary: #334155;
+            --border-primary: rgba(255, 255, 255, 0.1);
+            --border-secondary: rgba(255, 255, 255, 0.05);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-gradient-start: #f8fafc;
+            --bg-gradient-mid: #f1f5f9;
+            --bg-gradient-end: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-tertiary: #475569;
+            --text-muted: #64748b;
+            --glass-bg: rgba(255, 255, 255, 0.8);
+            --glass-strong-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            --glass-strong-border: rgba(0, 0, 0, 0.15);
+            --surface-primary: #ffffff;
+            --surface-secondary: #f8fafc;
+            --surface-tertiary: #e2e8f0;
+            --border-primary: rgba(0, 0, 0, 0.1);
+            --border-secondary: rgba(0, 0, 0, 0.05);
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0f1e 0%, #1a0a0f 50%, #050813 100%);
-            color: #f8fafc;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
+            color: var(--text-primary);
         }
         .mono {
             font-family: 'JetBrains Mono', monospace;
@@ -35,17 +77,17 @@
         
         /* Glassmorphism */
         .glass {
-            background: rgba(15, 23, 42, 0.6);
+            background: var(--glass-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
         }
         
         .glass-strong {
-            background: rgba(15, 23, 42, 0.8);
+            background: var(--glass-strong-bg);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid var(--glass-strong-border);
         }
         
         /* Gradient text with teal, gold, and red */

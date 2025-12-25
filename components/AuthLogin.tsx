@@ -26,9 +26,9 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Animated background */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A3A52] to-[#0A192F]"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
       </div>
 
       {/* Login card */}
@@ -36,28 +36,20 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
         <div className="glass-strong rounded-3xl p-8 shadow-2xl border border-white/10">
           {/* Logo and branding */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl blur-xl opacity-50"></div>
-                <div className="relative p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg">
-                  <Shield className="w-12 h-12 text-white" />
-                </div>
-              </div>
+            <div className="inline-flex items-center justify-center mb-6">
+              <img 
+                src="/logo.jpg" 
+                alt="ARES Dashboard" 
+                className="h-32 w-auto object-contain"
+              />
             </div>
-            <h1 className="text-3xl font-black mb-2">
-              <span className="text-white">ARES</span>
-              <span className="gradient-text ml-2">Dashboard</span>
-            </h1>
-            <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider">
-              Attack Engineering System
-            </p>
           </div>
 
           {/* Demo mode notice */}
-          <div className="mb-6 p-4 glass rounded-xl border border-emerald-500/30">
+          <div className="mb-6 p-4 glass rounded-xl border border-cyan-500/30">
             <div className="flex items-center gap-2 mb-2">
-              <Lock className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-bold text-emerald-400">Demo Mode</span>
+              <Lock className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-bold text-cyan-400">Demo Mode</span>
             </div>
             <p className="text-xs text-slate-400">
               Select a role to explore ARES Dashboard with role-based access control and audit logging.
@@ -77,13 +69,13 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
                   onClick={() => setSelectedRole(role)}
                   className={`w-full text-left p-4 rounded-xl transition-all duration-300 flex items-center justify-between group ${
                     isSelected
-                      ? 'glass-strong border border-emerald-500/40 shadow-lg'
+                      ? 'glass-strong border border-cyan-500/40 shadow-lg'
                       : 'glass border border-white/5 hover:border-white/10'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${
-                      isSelected ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' : 'glass'
+                      isSelected ? 'bg-gradient-to-br from-cyan-500 to-cyan-600' : 'glass'
                     }`}>
                       <UserIcon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
                     </div>
@@ -97,7 +89,7 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
                     </div>
                   </div>
                   {isSelected && (
-                    <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center">
                       <div className="w-2 h-2 bg-white rounded-full"></div>
                     </div>
                   )}
@@ -109,7 +101,7 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
           {/* Login button */}
           <button
             onClick={() => handleLogin(selectedRole)}
-            className="w-full px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 rounded-xl transition-all text-white font-bold shadow-lg glow-emerald hover:glow-emerald-strong group flex items-center justify-center gap-2"
+            className="w-full px-6 py-4 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-xl transition-all text-white font-bold shadow-lg glow-emerald hover:glow-emerald-strong group flex items-center justify-center gap-2"
           >
             <span>Enter Dashboard</span>
             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

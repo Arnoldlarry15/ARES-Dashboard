@@ -41,10 +41,24 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReload = () => {
-    // Clear any potentially corrupt state
+    // Clear only ARES-specific state to avoid affecting other apps
     try {
-      localStorage.clear();
-      sessionStorage.clear();
+      // Clear ARES-specific localStorage keys
+      const keysToRemove = [
+        'ares_dashboard_state',
+        'ares_auth_session',
+        'ares_workspace_data',
+        'ares_campaigns',
+        'ares_audit_logs',
+        'ares_theme'
+      ];
+      keysToRemove.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          // Continue even if one key fails
+        }
+      });
     } catch (e) {
       console.error('Failed to clear storage:', e);
     }
@@ -55,7 +69,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const isDevelopment = import.meta.env.DEV;
+      const isDevelopment = process.env.NODE_ENV !== 'production';
+      
+      // In production, show generic error message to avoid leaking sensitive info
+      const displayError = isDevelopment 
+        ? this.state.error?.toString() 
+        : 'An unexpected error occurred while loading the application.';
 
       return (
         <div className="min-h-screen flex items-center justify-center p-4" 
@@ -141,7 +160,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   wordBreak: 'break-word',
                   margin: 0
                 }}>
-                  {this.state.error?.toString()}
+                  {displayError}
                 </pre>
               </div>
 

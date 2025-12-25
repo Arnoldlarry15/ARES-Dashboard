@@ -9,11 +9,13 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      actions: read
       security-events: write
 
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with:
-          languages: javascript
+          languages: typescript
       - uses: github/codeql-action/analyze@v3

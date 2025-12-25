@@ -37,8 +37,8 @@ export class AuthService {
   static initDemoSession(role: UserRole = UserRole.ANALYST): Session {
     const user = this.createDemoUser(role);
     const session: Session = {
-      token: 'demo_token_' + Math.random().toString(36).substr(2, 9),
-      refresh_token: 'demo_refresh_' + Math.random().toString(36).substr(2, 9),
+      token: 'demo_token_' + crypto.randomUUID(),
+      refresh_token: 'demo_refresh_' + crypto.randomUUID(),
       user,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
       device_info: {
@@ -126,7 +126,7 @@ export class AuthService {
     // In a real implementation, this would call an API
     const newSession: Session = {
       ...currentSession,
-      token: 'demo_token_' + Math.random().toString(36).substr(2, 9),
+      token: 'demo_token_' + crypto.randomUUID(),
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     };
 
@@ -138,7 +138,7 @@ export class AuthService {
   static logAuditEvent(event: Omit<AuditLogEntry, 'id' | 'timestamp' | 'ip_address' | 'user_agent' | 'session_id'>): void {
     const session = this.getSession();
     const auditEntry: AuditLogEntry = {
-      id: 'audit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      id: 'audit_' + Date.now() + '_' + crypto.randomUUID(),
       ...event,
       timestamp: new Date().toISOString(),
       ip_address: session?.device_info?.ip_address || 'unknown',

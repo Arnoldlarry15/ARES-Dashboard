@@ -34,7 +34,7 @@ export const CampaignManager = {
       const campaigns = this.getAllCampaigns();
       const newCampaign: Campaign = {
         ...campaign,
-        id: `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `campaign_${Date.now()}_${crypto.randomUUID()}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

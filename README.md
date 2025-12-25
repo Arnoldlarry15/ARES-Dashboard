@@ -187,6 +187,9 @@ npm run preview
 ├── index.tsx                   # Application entry point
 ├── index.html                  # HTML template
 ├── vercel.json                 # Vercel configuration
+├── CONTRIBUTING.md             # Contribution guidelines
+├── CODE_OF_CONDUCT.md          # Community standards
+├── ARCHITECTURE.md             # Technical architecture overview
 ├── DEPLOY.md                   # Deployment guide
 ├── QUICK_START.md              # Quick deployment reference
 ├── BACKEND_MIGRATION.md        # Backend migration guide
@@ -272,7 +275,12 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting a Pull Request.
+
+**Quick Links:**
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Installation, development setup, PR guidelines, CI expectations
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - Community standards and enforcement
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture and design decisions
 
 ## 🙏 Acknowledgments
 
@@ -281,11 +289,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Google for Gemini AI capabilities
 - Vercel for deployment platform
 
-## 📞 Support
+## 📞 Support & Documentation
 
 - **Issues**: Open an issue on GitHub
-- **Deployment Help**: See [DEPLOY.md](DEPLOY.md)
-- **Documentation**: This README and inline code comments
+- **Deployment Help**: See [DEPLOY.md](DEPLOY.md) or [QUICK_START.md](QUICK_START.md)
+- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Code of Conduct**: See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ---
 

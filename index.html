@@ -26,11 +26,11 @@
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+            background: linear-gradient(180deg, #00FFE0 0%, #00CFC1 100%);
             border-radius: 999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, #059669 0%, #047857 100%);
+            background: linear-gradient(180deg, #00CFC1 0%, #00A89A 100%);
         }
         
         /* Glassmorphism */
@@ -50,7 +50,7 @@
         
         /* Gradient text */
         .gradient-text {
-            background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%);
+            background: linear-gradient(135deg, #00FFE0 0%, #00CFC1 50%, #C41E3A 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -63,18 +63,27 @@
         }
         
         .animated-gradient {
-            background: linear-gradient(270deg, #10b981, #3b82f6, #8b5cf6, #10b981);
+            background: linear-gradient(270deg, #00FFE0, #00CFC1, #C41E3A, #00FFE0);
             background-size: 400% 400%;
             animation: gradient-shift 15s ease infinite;
         }
         
         /* Glow effects */
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(0, 255, 224, 0.3), 0 0 40px rgba(0, 255, 224, 0.1);
+        }
+        
+        .glow-cyan-strong {
+            box-shadow: 0 0 30px rgba(0, 255, 224, 0.5), 0 0 60px rgba(0, 255, 224, 0.2);
+        }
+        
+        /* Keep legacy names for compatibility */
         .glow-emerald {
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), 0 0 40px rgba(16, 185, 129, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 224, 0.3), 0 0 40px rgba(0, 255, 224, 0.1);
         }
         
         .glow-emerald-strong {
-            box-shadow: 0 0 30px rgba(16, 185, 129, 0.5), 0 0 60px rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 30px rgba(0, 255, 224, 0.5), 0 0 60px rgba(0, 255, 224, 0.2);
         }
         
         /* Smooth transitions */

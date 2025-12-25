@@ -116,14 +116,8 @@ export default function App() {
     setTheme(ThemeManager.getTheme());
   }, []);
 
-  // Check authentication on mount
-  useEffect(() => {
-    const user = AuthService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-    }
-  }, []);
+  // Note: Removed auto-authentication on mount to ensure users must explicitly login
+  // Users will see the login screen and must select their role to proceed
 
   // Load persisted state on mount
   useEffect(() => {
@@ -481,11 +475,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col text-slate-200 relative overflow-hidden">
-      {/* Animated background gradient */}
+      {/* Animated background gradient with red, gold, and teal */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A3A52] to-[#0A192F]"></div>
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A0A14] to-[#0A192F]"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
       </div>
 
       {/* Content */}
@@ -493,8 +488,8 @@ export default function App() {
         {/* Notification Toast */}
         {notification && (
           <div className="fixed top-6 right-6 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="glass-strong px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-cyan-500/30 glow-emerald">
-              <CheckCircle2 className="w-5 h-5 text-cyan-400" />
+            <div className="glass-strong px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-teal-500/30 glow-teal">
+              <CheckCircle2 className="w-5 h-5 text-teal-400" />
               <span className="font-semibold text-white">{notification}</span>
             </div>
           </div>
@@ -517,7 +512,7 @@ export default function App() {
              {/* User profile */}
              {currentUser && (
                <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl border border-white/10">
-                 <UserIcon className="w-3.5 h-3.5 text-cyan-400" />
+                 <UserIcon className="w-3.5 h-3.5 text-teal-400" />
                  <div className="flex flex-col">
                    <span className="text-[9px] font-bold text-slate-500 uppercase">Logged in as</span>
                    <span className="text-[10px] font-bold text-white">{currentUser.name}</span>
@@ -527,13 +522,13 @@ export default function App() {
 
              {isGenerating ? (
                <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl">
-                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                 <span className="font-bold text-cyan-400">PREPARING PAYLOADS...</span>
+                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                 <span className="font-bold text-amber-400">PREPARING PAYLOADS...</span>
                </div>
              ) : (
                <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl">
-                 <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                 <span className="font-bold text-cyan-400">SYSTEM READY</span>
+                 <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
+                 <span className="font-bold text-teal-400">SYSTEM READY</span>
                </div>
              )}
              <button 
@@ -541,7 +536,7 @@ export default function App() {
                className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
              >
-               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+               <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/10 to-teal-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                {theme === 'dark' ? (
                  <Sun className="w-3.5 h-3.5 relative z-10" />
                ) : (
@@ -556,7 +551,7 @@ export default function App() {
                className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
                title="Team management"
              >
-               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+               <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/10 to-amber-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                <Users className="w-3.5 h-3.5 relative z-10" />
                <span className="hidden sm:inline font-bold relative z-10">TEAM</span>
              </button>
@@ -565,11 +560,11 @@ export default function App() {
                className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
                title="Load campaign"
              >
-               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+               <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/10 to-teal-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                <FolderOpen className="w-3.5 h-3.5 relative z-10" />
                <span className="hidden sm:inline font-bold relative z-10">CAMPAIGNS</span>
                {campaigns.length > 0 && (
-                 <span className="px-2 py-0.5 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg text-[8px] font-black relative z-10 shadow-lg">
+                 <span className="px-2 py-0.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg text-[8px] font-black relative z-10 shadow-lg">
                    {campaigns.length}
                  </span>
                )}
@@ -577,7 +572,7 @@ export default function App() {
              {selectedTactic && selectedVectors.length > 0 && (
                <button 
                  onClick={() => setShowSaveCampaignModal(true)}
-                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-xl transition-all text-white shadow-lg glow-emerald hover:glow-emerald-strong group"
+                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-xl transition-all text-white shadow-lg glow-gold hover:glow-gold-strong group"
                  title="Save as campaign"
                >
                  <Save className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
@@ -616,12 +611,12 @@ export default function App() {
                 onClick={() => setActiveTab(f)}
                 className={`py-3 text-[11px] font-black rounded-xl transition-all duration-300 uppercase tracking-wider relative overflow-hidden group ${
                   activeTab === f 
-                    ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-lg glow-emerald' 
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg glow-teal' 
                     : 'text-slate-400 hover:text-white glass-strong hover:scale-[1.02]'
                 }`}
               >
                 {activeTab !== f && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/20 to-cyan-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/20 to-teal-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                 )}
                 <span className="relative z-10">{f}</span>
               </button>
@@ -632,22 +627,22 @@ export default function App() {
             <div className="p-5 border-b border-white/10 glass-strong">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-cyan-400" />
+                  <Layers className="w-5 h-5 text-amber-400" />
                   <span className="text-sm font-bold text-white uppercase tracking-wider">Tactics</span>
                 </div>
-                <div className="px-2 py-1 bg-cyan-500/20 rounded-lg text-cyan-400 text-xs font-bold">
+                <div className="px-2 py-1 bg-teal-500/20 rounded-lg text-teal-400 text-xs font-bold">
                   {filteredTactics.length}
                 </div>
               </div>
               {/* Search Input */}
               <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-cyan-400 transition-colors" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-teal-400 transition-colors" />
                 <input
                   type="text"
                   placeholder="Search tactics..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 glass-strong rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all font-medium"
+                  className="w-full pl-10 pr-10 py-3 glass-strong rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 transition-all font-medium"
                 />
                 {searchQuery && (
                   <button
@@ -680,19 +675,19 @@ export default function App() {
                   }}
                   className={`w-full text-left p-4 rounded-xl transition-all duration-300 flex items-start justify-between group relative overflow-hidden ${
                     selectedTactic?.id === t.id 
-                    ? 'glass-strong border border-cyan-500/30 shadow-lg glow-emerald' 
+                    ? 'glass-strong border border-teal-500/30 shadow-lg glow-teal' 
                     : 'glass border border-white/5 hover:border-white/10 hover:scale-[1.02]'
                   }`}
                 >
                   {selectedTactic?.id !== t.id && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/10 to-teal-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                   )}
                   <div className="flex flex-col gap-2 relative z-10 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-black px-2 py-1 rounded-lg transition-all ${
                          selectedTactic?.id === t.id 
-                         ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-md' 
-                         : 'glass text-slate-400 group-hover:text-cyan-400'
+                         ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md' 
+                         : 'glass text-slate-400 group-hover:text-teal-400'
                       }`}>
                         {t.id}
                       </span>
@@ -701,12 +696,12 @@ export default function App() {
                       }`}>{t.name}</span>
                     </div>
                     <p className={`text-xs line-clamp-1 transition-colors ${
-                      selectedTactic?.id === t.id ? 'text-cyan-200/70' : 'text-slate-500 group-hover:text-slate-400'
+                      selectedTactic?.id === t.id ? 'text-teal-200/70' : 'text-slate-500 group-hover:text-slate-400'
                     }`}>{t.shortDesc}</p>
                   </div>
                   <ChevronRight className={`w-5 h-5 mt-1 transition-all relative z-10 ${
                     selectedTactic?.id === t.id 
-                    ? 'translate-x-1 text-cyan-400' 
+                    ? 'translate-x-1 text-teal-400' 
                     : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1 text-slate-400'
                   }`} />
                 </button>
@@ -770,8 +765,8 @@ export default function App() {
                   <div className="flex-1 flex flex-col p-6 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-cyan-500/20 rounded-lg">
-                          <Settings2 className="w-5 h-5 text-cyan-400" />
+                        <div className="p-2 bg-teal-500/20 rounded-lg">
+                          <Settings2 className="w-5 h-5 text-teal-400" />
                         </div>
                         <div>
                           <h3 className="text-lg font-bold text-white">Step 1: Attack Vectors</h3>
@@ -781,7 +776,7 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setSelectedVectors(selectedTactic.staticVectors)}
-                          className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                          className="text-[10px] font-bold text-teal-400 hover:text-teal-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
                         >
                           Select All
                         </button>
@@ -806,12 +801,12 @@ export default function App() {
                             onClick={() => toggleVector(vec)}
                             className={`p-4 rounded-xl text-sm font-medium transition-all text-left flex items-start gap-4 border group ${
                               isSelected 
-                              ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300' 
+                              ? 'bg-teal-500/10 border-teal-500/40 text-teal-300' 
                               : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-800'
                             }`}
                           >
                             <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                              isSelected ? 'bg-cyan-500 border-cyan-400 text-white shadow-lg' : 'border-slate-700 bg-slate-950'
+                              isSelected ? 'bg-teal-500 border-teal-400 text-white shadow-lg' : 'border-slate-700 bg-slate-950'
                             }`}>
                               {isSelected && <CheckCircle2 className="w-4 h-4" />}
                             </div>
@@ -824,7 +819,7 @@ export default function App() {
                     <div className="mt-6 pt-6 border-t border-slate-800 flex justify-end">
                       <button 
                         onClick={() => setCurrentStep('payloads')}
-                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:grayscale"
+                        className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:grayscale"
                         disabled={selectedVectors.length === 0}
                       >
                         Continue to Payloads
@@ -870,7 +865,7 @@ export default function App() {
 
                     {isGenerating && !result ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-center">
-                        <Activity className="w-10 h-10 text-cyan-500/40 animate-pulse mb-4" />
+                        <Activity className="w-10 h-10 text-amber-500/40 animate-pulse mb-4" />
                         <h4 className="text-sm font-bold text-slate-300">Generating Payloads...</h4>
                         <p className="text-xs text-slate-500 mt-2">Analysis of {selectedTactic.name} in progress.</p>
                       </div>
@@ -893,25 +888,25 @@ export default function App() {
                         {result?.example_payloads.map((p, idx) => {
                           const isSelected = selectedPayloadIndices.includes(idx);
                           return (
-                            <div key={idx} className={`rounded-2xl border transition-all overflow-hidden ${isSelected ? 'border-cyan-500/40 bg-cyan-500/5 shadow-lg' : 'border-slate-800 bg-slate-900/40'}`}>
+                            <div key={idx} className={`rounded-2xl border transition-all overflow-hidden ${isSelected ? 'border-amber-500/40 bg-amber-500/5 shadow-lg' : 'border-slate-800 bg-slate-900/40'}`}>
                                <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
                                   <div className="flex items-center gap-3">
                                     <button 
                                       onClick={() => togglePayload(idx)}
                                       className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                                        isSelected ? 'bg-cyan-500 border-cyan-400 text-white shadow-md' : 'border-slate-700 bg-slate-950 text-transparent'
+                                        isSelected ? 'bg-amber-500 border-amber-400 text-white shadow-md' : 'border-slate-700 bg-slate-950 text-transparent'
                                       }`}
                                     >
                                       <CheckCircle2 className="w-4 h-4" />
                                     </button>
-                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${isSelected ? 'text-cyan-400' : 'text-slate-500'}`}>
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${isSelected ? 'text-amber-400' : 'text-slate-500'}`}>
                                       {p.description}
                                     </h4>
                                   </div>
                                   <span className="text-[10px] font-bold text-slate-600 mono">{p.format}</span>
                                </div>
                                <div className="relative group p-5">
-                                  <pre className={`text-xs mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto ${isSelected ? 'text-cyan-300' : 'text-cyan-500/50'}`}>
+                                  <pre className={`text-xs mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto ${isSelected ? 'text-amber-300' : 'text-cyan-500/50'}`}>
                                     {p.payload}
                                   </pre>
                                   <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -939,7 +934,7 @@ export default function App() {
                       </button>
                       <button 
                         onClick={() => setCurrentStep('export')}
-                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50"
+                        className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50"
                         disabled={selectedPayloadIndices.length === 0 || !result}
                       >
                         Finalize & Export
@@ -968,7 +963,7 @@ export default function App() {
                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Selected Vectors</h4>
                            <div className="flex flex-wrap gap-2">
                               {selectedVectors.map((v, i) => (
-                                <span key={i} className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs rounded-lg">{v}</span>
+                                <span key={i} className="px-3 py-1 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg">{v}</span>
                               ))}
                            </div>
                         </div>
@@ -986,7 +981,7 @@ export default function App() {
                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">JSON Manifest Preview</span>
                            <FileJson className="w-4 h-4 text-slate-600" />
                         </div>
-                        <pre className="p-6 text-[10px] mono text-cyan-500/80 overflow-x-auto bg-black/40">
+                        <pre className="p-6 text-[10px] mono text-amber-500/80 overflow-x-auto bg-black/40">
                           {JSON.stringify(getExecutableData(), null, 2)}
                         </pre>
                       </div>
@@ -998,7 +993,7 @@ export default function App() {
                       </button>
                       <button 
                         onClick={exportExecutable}
-                        className="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold flex items-center gap-3 shadow-2xl shadow-cyan-500/20 group"
+                        className="px-8 py-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold flex items-center gap-3 shadow-2xl shadow-red-500/20 glow-red hover:glow-red-strong group"
                       >
                         <PlayCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
                         DOWNLOAD MANIFEST
@@ -1016,8 +1011,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between text-slate-400 text-[10px] mono uppercase font-bold">
            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                <span className="text-cyan-400">Attack Engine: Online</span>
+                <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
+                <span className="text-teal-400">Attack Engine: Online</span>
               </div>
               <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
               <span>Gemini 3 Pro Reasoning</span>
@@ -1025,13 +1020,13 @@ export default function App() {
            <div className="flex items-center gap-4">
               <button
                 onClick={() => setShowKeyboardShortcuts(true)}
-                className="flex items-center gap-2 glass-strong px-3 py-2 rounded-lg hover:text-cyan-400 transition-all group"
+                className="flex items-center gap-2 glass-strong px-3 py-2 rounded-lg hover:text-teal-400 transition-all group"
                 title="Keyboard shortcuts"
               >
                 <Keyboard className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                 <span className="hidden sm:inline">Shortcuts</span>
               </button>
-              <span className="text-slate-500">ARES <span className="text-cyan-400">v1.4.1</span></span>
+              <span className="text-slate-500">ARES <span className="text-amber-400">v1.4.1</span></span>
            </div>
         </div>
       </footer>

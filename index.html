@@ -10,14 +10,14 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0f1e 0%, #050813 100%);
+            background: linear-gradient(135deg, #0a0f1e 0%, #1a0a0f 50%, #050813 100%);
             color: #f8fafc;
         }
         .mono {
             font-family: 'JetBrains Mono', monospace;
         }
         
-        /* Modern scrollbar */
+        /* Modern scrollbar with teal and gold accents */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -26,11 +26,11 @@
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #00FFE0 0%, #00CFC1 100%);
+            background: linear-gradient(180deg, #14b8a6 0%, #0d9488 50%, #0f766e 100%);
             border-radius: 999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, #00CFC1 0%, #00A89A 100%);
+            background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
         }
         
         /* Glassmorphism */
@@ -48,42 +48,69 @@
             border: 1px solid rgba(255, 255, 255, 0.12);
         }
         
-        /* Gradient text */
+        /* Gradient text with teal, gold, and red */
         .gradient-text {
-            background: linear-gradient(135deg, #00FFE0 0%, #00CFC1 50%, #C41E3A 100%);
+            background: linear-gradient(135deg, #14b8a6 0%, #fbbf24 50%, #dc2626 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
         
-        /* Animated gradient background */
+        /* Animated gradient background with new colors */
         @keyframes gradient-shift {
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
         }
         
         .animated-gradient {
-            background: linear-gradient(270deg, #00FFE0, #00CFC1, #C41E3A, #00FFE0);
+            background: linear-gradient(270deg, #14b8a6, #fbbf24, #dc2626, #14b8a6);
             background-size: 400% 400%;
             animation: gradient-shift 15s ease infinite;
         }
         
-        /* Glow effects */
+        /* Glow effects with teal, gold, and red */
         .glow-cyan {
-            box-shadow: 0 0 20px rgba(0, 255, 224, 0.3), 0 0 40px rgba(0, 255, 224, 0.1);
+            box-shadow: 0 0 20px rgba(20, 184, 166, 0.3), 0 0 40px rgba(20, 184, 166, 0.1);
         }
         
         .glow-cyan-strong {
-            box-shadow: 0 0 30px rgba(0, 255, 224, 0.5), 0 0 60px rgba(0, 255, 224, 0.2);
+            box-shadow: 0 0 30px rgba(20, 184, 166, 0.5), 0 0 60px rgba(20, 184, 166, 0.2);
+        }
+        
+        /* Teal glow */
+        .glow-teal {
+            box-shadow: 0 0 20px rgba(20, 184, 166, 0.3), 0 0 40px rgba(20, 184, 166, 0.1);
+        }
+        
+        .glow-teal-strong {
+            box-shadow: 0 0 30px rgba(20, 184, 166, 0.5), 0 0 60px rgba(20, 184, 166, 0.2);
+        }
+        
+        /* Gold glow */
+        .glow-gold {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.3), 0 0 40px rgba(251, 191, 36, 0.1);
+        }
+        
+        .glow-gold-strong {
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.5), 0 0 60px rgba(251, 191, 36, 0.2);
+        }
+        
+        /* Red glow */
+        .glow-red {
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.3), 0 0 40px rgba(220, 38, 38, 0.1);
+        }
+        
+        .glow-red-strong {
+            box-shadow: 0 0 30px rgba(220, 38, 38, 0.5), 0 0 60px rgba(220, 38, 38, 0.2);
         }
         
         /* Keep legacy names for compatibility */
         .glow-emerald {
-            box-shadow: 0 0 20px rgba(0, 255, 224, 0.3), 0 0 40px rgba(0, 255, 224, 0.1);
+            box-shadow: 0 0 20px rgba(20, 184, 166, 0.3), 0 0 40px rgba(20, 184, 166, 0.1);
         }
         
         .glow-emerald-strong {
-            box-shadow: 0 0 30px rgba(0, 255, 224, 0.5), 0 0 60px rgba(0, 255, 224, 0.2);
+            box-shadow: 0 0 30px rgba(20, 184, 166, 0.5), 0 0 60px rgba(20, 184, 166, 0.2);
         }
         
         /* Smooth transitions */

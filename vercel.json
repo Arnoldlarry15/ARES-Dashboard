@@ -6,7 +6,7 @@
   "framework": "vite",
   "functions": {
     "api/**/*.ts": {
-      "runtime": "nodejs20.x"
+      "runtime": "@vercel/node@5.5.16"
     }
   },
   "rewrites": [

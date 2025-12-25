@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useTransition } from 'react';
 import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload } from './types';
 import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './constants';
 import { GeminiService } from './services/geminiService';
@@ -302,7 +302,7 @@ export default function App() {
     return <AuthLogin onLogin={handleLogin} />;
   }
 
-  const handleTacticSelect = useCallback(async (tactic: TacticMetadata) => {
+  const handleTacticSelect = async (tactic: TacticMetadata) => {
     // 1. Instant UI update to Vector Step (urgent updates)
     setSelectedTactic(tactic);
     setCurrentStep('vectors');
@@ -324,7 +324,7 @@ export default function App() {
     } finally {
       setIsGenerating(false);
     }
-  }, []);
+  };
 
   const toggleVector = (vector: string) => {
     setSelectedVectors(prev => 
@@ -427,7 +427,7 @@ export default function App() {
     }
   };
 
-  const loadCampaign = useCallback(async (campaign: Campaign) => {
+  const loadCampaign = async (campaign: Campaign) => {
     const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
     const tactic = allTactics.find(t => t.id === campaign.tactic_id);
     
@@ -459,7 +459,7 @@ export default function App() {
       setNotification(`Failed to load campaign "${campaign.name}"`);
       setTimeout(() => setNotification(null), 2000);
     }
-  }, [currentUser, handleTacticSelect]);
+  };
 
   const deleteCampaign = (id: string, name: string) => {
     if (CampaignManager.deleteCampaign(id)) {

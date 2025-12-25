@@ -317,9 +317,8 @@ export default function App() {
         setError(err.message || "Content generation failed.");
       });
     } finally {
-      startTransition(() => {
-        setIsGenerating(false);
-      });
+      // Immediate feedback when operation completes
+      setIsGenerating(false);
     }
   };
 

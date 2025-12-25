@@ -292,14 +292,16 @@ export default function App() {
   };
 
   const handleTacticSelect = async (tactic: TacticMetadata) => {
-    // 1. Instant UI update to Vector Step (urgent updates)
-    setSelectedTactic(tactic);
-    setCurrentStep('vectors');
-    setSelectedVectors([]);
-    setSelectedPayloadIndices([]);
-    setResult(null);
-    setError(null);
-    setIsGenerating(true);
+    // 1. Use startTransition to avoid blocking UI updates
+    startTransition(() => {
+      setSelectedTactic(tactic);
+      setCurrentStep('vectors');
+      setSelectedVectors([]);
+      setSelectedPayloadIndices([]);
+      setResult(null);
+      setError(null);
+      setIsGenerating(true);
+    });
 
     // 2. Start dynamic generation of Payloads in background (non-blocking)
     try {
@@ -309,9 +311,13 @@ export default function App() {
         setResult(details);
       });
     } catch (err: any) {
-      setError(err.message || "Content generation failed.");
+      startTransition(() => {
+        setError(err.message || "Content generation failed.");
+      });
     } finally {
-      setIsGenerating(false);
+      startTransition(() => {
+        setIsGenerating(false);
+      });
     }
   };
 
@@ -394,26 +400,29 @@ export default function App() {
         selected_payload_indices: selectedPayloadIndices
       });
       
-      // Audit log
-      AuthService.logAuditEvent({
-        user_id: currentUser?.id || 'unknown',
-        user_email: currentUser?.email || 'unknown',
-        action: 'create',
-        resource_type: 'campaign',
-        resource_id: campaign.id,
-        details: { 
-          campaign_name: campaign.name,
-          tactic_id: selectedTactic.id,
-          vectors_count: selectedVectors.length,
-          payloads_count: selectedPayloadIndices.length
-        }
+      // Defer non-critical updates using startTransition
+      startTransition(() => {
+        // Audit log
+        AuthService.logAuditEvent({
+          user_id: currentUser?.id || 'unknown',
+          user_email: currentUser?.email || 'unknown',
+          action: 'create',
+          resource_type: 'campaign',
+          resource_id: campaign.id,
+          details: { 
+            campaign_name: campaign.name,
+            tactic_id: selectedTactic.id,
+            vectors_count: selectedVectors.length,
+            payloads_count: selectedPayloadIndices.length
+          }
+        });
+        
+        setCampaigns(CampaignManager.getAllCampaigns());
+        setShowSaveCampaignModal(false);
+        setCampaignName('');
+        setCampaignDescription('');
+        setNotification(`Campaign "${campaign.name}" saved`);
       });
-      
-      setCampaigns(CampaignManager.getAllCampaigns());
-      setShowSaveCampaignModal(false);
-      setCampaignName('');
-      setCampaignDescription('');
-      setNotification(`Campaign "${campaign.name}" saved`);
       setTimeout(() => setNotification(null), 2000);
     } catch (error) {
       setNotification("Failed to save campaign");
@@ -431,44 +440,53 @@ export default function App() {
       return;
     }
     
-    // Audit log
-    AuthService.logAuditEvent({
-      user_id: currentUser?.id || 'unknown',
-      user_email: currentUser?.email || 'unknown',
-      action: 'load',
-      resource_type: 'campaign',
-      resource_id: campaign.id,
-      details: { campaign_name: campaign.name, tactic_id: campaign.tactic_id }
+    // Audit log (non-blocking)
+    startTransition(() => {
+      AuthService.logAuditEvent({
+        user_id: currentUser?.id || 'unknown',
+        user_email: currentUser?.email || 'unknown',
+        action: 'load',
+        resource_type: 'campaign',
+        resource_id: campaign.id,
+        details: { campaign_name: campaign.name, tactic_id: campaign.tactic_id }
+      });
     });
     
     try {
       await handleTacticSelect(tactic);
-      setSelectedVectors(campaign.selected_vectors);
-      setSelectedPayloadIndices(campaign.selected_payload_indices);
-      setShowCampaignModal(false);
-      setNotification(`Campaign "${campaign.name}" loaded`);
+      startTransition(() => {
+        setSelectedVectors(campaign.selected_vectors);
+        setSelectedPayloadIndices(campaign.selected_payload_indices);
+        setShowCampaignModal(false);
+        setNotification(`Campaign "${campaign.name}" loaded`);
+      });
       setTimeout(() => setNotification(null), 2000);
     } catch (err) {
       console.error('Failed to load campaign:', err);
-      setNotification(`Failed to load campaign "${campaign.name}"`);
+      startTransition(() => {
+        setNotification(`Failed to load campaign "${campaign.name}"`);
+      });
       setTimeout(() => setNotification(null), 2000);
     }
   };
 
   const deleteCampaign = (id: string, name: string) => {
     if (CampaignManager.deleteCampaign(id)) {
-      // Audit log
-      AuthService.logAuditEvent({
-        user_id: currentUser?.id || 'unknown',
-        user_email: currentUser?.email || 'unknown',
-        action: 'delete',
-        resource_type: 'campaign',
-        resource_id: id,
-        details: { campaign_name: name }
+      // Defer non-critical updates using startTransition
+      startTransition(() => {
+        // Audit log
+        AuthService.logAuditEvent({
+          user_id: currentUser?.id || 'unknown',
+          user_email: currentUser?.email || 'unknown',
+          action: 'delete',
+          resource_type: 'campaign',
+          resource_id: id,
+          details: { campaign_name: name }
+        });
+        
+        setCampaigns(CampaignManager.getAllCampaigns());
+        setNotification(`Campaign "${name}" deleted`);
       });
-      
-      setCampaigns(CampaignManager.getAllCampaigns());
-      setNotification(`Campaign "${name}" deleted`);
       setTimeout(() => setNotification(null), 2000);
     }
   };

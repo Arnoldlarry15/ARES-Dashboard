@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useTransition, useCallback } from 'react';
 import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload } from './types';
 import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './constants';
 import { GeminiService } from './services/geminiService';
@@ -85,6 +85,9 @@ export default function App() {
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Performance: useTransition for non-urgent updates
+  const [isPending, startTransition] = useTransition();
+
   // Computed values (must be before early return)
   const tactics = useMemo(() => {
     switch (activeTab) {
@@ -124,34 +127,46 @@ export default function App() {
 
   // Load persisted state on mount
   useEffect(() => {
-    const savedState = StorageManager.loadState();
-    if (savedState) {
-      // Restore framework
-      if (savedState.activeFramework) {
-        const framework = savedState.activeFramework as Framework;
-        if (Object.values(Framework).includes(framework)) {
-          setActiveTab(framework);
+    try {
+      const savedState = StorageManager.loadState();
+      if (savedState) {
+        // Restore framework
+        if (savedState.activeFramework) {
+          const framework = savedState.activeFramework as Framework;
+          if (Object.values(Framework).includes(framework)) {
+            setActiveTab(framework);
+          }
         }
-      }
 
-      // Restore selected tactic
-      if (savedState.selectedTacticId) {
-        const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
-        const tactic = allTactics.find(t => t.id === savedState.selectedTacticId);
-        if (tactic) {
-          handleTacticSelect(tactic);
-          // Restore vectors and step after tactic is loaded
-          if (savedState.selectedVectors) {
-            setSelectedVectors(savedState.selectedVectors);
-          }
-          if (savedState.currentStep) {
-            setCurrentStep(savedState.currentStep);
-          }
-          if (savedState.selectedPayloadIndices) {
-            setSelectedPayloadIndices(savedState.selectedPayloadIndices);
+        // Restore selected tactic (wrapped in startTransition to avoid blocking)
+        if (savedState.selectedTacticId) {
+          const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
+          const tactic = allTactics.find(t => t.id === savedState.selectedTacticId);
+          if (tactic) {
+            // Use startTransition to avoid blocking the initial render
+            startTransition(() => {
+              handleTacticSelect(tactic).catch(err => {
+                console.error('Failed to restore tactic:', err);
+                setError('Failed to restore previous session');
+              });
+            });
+            // Restore vectors and step after tactic is loaded
+            if (savedState.selectedVectors) {
+              setSelectedVectors(savedState.selectedVectors);
+            }
+            if (savedState.currentStep) {
+              setCurrentStep(savedState.currentStep);
+            }
+            if (savedState.selectedPayloadIndices) {
+              setSelectedPayloadIndices(savedState.selectedPayloadIndices);
+            }
           }
         }
       }
+    } catch (err) {
+      console.error('Failed to load persisted state:', err);
+      // Clear corrupted state
+      StorageManager.clearState();
     }
   }, []); // Run only once on mount
 
@@ -287,8 +302,8 @@ export default function App() {
     return <AuthLogin onLogin={handleLogin} />;
   }
 
-  const handleTacticSelect = async (tactic: TacticMetadata) => {
-    // 1. Instant UI update to Vector Step
+  const handleTacticSelect = useCallback(async (tactic: TacticMetadata) => {
+    // 1. Instant UI update to Vector Step (urgent updates)
     setSelectedTactic(tactic);
     setCurrentStep('vectors');
     setSelectedVectors([]);
@@ -297,16 +312,19 @@ export default function App() {
     setError(null);
     setIsGenerating(true);
 
-    // 2. Start dynamic generation of Payloads in background
+    // 2. Start dynamic generation of Payloads in background (non-blocking)
     try {
       const details = await gemini.generateTacticDetails(tactic);
-      setResult(details);
+      // Use startTransition for non-urgent state update
+      startTransition(() => {
+        setResult(details);
+      });
     } catch (err: any) {
       setError(err.message || "Content generation failed.");
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, []);
 
   const toggleVector = (vector: string) => {
     setSelectedVectors(prev => 
@@ -409,7 +427,7 @@ export default function App() {
     }
   };
 
-  const loadCampaign = async (campaign: Campaign) => {
+  const loadCampaign = useCallback(async (campaign: Campaign) => {
     const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
     const tactic = allTactics.find(t => t.id === campaign.tactic_id);
     
@@ -429,13 +447,19 @@ export default function App() {
       details: { campaign_name: campaign.name, tactic_id: campaign.tactic_id }
     });
     
-    await handleTacticSelect(tactic);
-    setSelectedVectors(campaign.selected_vectors);
-    setSelectedPayloadIndices(campaign.selected_payload_indices);
-    setShowCampaignModal(false);
-    setNotification(`Campaign "${campaign.name}" loaded`);
-    setTimeout(() => setNotification(null), 2000);
-  };
+    try {
+      await handleTacticSelect(tactic);
+      setSelectedVectors(campaign.selected_vectors);
+      setSelectedPayloadIndices(campaign.selected_payload_indices);
+      setShowCampaignModal(false);
+      setNotification(`Campaign "${campaign.name}" loaded`);
+      setTimeout(() => setNotification(null), 2000);
+    } catch (err) {
+      console.error('Failed to load campaign:', err);
+      setNotification(`Failed to load campaign "${campaign.name}"`);
+      setTimeout(() => setNotification(null), 2000);
+    }
+  }, [currentUser, handleTacticSelect]);
 
   const deleteCampaign = (id: string, name: string) => {
     if (CampaignManager.deleteCampaign(id)) {
@@ -485,6 +509,7 @@ export default function App() {
                   src="/logo.jpg" 
                   alt="ARES Dashboard" 
                   className="h-16 w-auto object-contain"
+                  loading="eager"
                 />
               </div>
             </div>
@@ -647,7 +672,12 @@ export default function App() {
                 filteredTactics.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => handleTacticSelect(t)}
+                  onClick={() => {
+                    // Wrap in startTransition to improve INP
+                    startTransition(() => {
+                      handleTacticSelect(t);
+                    });
+                  }}
                   className={`w-full text-left p-4 rounded-xl transition-all duration-300 flex items-start justify-between group relative overflow-hidden ${
                     selectedTactic?.id === t.id 
                     ? 'glass-strong border border-cyan-500/30 shadow-lg glow-emerald' 
@@ -848,7 +878,13 @@ export default function App() {
                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
                          <AlertTriangle className="w-10 h-10 text-red-500/60 mb-4" />
                          <p className="text-red-400 text-sm mb-4">{error}</p>
-                         <button onClick={() => handleTacticSelect(selectedTactic)} className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-800 px-4 py-2 rounded-lg">
+                         <button onClick={() => {
+                           if (selectedTactic) {
+                             startTransition(() => {
+                               handleTacticSelect(selectedTactic);
+                             });
+                           }
+                         }} className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700 transition-all">
                            <RefreshCw className="w-3 h-3" /> RETRY
                          </button>
                       </div>

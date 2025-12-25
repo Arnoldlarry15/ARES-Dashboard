@@ -297,11 +297,6 @@ export default function App() {
     setEditingPayload(null);
   };
 
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return <AuthLogin onLogin={handleLogin} />;
-  }
-
   const handleTacticSelect = async (tactic: TacticMetadata) => {
     // 1. Instant UI update to Vector Step (urgent updates)
     setSelectedTactic(tactic);
@@ -325,6 +320,11 @@ export default function App() {
       setIsGenerating(false);
     }
   };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthLogin onLogin={handleLogin} />;
+  }
 
   const toggleVector = (vector: string) => {
     setSelectedVectors(prev => 
@@ -673,9 +673,9 @@ export default function App() {
                 <button
                   key={t.id}
                   onClick={() => {
-                    // Wrap in startTransition to improve INP
-                    startTransition(() => {
-                      handleTacticSelect(t);
+                    // Immediate synchronous UI update, then async operation
+                    handleTacticSelect(t).catch(err => {
+                      console.error('Failed to select tactic:', err);
                     });
                   }}
                   className={`w-full text-left p-4 rounded-xl transition-all duration-300 flex items-start justify-between group relative overflow-hidden ${
@@ -880,8 +880,8 @@ export default function App() {
                          <p className="text-red-400 text-sm mb-4">{error}</p>
                          <button onClick={() => {
                            if (selectedTactic) {
-                             startTransition(() => {
-                               handleTacticSelect(selectedTactic);
+                             handleTacticSelect(selectedTactic).catch(err => {
+                               console.error('Failed to retry tactic selection:', err);
                              });
                            }
                          }} className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700 transition-all">

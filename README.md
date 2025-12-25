@@ -240,6 +240,26 @@ npm run preview
 - ✅ Theme toggle working
 - ✅ Keyboard shortcuts active
 
+## 🔄 CI/CD & Automation
+
+**Continuous Integration:**
+- Automated builds on all PRs and pushes to main
+- ESLint code quality checks
+- TypeScript type checking
+- Production build verification
+
+**Security Automation:**
+- CodeQL security scanning on all PRs
+- Dependabot weekly dependency updates
+- Automated vulnerability detection
+
+**Quality Gates:**
+All PRs must pass:
+- ✅ Lint checks (`npm run lint`)
+- ✅ Type checks (`npm run typecheck`)
+- ✅ Build verification (`npm run build`)
+- ✅ CodeQL security scan
+
 ## 📊 Performance
 
 - **Build Size**: ~330 KB (gzipped: ~96 KB)
@@ -250,6 +270,8 @@ npm run preview
 ## 🔒 Security
 
 - **Zero Vulnerabilities**: Passed npm audit with 0 vulnerabilities
+- **Automated Security Scanning**: CodeQL analysis runs on all PRs and pushes to main
+- **Dependency Management**: Dependabot weekly updates for npm packages
 - **Secure API Keys**: Gemini API key protected on backend, never exposed to client
 - **Serverless Architecture**: API calls routed through secure backend functions
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection

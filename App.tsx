@@ -292,7 +292,10 @@ export default function App() {
   };
 
   const handleTacticSelect = async (tactic: TacticMetadata) => {
-    // 1. Use startTransition to avoid blocking UI updates
+    // 1. Immediate UI feedback (urgent)
+    setIsGenerating(true);
+    
+    // 2. Defer non-critical state updates using startTransition
     startTransition(() => {
       setSelectedTactic(tactic);
       setCurrentStep('vectors');
@@ -300,10 +303,9 @@ export default function App() {
       setSelectedPayloadIndices([]);
       setResult(null);
       setError(null);
-      setIsGenerating(true);
     });
 
-    // 2. Start dynamic generation of Payloads in background (non-blocking)
+    // 3. Start dynamic generation of Payloads in background (non-blocking)
     try {
       const details = await gemini.generateTacticDetails(tactic);
       // Use startTransition for non-urgent state update
@@ -422,8 +424,8 @@ export default function App() {
         setCampaignName('');
         setCampaignDescription('');
         setNotification(`Campaign "${campaign.name}" saved`);
+        setTimeout(() => setNotification(null), 2000);
       });
-      setTimeout(() => setNotification(null), 2000);
     } catch (error) {
       setNotification("Failed to save campaign");
       setTimeout(() => setNotification(null), 2000);
@@ -459,14 +461,14 @@ export default function App() {
         setSelectedPayloadIndices(campaign.selected_payload_indices);
         setShowCampaignModal(false);
         setNotification(`Campaign "${campaign.name}" loaded`);
+        setTimeout(() => setNotification(null), 2000);
       });
-      setTimeout(() => setNotification(null), 2000);
     } catch (err) {
       console.error('Failed to load campaign:', err);
       startTransition(() => {
         setNotification(`Failed to load campaign "${campaign.name}"`);
+        setTimeout(() => setNotification(null), 2000);
       });
-      setTimeout(() => setNotification(null), 2000);
     }
   };
 
@@ -486,8 +488,8 @@ export default function App() {
         
         setCampaigns(CampaignManager.getAllCampaigns());
         setNotification(`Campaign "${name}" deleted`);
+        setTimeout(() => setNotification(null), 2000);
       });
-      setTimeout(() => setNotification(null), 2000);
     }
   };
 

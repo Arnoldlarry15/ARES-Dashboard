@@ -270,7 +270,7 @@ describe('Storage Utility', () => {
 ```typescript
 // tests/integration/api/generate-tactic.test.ts
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
 const server = setupServer(

@@ -22,15 +22,16 @@ This guide provides instructions for deploying ARES Dashboard using Docker. Dock
 ### Option 1: Docker Run (Simple)
 
 ```bash
-# Pull the image (when available)
-docker pull ghcr.io/arnoldlarry15/ares-dashboard:latest
+# Build the image locally (see "Building from Source" below)
+# or pull from GitHub Container Registry once published
+docker build -t ares-dashboard:latest .
 
 # Run the container
 docker run -d \
   --name ares-dashboard \
   -p 3000:3000 \
   -e GEMINI_API_KEY=your_api_key_here \
-  ghcr.io/arnoldlarry15/ares-dashboard:latest
+  ares-dashboard:latest
 ```
 
 Access at: http://localhost:3000
@@ -44,7 +45,7 @@ version: '3.8'
 
 services:
   ares-dashboard:
-    image: ghcr.io/arnoldlarry15/ares-dashboard:latest
+    image: ares-dashboard:latest  # Use locally built image
     container_name: ares-dashboard
     ports:
       - "3000:3000"

@@ -36,7 +36,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production && \
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Copy built application from builder
@@ -44,8 +44,8 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/api ./api
 COPY --chown=nodejs:nodejs vercel.json ./
 
-# Install serve for serving static files
-RUN npm install -g serve
+# Install a specific version of serve for static file serving
+RUN npm install serve@14.2.1
 
 # Switch to non-root user
 USER nodejs
@@ -66,4 +66,4 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
 # Serve static files on port 3000
-CMD ["serve", "-s", "dist", "-l", "3000"]
+CMD ["npx", "serve", "-s", "dist", "-l", "3000"]

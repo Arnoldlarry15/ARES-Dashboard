@@ -99,11 +99,12 @@ ARES Dashboard is an AI red-teaming and governance platform that helps organizat
 - **Severity**: High
 - **Description**: User with lower privileges gains unauthorized higher-level access
 - **Attack Vector**:
-  - Exploit frontend validation bypass
+  - Bypass frontend validation
   - Direct API calls with elevated role claims
 - **Impact**: Unauthorized administrative actions, data access
 - **Mitigation**:
   - Server-side role validation on every API endpoint
+  - Backend API must ensure user roles are verified on every request
   - Audit logging of all privilege checks
   - Principle of least privilege enforcement
   - Regular access reviews

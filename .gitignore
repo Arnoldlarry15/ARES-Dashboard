@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+
 # Test artifacts
 coverage
 .nyc_output

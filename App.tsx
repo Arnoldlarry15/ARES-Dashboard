@@ -118,10 +118,16 @@ export default function App() {
 
   // Check for existing session on mount
   useEffect(() => {
-    const session = AuthService.getSession();
-    if (session && session.user) {
-      setCurrentUser(session.user);
-      setIsAuthenticated(true);
+    try {
+      const session = AuthService.getSession();
+      if (session && session.user) {
+        setCurrentUser(session.user);
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      console.error('Failed to restore session:', err);
+      // Clear corrupted session
+      AuthService.clearSession();
     }
   }, []);
 

@@ -2,7 +2,9 @@
 
 **A**I **R**ed-teaming & **E**valuation **S**ystem
 
-An enterprise-grade interactive red-teaming dashboard for AI security professionals. Generate structured, schema-compliant JSON payloads and attack strategies based on OWASP Top 10 for LLMs, MITRE ATLAS, and MITRE ATT&CK frameworks with full team collaboration support.
+> **ARES is an AI red-teaming and governance dashboard designed to help organizations safely evaluate, document, and mitigate LLM risks across the OWASP LLM Top 10 and MITRE ATLAS frameworks.**
+
+An enterprise-grade platform for AI security professionals to conduct structured security assessments, generate compliant attack manifests, and maintain comprehensive audit trails for regulatory compliance.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Arnoldlarry15/ARES-Dashboard)
 
@@ -278,6 +280,15 @@ All PRs must pass:
 - **Authentication**: Demo RBAC system (integrate with your auth provider)
 - **Audit Logging**: Comprehensive activity tracking for compliance
 - **Session Management**: 24-hour JWT-style tokens with device tracking
+- **Threat Model**: Comprehensive threat analysis and mitigation strategies
+- **Security Policy**: Documented vulnerability reporting and response procedures
+
+**📋 Enterprise Trust Artifacts:**
+- [SECURITY.md](SECURITY.md) - Security policy and vulnerability reporting
+- [THREAT_MODEL.md](THREAT_MODEL.md) - Comprehensive threat modeling and risk assessment
+- [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical guidelines and responsible use policies
+- [DATA_HANDLING.md](DATA_HANDLING.md) - Data lifecycle, privacy, and compliance
+- [ROADMAP.md](ROADMAP.md) - Product roadmap and future enhancements
 
 ### API Security Architecture
 
@@ -315,12 +326,41 @@ Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTIN
 
 - **Issues**: Open an issue on GitHub
 - **Deployment Help**: See [DEPLOY.md](DEPLOY.md) or [QUICK_START.md](QUICK_START.md)
+- **Docker Deployment**: See [DOCKER.md](DOCKER.md)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Code of Conduct**: See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **Security Policy**: See [SECURITY.md](SECURITY.md)
+- **Testing Guidelines**: See [TESTING.md](TESTING.md)
+- **Changelog**: See [CHANGELOG.md](CHANGELOG.md)
+
+## 📋 Compliance & Governance
+
+ARES supports enterprise compliance requirements:
+
+- **SOC 2 Type II**: Comprehensive audit logging and access controls
+- **ISO 27001**: Information security management alignment
+- **GDPR**: Data privacy and user rights (with proper configuration)
+- **OWASP**: Aligned with OWASP Top 10 and OWASP LLM Top 10
+- **MITRE**: Full ATLAS and ATT&CK framework coverage
+
+**Documentation:**
+- [DATA_HANDLING.md](DATA_HANDLING.md) - Data lifecycle and privacy policies
+- [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical use guidelines
+- [THREAT_MODEL.md](THREAT_MODEL.md) - Security threat analysis
+- [ROADMAP.md](ROADMAP.md) - Product roadmap and future plans
+
 
 ---
 
 **Built with ❤️ for the AI Security Community**
 
-*ARES Dashboard v1.4.1 - Production Ready*
+*ARES Dashboard v0.9.0 - Enterprise Trust & Governance Release*
+
+**Enterprise-Ready Features:**
+- 📋 Comprehensive security and compliance documentation
+- 🔒 Threat modeling and security controls
+- 📊 Audit logging for SOC 2 / ISO 27001 compliance  
+- 🛡️ OAuth integration path for production deployments
+- 📦 Docker and self-hosted deployment support
+- 🔍 Extensive testing framework and guidelines

@@ -17,6 +17,8 @@ export default defineConfig({
         '**/*.config.ts',
         '**/*.d.ts',
         'dist/',
+        // API endpoints are tested via integration tests
+        // For production: add unit tests for middleware functions
         'api/',
       ],
       lines: 70,

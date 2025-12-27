@@ -98,7 +98,9 @@ export function validateRequest(rules: ValidationRule[]) {
 }
 
 // Sanitize input to prevent XSS
-export function sanitizeInput(input: string): string {
+export function sanitizeInput(input: string): string;
+export function sanitizeInput(input: any): any;
+export function sanitizeInput(input: any): any {
   if (typeof input !== 'string') return input;
   
   return input

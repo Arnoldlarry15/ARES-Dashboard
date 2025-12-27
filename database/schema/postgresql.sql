@@ -68,7 +68,7 @@ CREATE TABLE oauth_providers (
 CREATE TABLE campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
   framework VARCHAR(100) NOT NULL,

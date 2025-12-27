@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Simple in-memory rate limiter (for serverless, consider using Redis in production)
+// NOTE: This in-memory implementation is suitable for single-instance deployments.
+// For production serverless with multiple instances, use Redis:
+//   - npm install @upstash/redis
+//   - const redis = new Redis({ url: process.env.REDIS_URL, token: process.env.REDIS_TOKEN })
+//   - Store rate limit data in Redis instead of local memory
 interface RateLimitStore {
   [key: string]: {
     count: number;

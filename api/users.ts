@@ -2,6 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { UserRepository } from '../repositories/userRepository';
 import { AuditLogRepository } from '../repositories/auditLogRepository';
+// Security middleware is in the existing codebase at api/middleware/security.ts
 import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
 
 // GET /api/users - Get all users or single user by email

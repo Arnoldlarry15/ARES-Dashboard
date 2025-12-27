@@ -391,7 +391,7 @@
 - **Documentation**: Help improve our docs
 - **Testing**: Write tests and report bugs
 - **Design**: Contribute to UX/UI improvements
-- See [CONTRIBUTING.md](CONTRIBUTING.md) for details
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) for details
 
 ### For Partners
 - **Integrations**: Build integrations with ARES

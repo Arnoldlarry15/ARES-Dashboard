@@ -90,7 +90,7 @@ Please provide as much information as possible:
 - Session management issues
 
 **Out of Scope:**
-- Vulnerabilities in demo/mock mode (clearly labeled as not for production)
+- Limitations in local development mode (clearly labeled as requiring OAuth for production)
 - Social engineering attacks
 - Physical attacks
 - DoS attacks requiring significant resources
@@ -114,7 +114,7 @@ Please provide as much information as possible:
 1. **No API Keys in Code**: Never commit API keys or secrets to version control
 2. **Use .env.local**: Store development secrets in `.env.local` (gitignored)
 3. **Review Dependencies**: Regularly audit dependencies with `npm audit`
-4. **Follow Guidelines**: Adhere to secure coding practices in CONTRIBUTING.md
+4. **Follow Guidelines**: Adhere to secure coding practices in [CONTRIBUTING.md](./CONTRIBUTING.md)
 5. **Test Thoroughly**: Verify security controls before deploying changes
 
 ### For Red Team Operations
@@ -198,11 +198,11 @@ ARES is designed to support compliance with:
 
 ## Additional Resources
 
-- **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md) for technical design
+- **Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for technical design
 - **Data Handling**: See [DATA_HANDLING.md](DATA_HANDLING.md) for data policies
 - **Responsible Use**: See [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) for ethical guidelines
 - **Threat Model**: See [THREAT_MODEL.md](THREAT_MODEL.md) for risk assessment
-- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for secure development practices
+- **Contributing**: See [CONTRIBUTING.md](./CONTRIBUTING.md) for secure development practices
 
 ## Contact
 

@@ -18,7 +18,7 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
   ];
 
   const handleLogin = (role: UserRole) => {
-    AuthService.initDemoSession(role);
+    AuthService.initLocalSession(role);
     onLogin();
   };
 
@@ -46,11 +46,11 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
             </div>
           </div>
 
-          {/* Demo mode notice */}
+          {/* Local authentication notice */}
           <div className="mb-6 p-4 glass rounded-xl border border-teal-500/30">
             <div className="flex items-center gap-2 mb-2">
               <Lock className="w-4 h-4 text-teal-400" />
-              <span className="text-sm font-bold text-teal-400">Demo Mode</span>
+              <span className="text-sm font-bold text-teal-400">Local Authentication</span>
             </div>
             <p className="text-xs text-slate-400">
               Select a role to explore ARES Dashboard with role-based access control and audit logging.
@@ -110,7 +110,7 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
 
           {/* Footer notice */}
           <p className="text-center text-xs text-slate-500 mt-6">
-            Demo session expires in 24 hours • All actions are logged for audit
+            Session expires in 24 hours • All actions are logged for audit
           </p>
         </div>
       </div>

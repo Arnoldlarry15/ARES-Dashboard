@@ -15,7 +15,7 @@ The AI calls have been successfully moved from the frontend to a secure backend 
   - Handles all AI generation requests
   - Validates incoming requests
   - Securely accesses `GEMINI_API_KEY` from environment
-  - Automatic fallback to mock data if API unavailable
+  - Automatic fallback to static data if API unavailable
   - Proper error handling
 
 ### 2. Updated Frontend
@@ -23,7 +23,7 @@ The AI calls have been successfully moved from the frontend to a secure backend 
 - **Changes**:
   - Removed direct Gemini API initialization
   - Now makes fetch calls to `/api/generate-tactic`
-  - Maintains mock data fallback for resilience
+  - Maintains static data fallback for resilience
 
 ### 3. Configuration Updates
 - **`vercel.json`**: Added API routes and function configuration
@@ -100,7 +100,7 @@ See **`BACKEND_MIGRATION.md`** for complete step-by-step guide.
 
 1. **Security**: API key never exposed to clients
 2. **Scalability**: Serverless auto-scales with traffic
-3. **Reliability**: Automatic fallback to mock data
+3. **Reliability**: Automatic fallback to static data
 4. **Performance**: Global edge deployment via Vercel
 5. **Maintainability**: Clean separation of concerns
 6. **Cost-effective**: Pay only for actual usage
@@ -173,7 +173,7 @@ Your migration is successful when:
 - [x] Code changes committed and pushed
 - [ ] Environment variable updated in Vercel (`GEMINI_API_KEY`)
 - [ ] Application redeployed
-- [ ] Tactic generation works (or shows mock data)
+- [ ] Tactic generation works (or shows static fallback data)
 - [ ] No console errors in browser
 - [ ] Network tab shows calls to `/api/generate-tactic`
 

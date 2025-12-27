@@ -7,7 +7,7 @@ This document describes how ARES Dashboard handles, stores, processes, and prote
 ## Executive Summary
 
 **Key Points:**
-- ARES demo mode stores data **only in browser localStorage** (client-side)
+- ARES stores data **only in browser localStorage** for local development/testing (client-side)
 - **No server-side data persistence** in default configuration
 - API keys and secrets stored **only in secure backend** environment variables
 - Production deployments should use **backend database** with encryption

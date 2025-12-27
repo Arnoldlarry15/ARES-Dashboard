@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved security documentation structure
 
 ### Security
-- Documented known security considerations in demo mode
+- Documented known security considerations for local development
 - Established security scanning and monitoring practices
 - CodeQL automated security analysis
 - Dependabot automated dependency updates
@@ -219,7 +219,7 @@ SESSION_TIMEOUT_HOURS=24
 
 ### Future Breaking Changes (v1.0.0)
 - Backend database will become required for production deployments
-- OAuth authentication will replace demo mode for production
+- OAuth authentication will replace local auth for production
 - LocalStorage-only mode will be deprecated for production use
 
 ## Deprecation Notices
@@ -228,14 +228,14 @@ SESSION_TIMEOUT_HOURS=24
 - None
 
 ### Planned Deprecations (v1.0.0)
-- Demo mode authentication for production deployments (use OAuth instead)
+- Local authentication for development (use OAuth for production deployments)
 - LocalStorage-only audit logs for compliance requirements (use backend instead)
 
 ## Security Advisories
 
 ### v0.9.0
 - No known vulnerabilities
-- Demo mode limitations documented (frontend-only auth not suitable for production)
+- Local authentication limitations documented (frontend-only auth not suitable for production)
 - All dependencies audited with zero vulnerabilities
 
 ## Previous Security Advisories
@@ -258,7 +258,7 @@ See [ROADMAP.md](ROADMAP.md) for complete roadmap.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute to ARES Dashboard.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to contribute to ARES Dashboard.
 
 ## Links
 

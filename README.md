@@ -49,7 +49,7 @@ An enterprise-grade platform for AI security professionals to conduct structured
 
 **Important**: The API key is now secured in the backend. Use `GEMINI_API_KEY` (not `VITE_GEMINI_API_KEY`).
 
-For detailed deployment instructions, see [DEPLOY.md](DEPLOY.md) or [QUICK_START.md](QUICK_START.md)
+For detailed deployment instructions, see [DEPLOY.md](docs/DEPLOY.md) or [QUICK_START.md](docs/QUICK_START.md)
 
 ### Local Development
 
@@ -81,7 +81,7 @@ npm install
 
 4. Start the development server:
 ```bash
-# Without API key (uses mock data)
+# Without API key (uses static fallback data)
 npm run dev
 
 # With API key (requires Vercel CLI)
@@ -107,14 +107,14 @@ vercel dev
 
 ### Operating Modes
 
-#### Mock Mode (No API Key)
-Works perfectly without an API key using realistic mock data:
+#### Without API Key (Fallback Mode)
+Works fully without an API key using built-in static data:
 - All frameworks and tactics available
 - Pre-configured attack vectors and payloads
 - Full campaign management and team features
-- Ideal for testing and demonstration
+- Ideal for testing and evaluation
 
-#### AI Mode (With API Key)
+#### With API Key (AI-Enhanced Mode)
 Enhanced with Google Gemini via secure backend API:
 - Dynamic, context-aware payload generation
 - More diverse and sophisticated attack examples
@@ -189,12 +189,13 @@ npm run preview
 ├── index.tsx                   # Application entry point
 ├── index.html                  # HTML template
 ├── vercel.json                 # Vercel configuration
-├── CONTRIBUTING.md             # Contribution guidelines
-├── CODE_OF_CONDUCT.md          # Community standards
-├── ARCHITECTURE.md             # Technical architecture overview
-├── DEPLOY.md                   # Deployment guide
-├── QUICK_START.md              # Quick deployment reference
-├── BACKEND_MIGRATION.md        # Backend migration guide
+├── docs/                       # Documentation
+│   ├── CONTRIBUTING.md         # Contribution guidelines
+│   ├── CODE_OF_CONDUCT.md      # Community standards
+│   ├── ARCHITECTURE.md         # Technical architecture overview
+│   ├── DEPLOY.md               # Deployment guide
+│   ├── QUICK_START.md          # Quick deployment reference
+│   └── BACKEND_MIGRATION.md    # Backend migration guide
 └── package.json                # Dependencies and scripts
 ```
 
@@ -324,7 +325,7 @@ All PRs must pass:
 - **Secure API Keys**: Gemini API key protected on backend, never exposed to client
 - **Serverless Architecture**: API calls routed through secure backend functions
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
-- **Authentication**: Demo RBAC system (integrate with your auth provider)
+- **Authentication**: Enterprise RBAC system (integrate with your auth provider in production)
 - **Audit Logging**: Comprehensive activity tracking for compliance
 - **Session Management**: 24-hour JWT-style tokens with device tracking
 - **Threat Model**: Comprehensive threat analysis and mitigation strategies
@@ -341,12 +342,12 @@ All PRs must pass:
 - **Audit Trail**: Full compliance logging for SOC 2, ISO 27001, GDPR
 
 **📋 Enterprise Trust Artifacts:**
-- [SECURITY.md](SECURITY.md) - Security policy and vulnerability reporting
-- [THREAT_MODEL.md](THREAT_MODEL.md) - Comprehensive threat modeling and risk assessment
-- [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical guidelines and responsible use policies
-- [DATA_HANDLING.md](DATA_HANDLING.md) - Data lifecycle, privacy, and compliance
-- [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) - Security incident procedures
-- [docs/SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md) - SOC 2 compliance framework
+- [SECURITY.md](docs/SECURITY.md) - Security policy and vulnerability reporting
+- [THREAT_MODEL.md](docs/THREAT_MODEL.md) - Comprehensive threat modeling and risk assessment
+- [RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) - Ethical guidelines and responsible use policies
+- [DATA_HANDLING.md](docs/DATA_HANDLING.md) - Data lifecycle, privacy, and compliance
+- [INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) - Security incident procedures
+- [SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md) - SOC 2 compliance framework
 
 ### API Security Architecture
 
@@ -366,12 +367,12 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting a Pull Request.
+Contributions are welcome! Please read our [Contributing Guidelines](docs/CONTRIBUTING.md) and [Code of Conduct](docs/CODE_OF_CONDUCT.md) before submitting a Pull Request.
 
 **Quick Links:**
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Installation, development setup, PR guidelines, CI expectations
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - Community standards and enforcement
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture and design decisions
+- [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Installation, development setup, PR guidelines, CI expectations
+- [CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md) - Community standards and enforcement
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture and design decisions
 
 ## 🙏 Acknowledgments
 
@@ -383,14 +384,14 @@ Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTIN
 ## 📞 Support & Documentation
 
 - **Issues**: Open an issue on GitHub
-- **Deployment Help**: See [DEPLOY.md](DEPLOY.md) or [QUICK_START.md](QUICK_START.md)
-- **Docker Deployment**: See [DOCKER.md](DOCKER.md)
-- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
-- **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Code of Conduct**: See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- **Security Policy**: See [SECURITY.md](SECURITY.md)
-- **Testing Guidelines**: See [TESTING.md](TESTING.md)
-- **Changelog**: See [CHANGELOG.md](CHANGELOG.md)
+- **Deployment Help**: See [DEPLOY.md](docs/DEPLOY.md) or [QUICK_START.md](docs/QUICK_START.md)
+- **Docker Deployment**: See [DOCKER.md](docs/DOCKER.md)
+- **Contributing**: See [CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- **Architecture**: See [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Code of Conduct**: See [CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md)
+- **Security Policy**: See [SECURITY.md](docs/SECURITY.md)
+- **Testing Guidelines**: See [TESTING.md](docs/TESTING.md)
+- **Changelog**: See [CHANGELOG.md](docs/CHANGELOG.md)
 - **Database Setup**: See [database/DATABASE.md](database/DATABASE.md)
 - **OAuth Integration**: See [services/auth/OAUTH_INTEGRATION.md](services/auth/OAUTH_INTEGRATION.md)
 - **API Documentation**: See [api/openapi.yaml](api/openapi.yaml)
@@ -420,12 +421,12 @@ ARES supports enterprise compliance requirements:
 - ✅ **Developer Docs**: Comprehensive onboarding and guides
 
 **Documentation:**
-- [DATA_HANDLING.md](DATA_HANDLING.md) - Data lifecycle and privacy policies
-- [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical use guidelines
-- [THREAT_MODEL.md](THREAT_MODEL.md) - Security threat analysis
-- [ROADMAP.md](ROADMAP.md) - Product roadmap and future plans
-- [docs/SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md) - SOC 2 compliance framework
-- [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) - Incident handling procedures
+- [DATA_HANDLING.md](docs/DATA_HANDLING.md) - Data lifecycle and privacy policies
+- [RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) - Ethical use guidelines
+- [THREAT_MODEL.md](docs/THREAT_MODEL.md) - Security threat analysis
+- [ROADMAP.md](docs/ROADMAP.md) - Product roadmap and future plans
+- [SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md) - SOC 2 compliance framework
+- [INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) - Incident handling procedures
 
 
 ---

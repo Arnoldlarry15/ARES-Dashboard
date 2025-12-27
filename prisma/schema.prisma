@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Core schema for ARES Dashboard
+// Supports multi-user, durable data, and audit trails
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   // admin, red_team_lead, analyst, viewer
+  orgId     String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  // Relations
+  campaigns      Campaign[]
+  auditLogs      AuditLog[]
+  
+  @@index([email])
+  @@index([orgId])
+  @@map("users")
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Campaign details
+  framework   String
+  tacticId    String
+  tacticName  String
+  
+  // Relations
+  createdBy   String
+  creator     User     @relation(fields: [createdBy], references: [id])
+  
+  // Metadata
+  selectedVectors         String[]  @default([])
+  selectedPayloadIndices  Int[]     @default([])
+  metadata                Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("campaigns")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  
+  // Actor information
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  
+  // Action details
+  action    String   // login, logout, create_campaign, update_campaign, delete_campaign, etc.
+  target    String   // campaign_id, user_id, etc.
+  
+  // Additional context
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  
+  timestamp DateTime @default(now())
+  
+  @@index([actorId])
+  @@index([timestamp])
+  @@index([action])
+  @@map("audit_logs")
+}

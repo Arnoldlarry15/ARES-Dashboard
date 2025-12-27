@@ -1,6 +1,6 @@
 // API endpoint for audit log operations
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { AuditLogRepository } from '../repositories/auditLogRepository';
+import { AuditLogRepository, type AuditLogFilter } from '../repositories/auditLogRepository';
 // Security middleware is in the existing codebase at api/middleware/security.ts
 import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
 
@@ -15,13 +15,13 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
       case 'GET': {
         const { actorId, action, startDate, endDate, skip, take } = req.query;
 
-        const filter: any = {};
-        if (actorId) filter.actorId = actorId;
-        if (action) filter.action = action;
+        const filter: AuditLogFilter = {};
+        if (actorId) filter.actorId = actorId as string;
+        if (action) filter.action = action as string;
         if (startDate) filter.startDate = new Date(startDate as string);
         if (endDate) filter.endDate = new Date(endDate as string);
 
-        const options: any = {};
+        const options: { skip?: number; take?: number } = {};
         if (skip) options.skip = parseInt(skip as string);
         if (take) options.take = parseInt(take as string);
 

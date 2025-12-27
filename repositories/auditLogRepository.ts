@@ -1,11 +1,12 @@
 // AuditLog Repository - Database operations for AuditLog model
 import prisma from '../utils/db';
+import type { Prisma } from '@prisma/client';
 
 export interface CreateAuditLogInput {
   actorId: string;
   action: string;
   target: string;
-  details?: any;
+  details?: Prisma.InputJsonValue;
   ipAddress?: string;
   userAgent?: string;
 }
@@ -37,7 +38,14 @@ export class AuditLogRepository {
 
   // Get audit logs with filters
   static async findMany(filter?: AuditLogFilter, options?: { skip?: number; take?: number }) {
-    const where: any = {};
+    const where: {
+      actorId?: string;
+      action?: string;
+      timestamp?: {
+        gte?: Date;
+        lte?: Date;
+      };
+    } = {};
 
     if (filter?.actorId) {
       where.actorId = filter.actorId;
@@ -106,7 +114,14 @@ export class AuditLogRepository {
 
   // Count audit logs with filters
   static async count(filter?: AuditLogFilter) {
-    const where: any = {};
+    const where: {
+      actorId?: string;
+      action?: string;
+      timestamp?: {
+        gte?: Date;
+        lte?: Date;
+      };
+    } = {};
 
     if (filter?.actorId) {
       where.actorId = filter.actorId;

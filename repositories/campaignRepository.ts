@@ -1,5 +1,6 @@
 // Campaign Repository - Database operations for Campaign model
 import prisma from '../utils/db';
+import type { Prisma } from '@prisma/client';
 
 export interface CreateCampaignInput {
   name: string;
@@ -10,7 +11,7 @@ export interface CreateCampaignInput {
   createdBy: string;
   selectedVectors?: string[];
   selectedPayloadIndices?: number[];
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue;
 }
 
 export interface UpdateCampaignInput {
@@ -21,7 +22,7 @@ export interface UpdateCampaignInput {
   tacticName?: string;
   selectedVectors?: string[];
   selectedPayloadIndices?: number[];
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue;
 }
 
 export class CampaignRepository {
@@ -80,9 +81,20 @@ export class CampaignRepository {
 
   // Update campaign
   static async update(id: string, data: UpdateCampaignInput) {
+    const updateData: Prisma.CampaignUpdateInput = {};
+    
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.framework !== undefined) updateData.framework = data.framework;
+    if (data.tacticId !== undefined) updateData.tacticId = data.tacticId;
+    if (data.tacticName !== undefined) updateData.tacticName = data.tacticName;
+    if (data.selectedVectors !== undefined) updateData.selectedVectors = data.selectedVectors;
+    if (data.selectedPayloadIndices !== undefined) updateData.selectedPayloadIndices = data.selectedPayloadIndices;
+    if (data.metadata !== undefined) updateData.metadata = data.metadata;
+
     return await prisma.campaign.update({
       where: { id },
-      data,
+      data: updateData,
       include: {
         creator: true,
       },

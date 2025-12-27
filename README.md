@@ -19,12 +19,16 @@ An enterprise-grade platform for AI security professionals to conduct structured
 - 🔍 **Search & Filter**: Real-time search across all tactics and frameworks
 
 ### Enterprise Features
-- 🔐 **RBAC Authentication**: 4 user roles (Admin, Red Team Lead, Analyst, Viewer)
+- 🔐 **Enterprise Authentication**: OAuth2/OIDC ready (Auth0, Azure AD, Clerk)
+- 🛡️ **Server-Side RBAC**: Backend enforcement of roles and permissions
+- 🔑 **JWT with Scoped Claims**: Secure token-based authentication
+- 🏢 **SSO Ready**: Enterprise identity provider integration
 - 👥 **Team Workspaces**: Collaborative red team operations with member management
 - 🤝 **Campaign Sharing**: Granular permissions (view, edit, delete, reshare)
 - 📊 **Audit Logging**: Comprehensive activity tracking for compliance (SOC2, ISO 27001, GDPR)
-- 🔒 **Session Management**: JWT-style tokens with 24-hour expiration
+- 🔒 **Session Management**: JWT tokens with automatic refresh
 - 📝 **Activity Feed**: Real-time monitoring of all team actions
+- 🔐 **Multi-Tenant Support**: Organization-based data isolation
 
 ### UX Enhancements
 - 🎨 **Modern UI**: 2026 design aesthetics with glassmorphism effects
@@ -44,10 +48,13 @@ An enterprise-grade platform for AI security professionals to conduct structured
 1. Click the "Deploy" button above
 2. Sign in to Vercel (free account)
 3. Configure your project name
-4. (Optional) Add `GEMINI_API_KEY` environment variable for AI-powered payloads
+4. (Optional) Add environment variables:
+   - `GEMINI_API_KEY` - For AI-powered payloads
+   - `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` - For enterprise authentication (see [Authentication Guide](docs/AUTHENTICATION.md))
+   - `JWT_SECRET`, `JWT_REFRESH_SECRET` - For JWT token signing
 5. Click "Deploy"
 
-**Important**: The API key is now secured in the backend. Use `GEMINI_API_KEY` (not `VITE_GEMINI_API_KEY`).
+**Important**: Backend API keys are secured server-side and never exposed to the frontend.
 
 For detailed deployment instructions, see [DEPLOY.md](docs/DEPLOY.md) or [QUICK_START.md](docs/QUICK_START.md)
 
@@ -70,14 +77,26 @@ cd ARES-Dashboard
 npm install
 ```
 
-3. (Optional) Set up Gemini API key for local development:
+3. (Optional) Set up environment variables for local development:
    - Copy `.env.example` to `.env.local`
-   - Add your API key:
+   - Add configuration:
    ```bash
+   # AI-powered payloads (optional)
    GEMINI_API_KEY=your_actual_api_key_here
+   
+   # Enterprise authentication (optional, for production)
+   AUTH0_DOMAIN=your-tenant.auth0.com
+   AUTH0_CLIENT_ID=your_client_id
+   AUTH0_CLIENT_SECRET=your_client_secret
+   AUTH0_CALLBACK_URL=http://localhost:3000/api/auth/callback/auth0
+   
+   # JWT secrets (required for auth)
+   JWT_SECRET=your_secure_random_secret
+   JWT_REFRESH_SECRET=your_secure_refresh_secret
    ```
-   - Get your API key from: https://aistudio.google.com/apikey
-   - **Note**: For local development with API, use `vercel dev` instead of `npm run dev`
+   - Get Gemini API key from: https://aistudio.google.com/apikey
+   - Get Auth0 credentials from: https://auth0.com (see [Authentication Guide](docs/AUTHENTICATION.md))
+   - **Note**: For local development with backend APIs, use `vercel dev` instead of `npm run dev`
 
 4. Start the development server:
 ```bash
@@ -170,6 +189,18 @@ npm run preview
 ├── types.ts                     # TypeScript type definitions
 ├── api/
 │   ├── generate-tactic.ts      # Serverless API for AI (secure)
+│   ├── protected-example.ts    # Example protected endpoint with RBAC
+│   ├── auth/
+│   │   ├── refresh.ts          # Token refresh endpoint
+│   │   ├── login/
+│   │   │   └── auth0.ts        # Auth0 login initiation
+│   │   └── callback/
+│   │       └── auth0.ts        # Auth0 OAuth callback
+│   ├── middleware/
+│   │   ├── auth.ts             # Authentication & RBAC middleware
+│   │   ├── rateLimit.ts        # Rate limiting
+│   │   ├── validation.ts       # Request validation
+│   │   └── security.ts         # Security headers & CORS
 │   └── tsconfig.json           # API TypeScript config
 ├── components/
 │   ├── AuthLogin.tsx           # Authentication UI
@@ -178,7 +209,10 @@ npm run preview
 ├── services/
 │   ├── geminiService.ts        # AI integration service (calls backend)
 │   ├── authService.ts          # Authentication & RBAC
-│   └── workspaceService.ts     # Team collaboration
+│   ├── workspaceService.ts     # Team collaboration
+│   └── auth/
+│       ├── jwt.ts              # JWT token management
+│       └── OAUTH_INTEGRATION.md # OAuth setup guide
 ├── utils/
 │   ├── storage.ts              # Progress persistence
 │   ├── campaigns.ts            # Campaign management
@@ -193,6 +227,7 @@ npm run preview
 │   ├── CONTRIBUTING.md         # Contribution guidelines
 │   ├── CODE_OF_CONDUCT.md      # Community standards
 │   ├── ARCHITECTURE.md         # Technical architecture overview
+│   ├── AUTHENTICATION.md       # Enterprise authentication guide (NEW)
 │   ├── DEPLOY.md               # Deployment guide
 │   ├── QUICK_START.md          # Quick deployment reference
 │   └── BACKEND_MIGRATION.md    # Backend migration guide
@@ -200,6 +235,8 @@ npm run preview
 ```
 
 ## 🎯 User Roles & Permissions
+
+ARES supports four enterprise roles with server-side RBAC enforcement:
 
 | Feature | Admin | Red Team Lead | Analyst | Viewer |
 |---------|-------|---------------|---------|--------|
@@ -212,6 +249,10 @@ npm run preview
 | Invite Members | ✅ | ✅ | ❌ | ❌ |
 | View Audit Logs | ✅ | ✅ | ❌ | ❌ |
 | Export Audit Logs | ✅ | ❌ | ❌ | ❌ |
+
+**Note**: Role-based access is enforced on both the frontend and backend for enterprise security.
+
+See [Authentication Guide](docs/AUTHENTICATION.md) for OAuth integration and advanced permission management.
 
 ## Security Note
 
@@ -322,7 +363,10 @@ All PRs must pass:
 - **Zero Vulnerabilities**: Passed npm audit with 0 vulnerabilities
 - **Automated Security Scanning**: CodeQL analysis runs on all PRs and pushes to main
 - **Dependency Management**: Dependabot weekly updates for npm packages
-- **Secure API Keys**: Gemini API key protected on backend, never exposed to client
+- **Enterprise Authentication**: OAuth2/OIDC ready with Auth0, Azure AD, or Clerk
+- **Server-Side RBAC**: Backend enforcement of roles and permissions
+- **JWT Security**: Signed tokens with automatic expiration and refresh
+- **Secure API Keys**: All secrets protected on backend, never exposed to client
 - **Serverless Architecture**: API calls routed through secure backend functions
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
 - **Authentication**: Enterprise RBAC system (integrate with your auth provider in production)
@@ -342,6 +386,7 @@ All PRs must pass:
 - **Audit Trail**: Full compliance logging for SOC 2, ISO 27001, GDPR
 
 **📋 Enterprise Trust Artifacts:**
+- [AUTHENTICATION.md](docs/AUTHENTICATION.md) - **NEW**: Enterprise authentication & OAuth guide
 - [SECURITY.md](docs/SECURITY.md) - Security policy and vulnerability reporting
 - [THREAT_MODEL.md](docs/THREAT_MODEL.md) - Comprehensive threat modeling and risk assessment
 - [RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) - Ethical guidelines and responsible use policies
@@ -352,14 +397,41 @@ All PRs must pass:
 ### API Security Architecture
 
 ```
-Browser (Frontend)
-    ↓ POST /api/generate-tactic
-Vercel Serverless Function (Backend)
-    ↓ Uses GEMINI_API_KEY (secure)
-Gemini API (Google)
+┌─────────────────┐
+│  User Browser   │
+└────────┬────────┘
+         │ 1. Login with Auth0
+         ↓
+┌─────────────────────────┐
+│  Auth0 (Identity)       │
+│  Authenticate user      │
+└────────┬────────────────┘
+         │ 2. Return auth code
+         ↓
+┌──────────────────────────────┐
+│  Backend API (Vercel)        │
+│  - Exchange code for tokens  │
+│  - Generate JWT with roles   │
+│  - Validate all requests     │
+└────────┬─────────────────────┘
+         │ 3. Return JWT
+         ↓
+┌─────────────────┐
+│  Protected APIs │
+│  - Verify JWT   │
+│  - Check RBAC   │
+│  - Execute      │
+└─────────────────┘
 ```
 
-The API key is stored in Vercel environment variables and accessed only by the backend, ensuring it's never exposed to the browser or visible in the JavaScript bundle.
+All secrets (API keys, JWT secrets, OAuth credentials) are stored in Vercel environment variables and accessed only by the backend, ensuring they're never exposed to the browser.
+
+**Key Features:**
+- 🔐 OAuth2/OIDC authentication flow
+- 🛡️ Server-side role and permission enforcement
+- 🔑 JWT tokens with automatic refresh
+- 🏢 Multi-tenant organization isolation
+- 📊 Complete audit trail for compliance
 
 ## 📄 License
 
@@ -384,6 +456,7 @@ Contributions are welcome! Please read our [Contributing Guidelines](docs/CONTRI
 ## 📞 Support & Documentation
 
 - **Issues**: Open an issue on GitHub
+- **Authentication Setup**: See [AUTHENTICATION.md](docs/AUTHENTICATION.md) - **NEW Enterprise Auth Guide**
 - **Deployment Help**: See [DEPLOY.md](docs/DEPLOY.md) or [QUICK_START.md](docs/QUICK_START.md)
 - **Docker Deployment**: See [DOCKER.md](docs/DOCKER.md)
 - **Contributing**: See [CONTRIBUTING.md](docs/CONTRIBUTING.md)

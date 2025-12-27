@@ -2,6 +2,7 @@
 
 import { Organization, WorkspaceMember, CampaignShare, TeamActivity } from '../types/workspace';
 import { AuthService } from './authService';
+import { EmailService } from './emailService';
 import { UserRole } from '../types/auth';
 
 const WORKSPACE_KEY = 'ares_workspace';
@@ -71,7 +72,7 @@ export class WorkspaceService {
   }
 
   // Add member to workspace (invite)
-  static inviteMember(email: string, role: UserRole): WorkspaceMember {
+  static async inviteMember(email: string, role: UserRole): Promise<WorkspaceMember> {
     const currentUser = AuthService.getCurrentUser();
     if (!currentUser) throw new Error('Not authenticated');
 
@@ -94,6 +95,23 @@ export class WorkspaceService {
 
     members.push(newMember);
     localStorage.setItem(WORKSPACE_MEMBERS_KEY, JSON.stringify(members));
+
+    // Send invite email
+    try {
+      const emailSent = await EmailService.sendInvite({
+        to: email,
+        role,
+        invitedBy: currentUser.name,
+        inviteLink: window.location.origin + '/accept-invite'
+      });
+      
+      if (!emailSent) {
+        console.warn('Failed to send invite email to', email);
+      }
+    } catch (err) {
+      console.error('Error sending invite email:', err);
+      // Don't throw - member is still added even if email fails
+    }
 
     // Log activity
     this.logActivity({

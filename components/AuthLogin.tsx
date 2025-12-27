@@ -41,7 +41,7 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
               <img 
                 src="/logo.jpg" 
                 alt="ARES Dashboard" 
-                className="h-32 w-auto object-contain"
+                className="h-64 w-auto object-contain"
               />
             </div>
           </div>

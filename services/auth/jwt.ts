@@ -20,8 +20,13 @@ export function generateTokens(payload: TokenPayload): { accessToken: string; re
   // This is a placeholder - actual implementation requires jsonwebtoken package
   // which will be installed when this feature is deployed
   
-  const jwtSecret = process.env.JWT_SECRET || 'default_dev_secret_change_in_production';
-  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || 'default_dev_refresh_secret_change_in_production';
+  const jwtSecret = process.env.JWT_SECRET;
+  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+  
+  // Security: Fail if JWT secrets are not configured
+  if (!jwtSecret || !jwtRefreshSecret) {
+    throw new Error('JWT_SECRET and JWT_REFRESH_SECRET environment variables must be configured for authentication');
+  }
   
   // In a real implementation with jsonwebtoken:
   // const jwt = require('jsonwebtoken');
@@ -51,7 +56,11 @@ export function generateTokens(payload: TokenPayload): { accessToken: string; re
  */
 export function verifyAccessToken(token: string): TokenPayload | null {
   try {
-    const jwtSecret = process.env.JWT_SECRET || 'default_dev_secret_change_in_production';
+    const jwtSecret = process.env.JWT_SECRET;
+    
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET not configured');
+    }
     
     // In a real implementation with jsonwebtoken:
     // const jwt = require('jsonwebtoken');
@@ -66,7 +75,7 @@ export function verifyAccessToken(token: string): TokenPayload | null {
     
     return decoded as TokenPayload;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    // Don't log token verification errors to avoid leaking information
     return null;
   }
 }
@@ -77,7 +86,11 @@ export function verifyAccessToken(token: string): TokenPayload | null {
  */
 export function verifyRefreshToken(token: string): TokenPayload | null {
   try {
-    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || 'default_dev_refresh_secret_change_in_production';
+    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+    
+    if (!jwtRefreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET not configured');
+    }
     
     // In a real implementation with jsonwebtoken:
     // const jwt = require('jsonwebtoken');
@@ -96,7 +109,7 @@ export function verifyRefreshToken(token: string): TokenPayload | null {
     
     return decoded as TokenPayload;
   } catch (error) {
-    console.error('Refresh token verification failed:', error);
+    // Don't log token verification errors to avoid leaking information
     return null;
   }
 }

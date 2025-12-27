@@ -319,25 +319,48 @@ Common permission patterns:
 
 ### Token Storage
 
-**Frontend**:
+**Recommended: Secure HttpOnly Cookies**
+
+Tokens are automatically set as secure HttpOnly cookies by the OAuth callback endpoint:
+
 ```typescript
-// Store tokens securely
-localStorage.setItem('access_token', accessToken);
-localStorage.setItem('refresh_token', refreshToken);
+// Tokens are stored in secure cookies (set by backend)
+// - HttpOnly: Not accessible via JavaScript
+// - Secure: Only sent over HTTPS
+// - SameSite=Strict: CSRF protection
+
+// Frontend doesn't need to handle tokens manually
+// Cookies are automatically sent with requests
+fetch('/api/protected', {
+  credentials: 'include' // Include cookies in request
+});
+```
+
+**Alternative: Authorization Header (for SPAs)**
+
+If using Authorization header pattern:
+
+```typescript
+// Extract token from cookie (if accessible) or secure storage
+const token = getCookieValue('access_token');
 
 // Include in API requests
 fetch('/api/protected', {
   headers: {
-    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    'Authorization': `Bearer ${token}`
   }
 });
 ```
 
-**Never**:
-- ❌ Store tokens in cookies without `HttpOnly` flag
-- ❌ Send tokens in URL query parameters
-- ❌ Log tokens to console or analytics
-- ❌ Store sensitive data in JWT payload
+**Security Guidelines**:
+- ✅ Use HttpOnly cookies for token storage (default in our implementation)
+- ✅ Enable Secure flag for HTTPS-only transmission
+- ✅ Set SameSite=Strict for CSRF protection
+- ✅ Use short expiration times (1 hour for access tokens)
+- ❌ Never store tokens in localStorage (vulnerable to XSS)
+- ❌ Never send tokens in URL query parameters
+- ❌ Never log tokens to console or analytics
+- ❌ Never store sensitive data in JWT payload
 
 ### Token Lifecycle
 

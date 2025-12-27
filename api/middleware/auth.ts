@@ -10,12 +10,30 @@ export interface AuthenticatedRequest extends VercelRequest {
 }
 
 /**
+ * Extract token from cookie
+ */
+function extractTokenFromCookie(cookieHeader?: string, cookieName = 'access_token'): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+  
+  const match = cookieHeader.match(new RegExp(`${cookieName}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
+/**
  * Middleware to require authentication
  * Validates JWT token and attaches user to request
+ * Supports both Authorization header and HttpOnly cookies
  */
 export function requireAuth(req: AuthenticatedRequest, res: VercelResponse, next: () => void) {
-  const authHeader = req.headers.authorization as string | undefined;
-  const token = extractTokenFromHeader(authHeader);
+  // Try Authorization header first
+  let token = extractTokenFromHeader(req.headers.authorization as string | undefined);
+  
+  // Fall back to cookie if no header
+  if (!token) {
+    token = extractTokenFromCookie(req.headers.cookie as string | undefined);
+  }
   
   if (!token) {
     return res.status(401).json({ 
@@ -29,7 +47,7 @@ export function requireAuth(req: AuthenticatedRequest, res: VercelResponse, next
   if (!decoded) {
     return res.status(401).json({ 
       error: 'Unauthorized',
-      message: 'Invalid or expired token'
+      message: 'Authentication failed'
     });
   }
 
@@ -156,10 +174,16 @@ export function requireAnyPermission(permissions: string[]) {
 /**
  * Optional authentication - attaches user if token is present and valid
  * Does not reject request if token is missing or invalid
+ * Supports both Authorization header and HttpOnly cookies
  */
 export function optionalAuth(req: AuthenticatedRequest, res: VercelResponse, next: () => void) {
-  const authHeader = req.headers.authorization as string | undefined;
-  const token = extractTokenFromHeader(authHeader);
+  // Try Authorization header first
+  let token = extractTokenFromHeader(req.headers.authorization as string | undefined);
+  
+  // Fall back to cookie if no header
+  if (!token) {
+    token = extractTokenFromCookie(req.headers.cookie as string | undefined);
+  }
   
   if (token) {
     const decoded = verifyAccessToken(token);

@@ -71,7 +71,7 @@ describe('Auth Middleware', () => {
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
           error: 'Unauthorized',
-          message: 'Invalid or expired token'
+          message: 'Authentication failed'
         })
       );
       expect(nextFn).not.toHaveBeenCalled();

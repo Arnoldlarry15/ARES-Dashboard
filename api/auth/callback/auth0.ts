@@ -98,12 +98,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       permissions: userInfo['https://ares.app/permissions'] || []
     });
 
-    // Clear state cookie
-    res.setHeader('Set-Cookie', 'auth0_state=; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Path=/');
+    // Set tokens as secure HttpOnly cookies
+    const cookieOptions = 'HttpOnly; Secure; SameSite=Strict; Path=/';
+    const accessTokenExpiry = new Date(Date.now() + 3600 * 1000).toUTCString(); // 1 hour
+    const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString(); // 7 days
+    
+    res.setHeader('Set-Cookie', [
+      `access_token=${ourTokens.accessToken}; ${cookieOptions}; Max-Age=3600; Expires=${accessTokenExpiry}`,
+      `refresh_token=${ourTokens.refreshToken}; ${cookieOptions}; Max-Age=604800; Expires=${refreshTokenExpiry}`,
+      'auth0_state=; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Path=/' // Clear state cookie
+    ]);
 
-    // Redirect to app with our JWT token
-    const redirectUrl = `/?token=${ourTokens.accessToken}&refresh_token=${ourTokens.refreshToken}`;
-    res.redirect(302, redirectUrl);
+    // Redirect to app (tokens are now in secure cookies)
+    res.redirect(302, '/?auth=success');
   } catch (error: any) {
     console.error('Auth0 callback error:', error);
     return res.redirect(`/?error=authentication_failed`);

@@ -273,5 +273,7 @@ export default async function handler(
     validateRequest(tacticValidationRules)
   );
 
-  middleware(req, res, () => handleRequest(req, res));
+  middleware(req, res, async () => {
+    await handleRequest(req, res);
+  });
 }

@@ -116,6 +116,21 @@ export default function App() {
     setTheme(ThemeManager.getTheme());
   }, []);
 
+  // Check for existing session on mount
+  useEffect(() => {
+    try {
+      const session = AuthService.getSession();
+      if (session && session.user) {
+        setCurrentUser(session.user);
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      console.error('Failed to restore session:', err);
+      // Clear corrupted session
+      AuthService.clearSession();
+    }
+  }, []);
+
   // Note: Removed auto-authentication on mount to ensure users must explicitly login
   // Users will see the login screen and must select their role to proceed
 

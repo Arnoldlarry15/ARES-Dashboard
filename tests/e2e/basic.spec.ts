@@ -4,9 +4,10 @@ test.describe('Authentication Flow', () => {
   test('should display login screen on first visit', async ({ page }) => {
     await page.goto('/');
     
-    // Should show authentication page
-    await expect(page.locator('text=ARES Dashboard')).toBeVisible();
-    await expect(page.locator('text=Admin').or(page.locator('text=Select'))).toBeVisible();
+    // Should show authentication page with logo
+    await expect(page.locator('img[alt="ARES Dashboard"]')).toBeVisible();
+    // Check for role selection label (unique selector)
+    await expect(page.locator('label:has-text("Select Your Role")')).toBeVisible();
   });
 
   test('should allow user to login with admin role', async ({ page }) => {
@@ -15,37 +16,54 @@ test.describe('Authentication Flow', () => {
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
     
-    // Look for admin button/option
-    const adminButton = page.locator('text=Admin').first();
+    // Look for Administrator role button (exact text match)
+    const adminButton = page.getByRole('button', { name: /Administrator.*Full system/ });
     await expect(adminButton).toBeVisible({ timeout: 10000 });
     
+    // Click the Administrator role to select it
     await adminButton.click();
     
-    // Should be logged in - look for dashboard elements
-    await expect(page.locator('text=OWASP').or(page.locator('text=Framework'))).toBeVisible({ timeout: 5000 });
+    // Click the "Enter Dashboard" button
+    const enterButton = page.getByRole('button', { name: 'Enter Dashboard' });
+    await enterButton.click();
+    
+    // Should be logged in - look for framework tabs (OWASP, MITRE ATLAS, MITRE ATTACK)
+    await expect(page.getByRole('button', { name: 'OWASP' })).toBeVisible({ timeout: 5000 });
   });
 
   test('should persist session across page reloads', async ({ page }) => {
+    // Clear any existing sessions first to ensure clean state
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+    
+    // Now load the page fresh
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     
-    // Login
-    const analystButton = page.locator('text=Analyst').first();
-    if (await analystButton.isVisible({ timeout: 5000 })) {
-      await analystButton.click();
-      await page.waitForTimeout(1000);
-    }
+    // Login with Analyst role - should now be visible since we cleared session
+    const analystButton = page.getByRole('button', { name: /Security Analyst.*Create and execute/ });
+    await expect(analystButton).toBeVisible({ timeout: 5000 });
+    await analystButton.click();
+    
+    // Click Enter Dashboard button
+    const enterButton = page.getByRole('button', { name: 'Enter Dashboard' });
+    await enterButton.click();
+    
+    // Wait for dashboard to load - should see framework tabs
+    await expect(page.getByRole('button', { name: 'OWASP' })).toBeVisible({ timeout: 10000 });
     
     // Reload page
     await page.reload();
     await page.waitForLoadState('networkidle');
     
-    // Should still have access to dashboard (not on login screen)
-    const hasFramework = await page.locator('text=OWASP').or(page.locator('text=Framework')).isVisible({ timeout: 5000 });
-    const hasLoginScreen = await page.locator('text=Select').and(page.locator('text=Role')).isVisible({ timeout: 2000 });
+    // After reload, should still be logged in and see dashboard
+    // Wait a bit for the session to be restored from localStorage
+    await page.waitForTimeout(2000);
     
-    // Either should see dashboard or login persisted
-    expect(hasFramework || !hasLoginScreen).toBe(true);
+    // Verify we're still on the dashboard by checking for framework tabs
+    await expect(page.getByRole('button', { name: 'OWASP' })).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -55,20 +73,23 @@ test.describe('Dashboard Navigation', () => {
     await page.waitForLoadState('networkidle');
     
     // Try to login if on login screen
-    const adminButton = page.locator('text=Admin').first();
+    const adminButton = page.getByRole('button', { name: /Administrator.*Full system/ });
     if (await adminButton.isVisible({ timeout: 3000 })) {
       await adminButton.click();
+      // Click Enter Dashboard button
+      const enterButton = page.getByRole('button', { name: 'Enter Dashboard' });
+      await enterButton.click();
       await page.waitForTimeout(1000);
     }
   });
 
   test('should display framework options', async ({ page }) => {
-    // Check if any framework-related text is visible
-    const hasOWASP = await page.locator('text=OWASP').isVisible({ timeout: 5000 });
-    const hasMITRE = await page.locator('text=MITRE').isVisible({ timeout: 5000 });
-    const hasFramework = await page.locator('text=Framework').isVisible({ timeout: 5000 });
+    // Check if framework tab buttons are visible
+    const hasOWASP = await page.getByRole('button', { name: 'OWASP' }).isVisible({ timeout: 5000 });
+    const hasMITREATLAS = await page.getByRole('button', { name: 'MITRE ATLAS' }).isVisible({ timeout: 5000 });
+    const hasMITREATTACK = await page.getByRole('button', { name: 'MITRE ATTACK' }).isVisible({ timeout: 5000 });
     
-    expect(hasOWASP || hasMITRE || hasFramework).toBe(true);
+    expect(hasOWASP || hasMITREATLAS || hasMITREATTACK).toBe(true);
   });
 
   test('should load without errors', async ({ page }) => {
@@ -89,9 +110,12 @@ test.describe('Basic Functionality', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     
-    const adminButton = page.locator('text=Admin').first();
+    const adminButton = page.getByRole('button', { name: /Administrator.*Full system/ });
     if (await adminButton.isVisible({ timeout: 3000 })) {
       await adminButton.click();
+      // Click Enter Dashboard button
+      const enterButton = page.getByRole('button', { name: 'Enter Dashboard' });
+      await enterButton.click();
       await page.waitForTimeout(1000);
     }
   });

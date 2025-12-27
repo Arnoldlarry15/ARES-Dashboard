@@ -27,7 +27,7 @@ Add these to your Vercel project settings (Settings → Environment Variables):
 
 ### Optional
 - `GEMINI_API_KEY` - Your Google Gemini API key (for AI-powered payload generation)
-  - If not provided, the app will use mock data for testing
+  - If not provided, the app will use static fallback data for testing
   - **Important**: Use `GEMINI_API_KEY` (NOT `VITE_GEMINI_API_KEY`) - the API key is now secured in the backend
 
 ### How to Add Environment Variables in Vercel

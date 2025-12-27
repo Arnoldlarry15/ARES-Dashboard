@@ -13,7 +13,7 @@ describe('AuthService', () => {
       
       expect(session.user.role).toBe(UserRole.ANALYST);
       expect(session.token).toBeDefined();
-      expect(session.token).toContain('demo_token_');
+      expect(session.token).toContain('local_token_');
       expect(session.refresh_token).toBeDefined();
       expect(session.expires_at).toBeDefined();
     });
@@ -31,7 +31,7 @@ describe('AuthService', () => {
     it('should create user with correct email format', () => {
       const session = AuthService.initLocalSession(UserRole.RED_TEAM_LEAD);
       
-      expect(session.user.email).toContain('@demo.ares.local');
+      expect(session.user.email).toContain('@local.ares.app');
       expect(session.user.email).toContain('red_team_lead');
     });
 

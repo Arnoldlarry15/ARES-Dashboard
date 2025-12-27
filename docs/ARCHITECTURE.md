@@ -104,7 +104,7 @@ This document provides a high-level overview of the ARES Dashboard architecture,
 **Error Handling**:
 - 400: Invalid request payload
 - 500: API key missing or service error
-- Returns mock data on failure (graceful degradation)
+- Returns static data on failure (graceful degradation)
 
 ### Frontend Service Layer
 
@@ -225,14 +225,14 @@ Referrer-Policy: strict-origin-when-cross-origin
 ### Local Development
 
 ```bash
-# Frontend only (mock data)
+# Frontend only (static fallback data)
 npm run dev → http://localhost:5173
 
 # Full-stack (with API)
 vercel dev → http://localhost:3000
 ```
 
-- Mock data fallback when API unavailable
+- Static data fallback when API unavailable
 - Hot module replacement (HMR)
 - Fast refresh for React components
 - Source maps enabled

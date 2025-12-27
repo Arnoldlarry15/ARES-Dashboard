@@ -44,10 +44,10 @@ ARES Dashboard is an AI red-teaming and governance platform that helps organizat
 
 ### Data Flow
 
-1. **User Authentication**: Browser → Frontend Auth → LocalStorage (demo mode)
+1. **User Authentication**: Browser → Frontend Auth → LocalStorage (local development)
 2. **Campaign Creation**: Browser → LocalStorage → Export JSON
 3. **AI Payload Generation**: Browser → Serverless API → Gemini API → Browser
-4. **Audit Logging**: Browser → LocalStorage (demo mode)
+4. **Audit Logging**: Browser → LocalStorage (local development)
 
 ## Trust Boundaries
 
@@ -69,7 +69,7 @@ ARES Dashboard is an AI red-teaming and governance platform that helps organizat
 
 #### T1.1: Frontend Auth Bypass (Demo Mode)
 - **Severity**: Medium (Demo), Critical (Production)
-- **Description**: In demo mode, authentication is client-side only and can be bypassed via browser dev tools
+- **Description**: In local development mode, authentication is client-side only and can be bypassed via browser dev tools
 - **Attack Vector**: 
   - Open browser dev tools
   - Modify localStorage to change user role

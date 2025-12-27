@@ -24,7 +24,7 @@ export class WorkspaceService {
         id: 'workspace_' + Date.now(),
         name: 'ARES Red Team',
         slug: 'ares-red-team',
-        owner_id: AuthService.getCurrentUser()?.id || 'demo_owner',
+        owner_id: AuthService.getCurrentUser()?.id || 'default_owner',
         created_at: new Date().toISOString(),
         settings: {
           allow_campaign_sharing: true,

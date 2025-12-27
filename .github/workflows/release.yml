@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Releasing version: $VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          npm run test:integration
+          npm run test:security
+
+      - name: Build
+        run: npm run build
+
+      - name: Create release archives
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          # Create distribution archives
+          cp README.md LICENSE CHANGELOG.md dist/
+          
+          # ZIP archive
+          cd dist && zip -r ../ares-dashboard-${VERSION}.zip . && cd ..
+          
+          # TAR.GZ archive
+          cd dist && tar -czf ../ares-dashboard-${VERSION}.tar.gz . && cd ..
+          
+          # Create checksums
+          sha256sum ares-dashboard-${VERSION}.zip > checksums.txt
+          sha256sum ares-dashboard-${VERSION}.tar.gz >> checksums.txt
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          # Extract changelog section for this version
+          if [ -f CHANGELOG.md ]; then
+            CHANGELOG=$(awk "/## \[${VERSION}\]/,/## \[/{if (/## \[/ && ++n==2) exit; print}" CHANGELOG.md | sed '1d')
+            
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="Release version ${VERSION}"
+            fi
+          else
+            CHANGELOG="Release version ${VERSION}"
+          fi
+          
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Determine if pre-release
+        id: prerelease
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            # ARES Dashboard ${{ steps.get_version.outputs.VERSION }}
+            
+            ## Changes
+            
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            
+            ## Installation
+            
+            ### Quick Deploy
+            
+            [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Arnoldlarry15/ARES-Dashboard)
+            
+            ### Manual Installation
+            
+            ```bash
+            # Download release
+            wget https://github.com/Arnoldlarry15/ARES-Dashboard/releases/download/v${{ steps.get_version.outputs.VERSION }}/ares-dashboard-${{ steps.get_version.outputs.VERSION }}.zip
+            
+            # Extract
+            unzip ares-dashboard-${{ steps.get_version.outputs.VERSION }}.zip
+            
+            # Deploy
+            npm install -g vercel
+            vercel --prod
+            ```
+            
+            ## Verification
+            
+            ```bash
+            # Verify checksums
+            sha256sum -c checksums.txt
+            ```
+            
+            ## Documentation
+            
+            - [README](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/README.md)
+            - [Changelog](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/CHANGELOG.md)
+            - [Architecture](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/ARCHITECTURE.md)
+            
+            ## Support
+            
+            - [Issues](https://github.com/Arnoldlarry15/ARES-Dashboard/issues)
+            - [Discussions](https://github.com/Arnoldlarry15/ARES-Dashboard/discussions)
+          draft: false
+          prerelease: ${{ steps.prerelease.outputs.PRERELEASE }}
+          files: |
+            ares-dashboard-${{ steps.get_version.outputs.VERSION }}.zip
+            ares-dashboard-${{ steps.get_version.outputs.VERSION }}.tar.gz
+            checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Release ${{ steps.get_version.outputs.VERSION }} created successfully!"
+          echo "🔗 https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Release ${{ steps.get_version.outputs.VERSION }} failed!"

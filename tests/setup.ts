@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom';
 import { vi, beforeEach } from 'vitest';
 
+// Set up test environment variables
+process.env.JWT_SECRET = 'test_jwt_secret_for_unit_tests_only';
+process.env.JWT_REFRESH_SECRET = 'test_jwt_refresh_secret_for_unit_tests_only';
+
 // Mock localStorage
 const localStorageMock = (() => {
   let store: Record<string, string> = {};

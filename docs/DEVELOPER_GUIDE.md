@@ -519,8 +519,8 @@ npm run build
 
 ## Next Steps
 
-1. Read [CONTRIBUTING.md](../CONTRIBUTING.md)
-2. Explore [ARCHITECTURE.md](../ARCHITECTURE.md)
+1. Read [CONTRIBUTING.md](./CONTRIBUTING.md)
+2. Explore [ARCHITECTURE.md](./ARCHITECTURE.md)
 3. Review [TESTING.md](../TESTING.md)
 4. Check [ROADMAP.md](../ROADMAP.md)
 

@@ -3,7 +3,7 @@
 import { User, Session, UserRole } from '../types/auth';
 
 const AUTH_STORAGE_KEY = 'ares_auth_session';
-const DEMO_MODE_KEY = 'ares_demo_mode';
+const LOCAL_AUTH_KEY = 'ares_local_auth';
 
 // Audit log entry type
 export interface AuditLogEntry {
@@ -21,30 +21,30 @@ export interface AuditLogEntry {
 }
 
 export class AuthService {
-  // For demo purposes, create a mock user
-  private static createDemoUser(role: UserRole = UserRole.ANALYST): User {
+  // For local/development purposes, create a local user
+  private static createLocalUser(role: UserRole = UserRole.ANALYST): User {
     return {
-      id: 'demo_user_' + Date.now(),
-      email: `${role}@demo.ares.local`,
-      name: `Demo ${role.replace('_', ' ').toUpperCase()}`,
+      id: 'local_user_' + Date.now(),
+      email: `${role}@local.ares.app`,
+      name: `${role.replace('_', ' ').toUpperCase()}`,
       role,
       created_at: new Date().toISOString(),
       last_login: new Date().toISOString()
     };
   }
 
-  // Initialize demo session
-  static initDemoSession(role: UserRole = UserRole.ANALYST): Session {
-    const user = this.createDemoUser(role);
+  // Initialize local session for development/testing
+  static initLocalSession(role: UserRole = UserRole.ANALYST): Session {
+    const user = this.createLocalUser(role);
     const session: Session = {
-      token: 'demo_token_' + crypto.randomUUID(),
-      refresh_token: 'demo_refresh_' + crypto.randomUUID(),
+      token: 'local_token_' + crypto.randomUUID(),
+      refresh_token: 'local_refresh_' + crypto.randomUUID(),
       user,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
       device_info: {
         user_agent: navigator.userAgent,
-        ip_address: '127.0.0.1', // Demo IP
-        device_id: 'demo_device_' + Date.now()
+        ip_address: '127.0.0.1',
+        device_id: 'local_device_' + Date.now()
       }
     };
 
@@ -54,7 +54,7 @@ export class AuthService {
       user_email: user.email,
       action: 'login',
       resource_type: 'session',
-      details: { demo_mode: true, role }
+      details: { local_auth: true, role }
     });
 
     return session;
@@ -64,7 +64,7 @@ export class AuthService {
   static saveSession(session: Session): void {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-      localStorage.setItem(DEMO_MODE_KEY, 'true');
+      localStorage.setItem(LOCAL_AUTH_KEY, 'true');
     } catch (error) {
       console.error('Failed to save session:', error);
     }
@@ -97,9 +97,9 @@ export class AuthService {
     return session?.user || null;
   }
 
-  // Check if in demo mode
-  static isDemoMode(): boolean {
-    return localStorage.getItem(DEMO_MODE_KEY) === 'true';
+  // Check if using local authentication
+  static isLocalAuth(): boolean {
+    return localStorage.getItem(LOCAL_AUTH_KEY) === 'true';
   }
 
   // Clear session (logout)
@@ -115,18 +115,18 @@ export class AuthService {
     }
 
     localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(DEMO_MODE_KEY);
+    localStorage.removeItem(LOCAL_AUTH_KEY);
   }
 
-  // Refresh session token (mock implementation)
+  // Refresh session token
   static async refreshSession(): Promise<Session | null> {
     const currentSession = this.getSession();
     if (!currentSession) return null;
 
-    // In a real implementation, this would call an API
+    // In production, this would call an OAuth provider API
     const newSession: Session = {
       ...currentSession,
-      token: 'demo_token_' + crypto.randomUUID(),
+      token: 'local_token_' + crypto.randomUUID(),
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     };
 

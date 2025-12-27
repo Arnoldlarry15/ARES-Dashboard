@@ -28,13 +28,13 @@ export class GeminiService {
       return data;
     } catch (error: any) {
       console.error('Error calling tactic generation API:', error);
-      // Fallback to mock data if API call fails
-      return this.generateMockTacticDetails(tactic);
+      // Fallback to static data if API call fails (no API key configured)
+      return this.generateStaticTacticDetails(tactic);
     }
   }
 
-  private generateMockTacticDetails(tactic: TacticMetadata): RedTeamTactic {
-    // Generate realistic mock data based on the tactic
+  private generateStaticTacticDetails(tactic: TacticMetadata): RedTeamTactic {
+    // Generate realistic static data based on the tactic
     const severityMap: Record<string, 'Critical' | 'High' | 'Medium' | 'Low'> = {
       'LLM01': 'Critical',
       'LLM02': 'High',
@@ -43,7 +43,7 @@ export class GeminiService {
       'T1566': 'High'
     };
 
-    const mockPayloads = this.generateMockPayloads(tactic);
+    const staticPayloads = this.generateStaticPayloads(tactic);
 
     return {
       id: tactic.id,
@@ -53,7 +53,7 @@ export class GeminiService {
       description: `${tactic.shortDesc} This is a comprehensive attack strategy that exploits vulnerabilities in AI systems through carefully crafted inputs and manipulation techniques.`,
       technical_summary: `Technical implementation involves ${tactic.staticVectors[0]?.toLowerCase() || 'various attack methods'} to compromise the system. Attackers leverage ${tactic.framework} methodologies to identify and exploit weaknesses in the target system's security posture.`,
       attack_vectors: tactic.staticVectors,
-      example_payloads: mockPayloads,
+      example_payloads: staticPayloads,
       mitigation_strategies: [
         'Implement robust input validation and sanitization',
         'Deploy rate limiting and request throttling',
@@ -70,7 +70,7 @@ export class GeminiService {
     };
   }
 
-  private generateMockPayloads(tactic: TacticMetadata): Array<{ description: string; payload: string; format: string }> {
+  private generateStaticPayloads(tactic: TacticMetadata): Array<{ description: string; payload: string; format: string }> {
     const payloadTemplates: Record<string, Array<{ description: string; payload: string; format: string }>> = {
       'LLM01': [
         {

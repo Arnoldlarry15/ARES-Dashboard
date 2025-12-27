@@ -19,7 +19,7 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 
 **Evidence**:
 - GitHub repository with branch protection
-- Required code reviews (see CONTRIBUTING.md)
+- Required code reviews (see [CONTRIBUTING.md](./CONTRIBUTING.md))
 - CI/CD pipeline with automated checks
 
 #### CC2: Communication and Information
@@ -130,7 +130,7 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 6. Deployment
 
 **Evidence**:
-- CONTRIBUTING.md
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
 - CI/CD workflows
 - Test suites
 

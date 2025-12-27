@@ -505,7 +505,7 @@ ARES Dashboard is designed with security as a priority, but like any security to
 - [SECURITY.md](SECURITY.md) - Security policy and vulnerability reporting
 - [DATA_HANDLING.md](DATA_HANDLING.md) - Data lifecycle and privacy
 - [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical use guidelines
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Technical architecture
 
 ---
 

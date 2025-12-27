@@ -258,7 +258,7 @@ See [ROADMAP.md](ROADMAP.md) for complete roadmap.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute to ARES Dashboard.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to contribute to ARES Dashboard.
 
 ## Links
 

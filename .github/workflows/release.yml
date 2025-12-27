@@ -49,7 +49,7 @@ jobs:
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           
           # Create distribution archives
-          cp README.md LICENSE CHANGELOG.md dist/
+          cp README.md LICENSE docs/CHANGELOG.md dist/
           
           # ZIP archive
           cd dist && zip -r ../ares-dashboard-${VERSION}.zip . && cd ..
@@ -67,8 +67,8 @@ jobs:
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           
           # Extract changelog section for this version
-          if [ -f CHANGELOG.md ]; then
-            CHANGELOG=$(awk "/## \[${VERSION}\]/,/## \[/{if (/## \[/ && ++n==2) exit; print}" CHANGELOG.md | sed '1d')
+          if [ -f docs/CHANGELOG.md ]; then
+            CHANGELOG=$(awk "/## \[${VERSION}\]/,/## \[/{if (/## \[/ && ++n==2) exit; print}" docs/CHANGELOG.md | sed '1d')
             
             if [ -z "$CHANGELOG" ]; then
               CHANGELOG="Release version ${VERSION}"
@@ -132,8 +132,8 @@ jobs:
             ## Documentation
             
             - [README](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/README.md)
-            - [Changelog](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/CHANGELOG.md)
-            - [Architecture](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/ARCHITECTURE.md)
+            - [Changelog](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/docs/CHANGELOG.md)
+            - [Architecture](https://github.com/Arnoldlarry15/ARES-Dashboard/blob/main/docs/ARCHITECTURE.md)
             
             ## Support
             

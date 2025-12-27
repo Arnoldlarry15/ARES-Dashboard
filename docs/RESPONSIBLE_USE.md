@@ -391,8 +391,8 @@ ARES responsible use aligns with:
 - [SECURITY.md](SECURITY.md) - Security policy and vulnerability reporting
 - [DATA_HANDLING.md](DATA_HANDLING.md) - Data privacy and retention
 - [THREAT_MODEL.md](THREAT_MODEL.md) - Security threat analysis
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - Community standards
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
+- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) - Community standards
 
 ## Acknowledgments
 

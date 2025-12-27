@@ -7,9 +7,9 @@ describe('AuthService', () => {
     localStorage.clear();
   });
 
-  describe('initDemoSession', () => {
+  describe('initLocalSession', () => {
     it('should create session with specified role', () => {
-      const session = AuthService.initDemoSession(UserRole.ANALYST);
+      const session = AuthService.initLocalSession(UserRole.ANALYST);
       
       expect(session.user.role).toBe(UserRole.ANALYST);
       expect(session.token).toBeDefined();
@@ -19,7 +19,7 @@ describe('AuthService', () => {
     });
 
     it('should set session expiry to 24 hours', () => {
-      const session = AuthService.initDemoSession(UserRole.ADMIN);
+      const session = AuthService.initLocalSession(UserRole.ADMIN);
       const expiryTime = new Date(session.expires_at).getTime();
       const expectedExpiry = Date.now() + 24 * 60 * 60 * 1000;
       
@@ -29,14 +29,14 @@ describe('AuthService', () => {
     });
 
     it('should create user with correct email format', () => {
-      const session = AuthService.initDemoSession(UserRole.RED_TEAM_LEAD);
+      const session = AuthService.initLocalSession(UserRole.RED_TEAM_LEAD);
       
       expect(session.user.email).toContain('@demo.ares.local');
       expect(session.user.email).toContain('red_team_lead');
     });
 
     it('should save session to localStorage', () => {
-      AuthService.initDemoSession(UserRole.VIEWER);
+      AuthService.initLocalSession(UserRole.VIEWER);
       
       const stored = localStorage.getItem('ares_auth_session');
       expect(stored).not.toBeNull();
@@ -53,7 +53,7 @@ describe('AuthService', () => {
     });
 
     it('should return session when valid session exists', () => {
-      const createdSession = AuthService.initDemoSession(UserRole.ANALYST);
+      const createdSession = AuthService.initLocalSession(UserRole.ANALYST);
       
       const retrievedSession = AuthService.getSession();
       expect(retrievedSession).not.toBeNull();
@@ -62,7 +62,7 @@ describe('AuthService', () => {
     });
 
     it('should return null for expired session', () => {
-      const session = AuthService.initDemoSession(UserRole.ANALYST);
+      const session = AuthService.initLocalSession(UserRole.ANALYST);
       const expiredSession = {
         ...session,
         expires_at: new Date(Date.now() - 1000).toISOString()
@@ -74,7 +74,7 @@ describe('AuthService', () => {
     });
 
     it('should clear expired session from storage', () => {
-      const session = AuthService.initDemoSession(UserRole.ANALYST);
+      const session = AuthService.initLocalSession(UserRole.ANALYST);
       const expiredSession = {
         ...session,
         expires_at: new Date(Date.now() - 1000).toISOString()
@@ -95,7 +95,7 @@ describe('AuthService', () => {
     });
 
     it('should return user when valid session exists', () => {
-      AuthService.initDemoSession(UserRole.RED_TEAM_LEAD);
+      AuthService.initLocalSession(UserRole.RED_TEAM_LEAD);
       
       const user = AuthService.getCurrentUser();
       expect(user).not.toBeNull();
@@ -105,7 +105,7 @@ describe('AuthService', () => {
 
   describe('clearSession', () => {
     it('should remove session from localStorage', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
+      AuthService.initLocalSession(UserRole.ADMIN);
       expect(localStorage.getItem('ares_auth_session')).not.toBeNull();
       
       AuthService.clearSession();
@@ -115,7 +115,7 @@ describe('AuthService', () => {
     });
 
     it('should create logout audit log', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
+      AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
       
       const logs = AuthService.getAuditLogs();
@@ -133,7 +133,7 @@ describe('AuthService', () => {
     });
 
     it('should create new token when refreshing valid session', async () => {
-      const original = AuthService.initDemoSession(UserRole.ANALYST);
+      const original = AuthService.initLocalSession(UserRole.ANALYST);
       
       const refreshed = await AuthService.refreshSession();
       
@@ -150,7 +150,7 @@ describe('AuthService', () => {
     });
 
     it('should return audit logs after user actions', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
+      AuthService.initLocalSession(UserRole.ADMIN);
       
       const logs = AuthService.getAuditLogs();
       expect(logs.length).toBeGreaterThan(0);
@@ -158,10 +158,10 @@ describe('AuthService', () => {
     });
 
     it('should filter logs by user_id', () => {
-      const session1 = AuthService.initDemoSession(UserRole.ADMIN);
+      const session1 = AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
       
-      const session2 = AuthService.initDemoSession(UserRole.ANALYST);
+      const session2 = AuthService.initLocalSession(UserRole.ANALYST);
       
       const filtered = AuthService.getAuditLogs({ user_id: session1.user.id });
       
@@ -169,9 +169,9 @@ describe('AuthService', () => {
     });
 
     it('should filter logs by action', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
+      AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
-      AuthService.initDemoSession(UserRole.ANALYST);
+      AuthService.initLocalSession(UserRole.ANALYST);
       
       const loginLogs = AuthService.getAuditLogs({ action: 'login' });
       
@@ -182,7 +182,7 @@ describe('AuthService', () => {
 
   describe('exportAuditLogs', () => {
     it('should export logs as JSON by default', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
+      AuthService.initLocalSession(UserRole.ADMIN);
       
       const exported = AuthService.exportAuditLogs();
       const parsed = JSON.parse(exported);
@@ -192,7 +192,7 @@ describe('AuthService', () => {
     });
 
     it('should export logs as CSV when specified', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
+      AuthService.initLocalSession(UserRole.ADMIN);
       
       const exported = AuthService.exportAuditLogs('csv');
       
@@ -203,14 +203,14 @@ describe('AuthService', () => {
     });
   });
 
-  describe('isDemoMode', () => {
+  describe('isLocalAuth', () => {
     it('should return false when no session exists', () => {
-      expect(AuthService.isDemoMode()).toBe(false);
+      expect(AuthService.isLocalAuth()).toBe(false);
     });
 
     it('should return true after demo session is created', () => {
-      AuthService.initDemoSession(UserRole.ADMIN);
-      expect(AuthService.isDemoMode()).toBe(true);
+      AuthService.initLocalSession(UserRole.ADMIN);
+      expect(AuthService.isLocalAuth()).toBe(true);
     });
   });
 });

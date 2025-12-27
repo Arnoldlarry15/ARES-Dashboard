@@ -1,5 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
+import { rateLimit } from './middleware/rateLimit';
+import { validateRequest } from './middleware/validation';
+import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
 
 // Types
 interface TacticMetadata {
@@ -162,15 +165,19 @@ function generateMockTacticDetails(tactic: TacticMetadata): RedTeamTactic {
   };
 }
 
-export default async function handler(
+// Validation rules for tactic requests
+const tacticValidationRules = [
+  { field: 'id', type: 'string' as const, required: true, minLength: 1, maxLength: 50 },
+  { field: 'name', type: 'string' as const, required: true, minLength: 1, maxLength: 200 },
+  { field: 'framework', type: 'string' as const, required: true, minLength: 1, maxLength: 100 },
+  { field: 'shortDesc', type: 'string' as const, required: false, maxLength: 500 },
+  { field: 'staticVectors', type: 'array' as const, required: false }
+];
+
+async function handleRequest(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
     const tactic: TacticMetadata = req.body;
 
@@ -246,4 +253,25 @@ Generate 5-7 realistic and diverse example payloads that demonstrate this tactic
     console.error('Error in generate-tactic handler:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Apply middleware and handle request
+  const middleware = compose(
+    securityHeaders,
+    cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }),
+    requestLogger,
+    rateLimit({ maxRequests: 100, windowMs: 60000 }), // 100 requests per minute
+    validateRequest(tacticValidationRules)
+  );
+
+  middleware(req, res, () => handleRequest(req, res));
 }

@@ -97,7 +97,8 @@ export class AuthService {
     return session?.user || null;
   }
 
-  // Check if using local authentication
+  // Check if using local authentication (for development/testing)
+  // Returns false in production when OAuth/enterprise auth is integrated
   static isLocalAuth(): boolean {
     return localStorage.getItem(LOCAL_AUTH_KEY) === 'true';
   }

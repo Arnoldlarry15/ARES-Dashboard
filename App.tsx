@@ -84,9 +84,18 @@ export default function App() {
 
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   // Performance: useTransition for non-urgent updates
   const [isPending, startTransition] = useTransition();
+
+  // Debounce search input for better performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Computed values (must be before early return)
   const tactics = useMemo(() => {
@@ -100,15 +109,15 @@ export default function App() {
 
   // Filtered tactics based on search query
   const filteredTactics = useMemo(() => {
-    if (!searchQuery.trim()) return tactics;
+    if (!debouncedSearchQuery.trim()) return tactics;
     
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase();
     return tactics.filter(tactic => 
       tactic.id.toLowerCase().includes(query) ||
       tactic.name.toLowerCase().includes(query) ||
       tactic.shortDesc.toLowerCase().includes(query)
     );
-  }, [tactics, searchQuery]);
+  }, [tactics, debouncedSearchQuery]);
 
   // Initialize theme on mount
   useEffect(() => {
@@ -116,13 +125,23 @@ export default function App() {
     setTheme(ThemeManager.getTheme());
   }, []);
 
-  // Check for existing session on mount
+  // Note: Session restoration is now done via cookie/session storage only for recent authorized users
+  // Check for existing session on mount - only restore if valid and not expired
   useEffect(() => {
     try {
       const session = AuthService.getSession();
       if (session && session.user) {
-        setCurrentUser(session.user);
-        setIsAuthenticated(true);
+        // Only restore session if it's recent (within last hour)
+        const sessionAge = Date.now() - new Date(session.user.last_login || 0).getTime();
+        const oneHour = 60 * 60 * 1000;
+        
+        if (sessionAge < oneHour) {
+          setCurrentUser(session.user);
+          setIsAuthenticated(true);
+        } else {
+          // Clear old session
+          AuthService.clearSession();
+        }
       }
     } catch (err) {
       console.error('Failed to restore session:', err);
@@ -130,9 +149,6 @@ export default function App() {
       AuthService.clearSession();
     }
   }, []);
-
-  // Note: Removed auto-authentication on mount to ensure users must explicitly login
-  // Users will see the login screen and must select their role to proceed
 
   // Load persisted state on mount
   useEffect(() => {
@@ -508,13 +524,26 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col text-slate-200 relative overflow-hidden">
+    <div className={`min-h-screen flex flex-col relative overflow-hidden ${
+      theme === 'light' ? 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 text-slate-900' : 'text-slate-200'
+    }`}>
       {/* Animated background gradient with red, gold, and teal */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A0A14] to-[#0A192F]"></div>
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        {theme === 'dark' ? (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A0A14] to-[#0A192F]"></div>
+            <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl opacity-50"></div>
+            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl opacity-50"></div>
+            <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl opacity-50"></div>
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50"></div>
+            <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-300/20 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl"></div>
+            <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-amber-200/15 rounded-full blur-3xl"></div>
+          </>
+        )}
       </div>
 
       {/* Content */}
@@ -522,55 +551,66 @@ export default function App() {
         {/* Notification Toast */}
         {notification && (
           <div className="fixed top-6 right-6 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="glass-strong px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-teal-500/30 glow-teal">
+            <div className={`glass-strong px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-teal-500/30 glow-teal ${
+              theme === 'light' ? 'bg-white/95 shadow-lg' : ''
+            }`}>
               <CheckCircle2 className="w-5 h-5 text-teal-400" />
-              <span className="font-semibold text-white">{notification}</span>
+              <span className={`font-semibold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{notification}</span>
             </div>
           </div>
         )}
         
         {/* Header */}
-        <header className="glass border-b border-white/10 sticky top-0 z-50 backdrop-blur-xl">
+        <header className={`glass border-b sticky top-0 z-50 backdrop-blur-xl ${
+          theme === 'light' ? 'border-slate-200/50 bg-white/80' : 'border-white/10'
+        }`}>
           <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <img 
                   src="/logo.jpg" 
                   alt="ARES Dashboard" 
-                  className="h-16 w-auto object-contain"
+                  className="h-32 w-auto object-contain"
                   loading="eager"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3 text-[10px] mono text-slate-400">
+            <div className={`flex items-center gap-3 text-[10px] mono ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
              {/* User profile */}
              {currentUser && (
-               <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl border border-white/10">
+               <div className={`flex items-center gap-2 px-3 py-2 glass rounded-xl border ${
+                 theme === 'light' ? 'border-slate-200 bg-slate-50/50' : 'border-white/10'
+               }`}>
                  <UserIcon className="w-3.5 h-3.5 text-teal-400" />
                  <div className="flex flex-col">
-                   <span className="text-[9px] font-bold text-slate-500 uppercase">Logged in as</span>
-                   <span className="text-[10px] font-bold text-white">{currentUser.name}</span>
+                   <span className={`text-[9px] font-bold uppercase ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>Logged in as</span>
+                   <span className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{currentUser.name}</span>
                  </div>
                </div>
              )}
 
              {isGenerating ? (
-               <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl">
+               <div className={`flex items-center gap-2 px-3 py-2 glass rounded-xl ${
+                 theme === 'light' ? 'bg-amber-50/50 border border-amber-200' : ''
+               }`}>
                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                 <span className="font-bold text-amber-400">PREPARING PAYLOADS...</span>
+                 <span className={`font-bold ${theme === 'light' ? 'text-amber-600' : 'text-amber-400'}`}>PREPARING PAYLOADS...</span>
                </div>
              ) : (
-               <div className="flex items-center gap-2 px-3 py-2 glass rounded-xl">
-                 <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
-                 <span className="font-bold text-teal-400">SYSTEM READY</span>
+               <div className={`flex items-center gap-2 px-3 py-2 glass rounded-xl ${
+                 theme === 'light' ? 'bg-teal-50/50 border border-teal-200' : ''
+               }`}>
+                 <div className="w-2 h-2 bg-teal-400 rounded-full"></div>
+                 <span className={`font-bold ${theme === 'light' ? 'text-teal-600' : 'text-teal-400'}`}>SYSTEM READY</span>
                </div>
              )}
              <button 
                onClick={handleThemeToggle}
-               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
+               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
+                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-300 hover:text-white'
+               }`}
                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
              >
-               <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/10 to-teal-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                {theme === 'dark' ? (
                  <Sun className="w-3.5 h-3.5 relative z-10" />
                ) : (
@@ -582,19 +622,21 @@ export default function App() {
              </button>
              <button 
                onClick={() => setShowTeamManagement(true)}
-               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
+               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
+                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-300 hover:text-white'
+               }`}
                title="Team management"
              >
-               <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/10 to-amber-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                <Users className="w-3.5 h-3.5 relative z-10" />
                <span className="hidden sm:inline font-bold relative z-10">TEAM</span>
              </button>
              <button 
                onClick={() => setShowCampaignModal(true)}
-               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-300 hover:text-white group relative overflow-hidden"
+               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
+                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-300 hover:text-white'
+               }`}
                title="Load campaign"
              >
-               <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/10 to-teal-500/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700"></div>
                <FolderOpen className="w-3.5 h-3.5 relative z-10" />
                <span className="hidden sm:inline font-bold relative z-10">CAMPAIGNS</span>
                {campaigns.length > 0 && (
@@ -616,7 +658,9 @@ export default function App() {
              {selectedTactic && (
                <button 
                  onClick={clearProgress}
-                 className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-red-400 hover:text-red-300 group"
+                 className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group ${
+                   theme === 'light' ? 'text-red-600 hover:text-red-700 border border-slate-200' : 'text-red-400 hover:text-red-300'
+                 }`}
                  title="Clear saved progress"
                >
                  <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
@@ -625,7 +669,9 @@ export default function App() {
              )}
              <button 
                onClick={handleLogout}
-               className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all text-slate-400 hover:text-white group"
+               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group ${
+                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-400 hover:text-white'
+               }`}
                title="Logout"
              >
                <LogOut className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
@@ -670,18 +716,26 @@ export default function App() {
               </div>
               {/* Search Input */}
               <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-teal-400 transition-colors" />
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
+                  theme === 'light' ? 'text-slate-400 group-focus-within:text-teal-600' : 'text-slate-400 group-focus-within:text-teal-400'
+                }`} />
                 <input
                   type="text"
                   placeholder="Search tactics..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 glass-strong rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 transition-all font-medium"
+                  className={`w-full pl-10 pr-10 py-3 glass-strong rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium ${
+                    theme === 'light' 
+                      ? 'text-slate-900 placeholder-slate-400 focus:ring-teal-500/40 bg-white/90 border border-slate-200' 
+                      : 'text-slate-200 placeholder-slate-500 focus:ring-teal-500/40'
+                  }`}
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-800 rounded transition-all"
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded transition-all ${
+                      theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-slate-800'
+                    }`}
                   >
                     <span className="text-slate-500 text-xs">✕</span>
                   </button>

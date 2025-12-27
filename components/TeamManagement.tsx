@@ -27,15 +27,15 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ onClose }) => {
     setMembers(mbrs);
   };
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
 
     try {
-      WorkspaceService.inviteMember(inviteEmail, inviteRole);
+      await WorkspaceService.inviteMember(inviteEmail, inviteRole);
       loadWorkspace();
       setShowInviteModal(false);
       setInviteEmail('');
-      setNotification(`Invited ${inviteEmail}`);
+      setNotification(`Invitation sent to ${inviteEmail}`);
       setTimeout(() => setNotification(null), 2000);
     } catch (error: any) {
       setNotification(error.message || 'Failed to invite member');

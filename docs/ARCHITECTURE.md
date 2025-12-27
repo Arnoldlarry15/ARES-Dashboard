@@ -162,11 +162,11 @@ Referrer-Policy: strict-origin-when-cross-origin
 **Demo RBAC System**:
 - 4 user roles: Admin, Red Team Lead, Analyst, Viewer
 - Granular permissions per role
-- Session tokens (client-side, demo only)
+- Session tokens (client-side, local development only)
 - 24-hour token expiration
 
 **Production Considerations**:
-- Current auth is for demonstration only
+- Current auth is for local development only
 - Integrate with enterprise auth provider (OAuth, SAML)
 - Use secure backend session management
 - Implement proper JWT validation
@@ -335,7 +335,7 @@ npm run build
 
 - No backend infrastructure needed
 - Fast client-side access
-- Sufficient for demo/prototype
+- Sufficient for development/testing
 - Easy to migrate to backend later
 
 ## Future Architecture Considerations

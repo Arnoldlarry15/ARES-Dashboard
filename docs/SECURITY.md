@@ -90,7 +90,7 @@ Please provide as much information as possible:
 - Session management issues
 
 **Out of Scope:**
-- Vulnerabilities in demo/mock mode (clearly labeled as not for production)
+- Limitations in local development mode (clearly labeled as requiring OAuth for production)
 - Social engineering attacks
 - Physical attacks
 - DoS attacks requiring significant resources

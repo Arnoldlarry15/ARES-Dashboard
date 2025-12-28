@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { UserRepository } from '../repositories/userRepository';
 import { AuditLogRepository } from '../repositories/auditLogRepository';
 import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
+import { catchAsync } from '../lib/middleware/errorHandler';
+import { logger } from '../lib/logger';
+import { limiter } from '../lib/middleware/rateLimit';
 
 // GET /api/users - Get all users or single user by email
 // POST /api/users - Create a new user
@@ -99,7 +102,10 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
         return res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('User API error:', error);
+    logger.error('User API error', error as Error, {
+      method: req.method,
+      url: req.url,
+    });
     return res.status(500).json({ error: 'Internal server error', message: (error as Error).message });
   }
 };
@@ -108,10 +114,11 @@ export default async function (req: VercelRequest, res: VercelResponse) {
   const middleware = compose(
     securityHeaders,
     cors(),
-    requestLogger
+    requestLogger,
+    limiter
   );
 
   middleware(req, res, async () => {
-    await handler(req, res);
+    await catchAsync(handler)(req, res);
   });
 }

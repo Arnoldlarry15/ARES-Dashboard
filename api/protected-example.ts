@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../lib/middleware/auth';
 import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
 import { rateLimit } from '../lib/middleware/rateLimit';
+import { catchAsync } from '../lib/middleware/errorHandler';
 
 async function handleRequest(req: AuthenticatedRequest, res: VercelResponse) {
   // At this point, we know the user is authenticated and has proper role
@@ -45,6 +46,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   );
 
   middleware(req, res, async () => {
-    await handleRequest(req as AuthenticatedRequest, res);
+    await catchAsync(async () => handleRequest(req as AuthenticatedRequest, res))(req, res);
   });
 }

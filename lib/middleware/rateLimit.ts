@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { logger } from '../logger';
 
 // Simple in-memory rate limiter (for serverless, consider using Redis in production)
 // NOTE: This in-memory implementation is suitable for single-instance deployments.
@@ -62,6 +63,14 @@ export function rateLimit(config: RateLimitConfig = {}) {
 
     // Check if limit exceeded
     if (rateLimitStore[key].count > maxRequests) {
+      // Log rate limit exceeded
+      logger.warn('Rate limit exceeded', {
+        key,
+        count: rateLimitStore[key].count,
+        limit: maxRequests,
+        ip: key,
+      });
+
       res.setHeader('Retry-After', Math.ceil((rateLimitStore[key].resetTime - now) / 1000));
       res.setHeader('X-RateLimit-Limit', maxRequests.toString());
       res.setHeader('X-RateLimit-Remaining', '0');
@@ -82,3 +91,11 @@ export function rateLimit(config: RateLimitConfig = {}) {
     next();
   };
 }
+
+// Default rate limiter matching problem statement example
+// 60 requests per 60 seconds (1 minute)
+export const limiter = rateLimit({
+  windowMs: 60_000, // 60 seconds
+  maxRequests: 60,  // 60 requests
+  message: 'Too many requests from this IP, please try again later.'
+});

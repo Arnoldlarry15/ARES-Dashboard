@@ -3,10 +3,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { CampaignRepository } from '../repositories/campaignRepository';
 import { auditFromRequest } from '../utils/audit';
 import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
-import { optionalAuth, type AuthenticatedRequest } from './middleware/auth';
+import { requireAuth, type AuthenticatedRequest } from './middleware/auth';
 
 // GET /api/export-campaigns - Export campaigns as JSON
-// Requires authentication if available for user-specific exports
+// Requires authentication for security tracking
 
 const handler = async (req: AuthenticatedRequest, res: VercelResponse) => {
   try {
@@ -16,29 +16,21 @@ const handler = async (req: AuthenticatedRequest, res: VercelResponse) => {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId, format = 'json' } = req.query;
+    const { format = 'json' } = req.query;
 
-    // Get campaigns based on user context
-    let campaigns;
-    if (userId) {
-      campaigns = await CampaignRepository.findByUserId(userId as string);
-    } else if (req.user) {
-      campaigns = await CampaignRepository.findByUserId(req.user.userId);
-    } else {
-      campaigns = await CampaignRepository.findAll();
-    }
+    // Get campaigns for authenticated user
+    const campaigns = await CampaignRepository.findByUserId(req.user!.userId);
 
-    // Log export action
-    const actorId = req.user?.userId || userId || 'anonymous';
+    // Log export action (user is guaranteed by requireAuth middleware)
     await auditFromRequest(
       req,
-      actorId as string,
+      req.user!.userId,
       'export_campaigns',
       'campaigns',
       { 
         format,
         count: campaigns.length,
-        userId: userId || req.user?.userId
+        userId: req.user!.userId
       }
     );
 
@@ -61,11 +53,12 @@ const handler = async (req: AuthenticatedRequest, res: VercelResponse) => {
 };
 
 export default async function (req: VercelRequest, res: VercelResponse) {
+  // Require authentication to prevent anonymous access
   const middleware = compose(
     securityHeaders,
     cors(),
     requestLogger,
-    optionalAuth
+    requireAuth
   );
 
   middleware(req, res, async () => {

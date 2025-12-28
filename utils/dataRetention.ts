@@ -8,7 +8,7 @@ import { AuditLogRepository } from '../repositories/auditLogRepository';
  * Defaults to 365 days (1 year) for SOC2 compliance
  * Set to 0 for indefinite retention
  */
-function getAuditRetentionDays(): number {
+export function getAuditRetentionDays(): number {
   const days = parseInt(process.env.AUDIT_RETENTION_DAYS || '365', 10);
   return isNaN(days) ? 365 : days;
 }

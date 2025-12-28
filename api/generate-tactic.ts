@@ -5,6 +5,7 @@ import { validateRequest } from './middleware/validation';
 import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
 import { auditFromRequest } from '../utils/audit';
 import { isPromptStorageEnabled } from '../utils/dataRetention';
+import { optionalAuth, type AuthenticatedRequest } from './middleware/auth';
 
 // Types
 interface TacticMetadata {
@@ -177,7 +178,7 @@ const tacticValidationRules = [
 ];
 
 async function handleRequest(
-  req: VercelRequest,
+  req: AuthenticatedRequest,
   res: VercelResponse
 ) {
   try {
@@ -189,7 +190,7 @@ async function handleRequest(
     }
 
     // Log AI generation request (use 'system' if no user authenticated)
-    const actorId = (req as any).user?.id || 'system';
+    const actorId = req.user?.userId || 'system';
     const promptStorageEnabled = isPromptStorageEnabled();
     
     await auditFromRequest(
@@ -291,11 +292,12 @@ export default async function handler(
     securityHeaders,
     cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }),
     requestLogger,
+    optionalAuth,
     rateLimit({ maxRequests: 100, windowMs: 60000 }), // 100 requests per minute
     validateRequest(tacticValidationRules)
   );
 
   middleware(req, res, async () => {
-    await handleRequest(req, res);
+    await handleRequest(req as AuthenticatedRequest, res);
   });
 }

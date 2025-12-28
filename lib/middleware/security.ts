@@ -103,13 +103,22 @@ export function csrfProtection(req: VercelRequest, res: VercelResponse, next: ()
 // Request logging middleware
 export function requestLogger(req: VercelRequest, res: VercelResponse, next: () => void) {
   const start = Date.now();
-  const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
+  const forwardedFor = req.headers['x-forwarded-for'];
+  const realIp = req.headers['x-real-ip'];
+  
+  // Handle x-forwarded-for which can be a string or string array
+  let ip = 'unknown';
+  if (forwardedFor) {
+    ip = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim();
+  } else if (realIp) {
+    ip = Array.isArray(realIp) ? realIp[0] : realIp;
+  }
   
   // Log incoming request
   logger.info('Incoming request', {
     method: req.method,
     url: req.url,
-    ip: ip as string,
+    ip,
     userAgent: req.headers['user-agent'] as string,
   });
 
@@ -122,9 +131,7 @@ export function requestLogger(req: VercelRequest, res: VercelResponse, next: () 
       req.url || '',
       res.statusCode,
       duration,
-      {
-        ip: ip as string,
-      }
+      { ip }
     );
     return originalJson(body);
   };

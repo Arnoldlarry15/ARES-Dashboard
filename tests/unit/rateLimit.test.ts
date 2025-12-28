@@ -201,6 +201,7 @@ describe('Rate Limiting Middleware', () => {
       // Use unique IP for this test
       mockReq.headers = { 'x-forwarded-for': '10.0.0.250' };
       
+      // Make exactly 60 requests - all should succeed
       for (let i = 0; i < 60; i++) {
         nextFn = vi.fn();
         setHeaderSpy.mockClear();
@@ -208,16 +209,14 @@ describe('Rate Limiting Middleware', () => {
         jsonSpy.mockClear();
         
         limiter(mockReq as VercelRequest, mockRes as VercelResponse, nextFn);
-        
-        if (i < 60) {
-          expect(nextFn).toHaveBeenCalled();
-        }
+        expect(nextFn).toHaveBeenCalled();
       }
       
       // 61st request should be blocked
       nextFn = vi.fn();
       limiter(mockReq as VercelRequest, mockRes as VercelResponse, nextFn);
       expect(statusSpy).toHaveBeenCalledWith(429);
+      expect(nextFn).not.toHaveBeenCalled();
     });
   });
 });

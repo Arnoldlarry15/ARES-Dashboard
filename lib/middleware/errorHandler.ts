@@ -16,10 +16,21 @@ export function errorHandler(
   res: VercelResponse
 ): void {
   // Extract request context
+  const forwardedFor = req.headers['x-forwarded-for'];
+  const realIp = req.headers['x-real-ip'];
+  
+  // Handle x-forwarded-for which can be a string or string array
+  let ip = 'unknown';
+  if (forwardedFor) {
+    ip = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim();
+  } else if (realIp) {
+    ip = Array.isArray(realIp) ? realIp[0] : realIp;
+  }
+  
   const context = {
     method: req.method,
     url: req.url,
-    ip: req.headers['x-forwarded-for'] as string || req.headers['x-real-ip'] as string || 'unknown',
+    ip,
     userAgent: req.headers['user-agent'] as string,
   };
 

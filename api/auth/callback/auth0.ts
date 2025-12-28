@@ -4,6 +4,26 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateTokens } from '../../../services/auth/jwt';
 
+// Type definitions for Auth0 responses
+interface Auth0TokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  id_token?: string;
+  token_type: string;
+  expires_in: number;
+}
+
+interface Auth0UserInfo {
+  sub: string;
+  email: string;
+  email_verified?: boolean;
+  name?: string;
+  picture?: string;
+  'https://ares.app/roles'?: string[];
+  'https://ares.app/org_id'?: string;
+  'https://ares.app/permissions'?: string[];
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { code, state, error, error_description } = req.query;
@@ -65,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/?error=token_exchange_failed`);
     }
 
-    const tokens = await tokenResponse.json();
+    const tokens = await tokenResponse.json() as Auth0TokenResponse;
 
     // Get user info from Auth0
     const userInfoResponse = await fetch(`https://${auth0Domain}/userinfo`, {
@@ -79,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/?error=user_info_failed`);
     }
 
-    const userInfo = await userInfoResponse.json();
+    const userInfo = await userInfoResponse.json() as Auth0UserInfo;
 
     // Map Auth0 user to our user model
     // In production, you would:

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { logger } from '../logger';
 
 // Security headers middleware
 export function securityHeaders(req: VercelRequest, res: VercelResponse, next: () => void) {
@@ -90,7 +91,10 @@ export function csrfProtection(req: VercelRequest, res: VercelResponse, next: ()
   // In production, validate against stored token
   // For demo purposes, we'll skip strict validation
   if (!csrfToken && req.method !== 'OPTIONS') {
-    console.warn('CSRF token missing');
+    logger.warn('CSRF token missing', {
+      method: req.method,
+      url: req.url,
+    });
   }
 
   next();
@@ -101,25 +105,27 @@ export function requestLogger(req: VercelRequest, res: VercelResponse, next: () 
   const start = Date.now();
   const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
   
-  console.log({
-    timestamp: new Date().toISOString(),
+  // Log incoming request
+  logger.info('Incoming request', {
     method: req.method,
     url: req.url,
-    ip,
-    userAgent: req.headers['user-agent']
+    ip: ip as string,
+    userAgent: req.headers['user-agent'] as string,
   });
 
   // Log response
   const originalJson = res.json.bind(res);
   res.json = (body: unknown) => {
     const duration = Date.now() - start;
-    console.log({
-      timestamp: new Date().toISOString(),
-      method: req.method,
-      url: req.url,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`
-    });
+    logger.logRequest(
+      req.method || 'UNKNOWN',
+      req.url || '',
+      res.statusCode,
+      duration,
+      {
+        ip: ip as string,
+      }
+    );
     return originalJson(body);
   };
 

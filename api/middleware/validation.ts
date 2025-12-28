@@ -7,7 +7,7 @@ export interface ValidationRule {
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: any) => boolean | string;
+  custom?: (value: unknown) => boolean | string;
 }
 
 export interface ValidationError {
@@ -99,8 +99,8 @@ export function validateRequest(rules: ValidationRule[]) {
 
 // Sanitize input to prevent XSS
 export function sanitizeInput(input: string): string;
-export function sanitizeInput(input: any): any;
-export function sanitizeInput(input: any): any {
+export function sanitizeInput(input: unknown): unknown;
+export function sanitizeInput(input: unknown): unknown {
   if (typeof input !== 'string') return input;
   
   return input
@@ -112,7 +112,7 @@ export function sanitizeInput(input: any): any {
 }
 
 // Sanitize all string fields in an object
-export function sanitizeObject(obj: any): any {
+export function sanitizeObject(obj: unknown): unknown {
   if (typeof obj === 'string') {
     return sanitizeInput(obj);
   }
@@ -122,10 +122,10 @@ export function sanitizeObject(obj: any): any {
   }
   
   if (obj && typeof obj === 'object') {
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        sanitized[key] = sanitizeObject(obj[key]);
+        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key]);
       }
     }
     return sanitized;

@@ -1,8 +1,7 @@
 // API endpoint for audit log operations
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AuditLogRepository, type AuditLogFilter } from '../repositories/auditLogRepository';
-// Security middleware is in the existing codebase at api/middleware/security.ts
-import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
+import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
 
 // GET /api/audit-logs - Get audit logs with optional filters
 // POST /api/audit-logs - Create a new audit log entry

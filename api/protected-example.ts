@@ -2,9 +2,9 @@
 // Demonstrates server-side RBAC enforcement
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuth, requireRole, AuthenticatedRequest } from './middleware/auth';
-import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
-import { rateLimit } from './middleware/rateLimit';
+import { requireAuth, requireRole, AuthenticatedRequest } from '../lib/middleware/auth';
+import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
+import { rateLimit } from '../lib/middleware/rateLimit';
 
 async function handleRequest(req: AuthenticatedRequest, res: VercelResponse) {
   // At this point, we know the user is authenticated and has proper role

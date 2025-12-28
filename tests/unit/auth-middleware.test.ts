@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VercelResponse } from '@vercel/node';
-import { requireAuth, requireRole, requirePermission, AuthenticatedRequest } from '../../api/middleware/auth';
+import { requireAuth, requireRole, requirePermission, AuthenticatedRequest } from '../../lib/middleware/auth';
 import { generateTokens } from '../../services/auth/jwt';
 
 describe('Auth Middleware', () => {

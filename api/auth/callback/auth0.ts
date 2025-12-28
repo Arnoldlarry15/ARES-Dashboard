@@ -111,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Redirect to app (tokens are now in secure cookies)
     res.redirect(302, '/?auth=success');
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Auth0 callback error:', error);
     return res.redirect(`/?error=authentication_failed`);
   }

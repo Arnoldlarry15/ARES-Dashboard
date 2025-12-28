@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
       keysToRemove.forEach(key => {
         try {
           localStorage.removeItem(key);
-        } catch (e) {
+        } catch {
           // Continue even if one key fails
         }
       });

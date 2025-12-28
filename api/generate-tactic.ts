@@ -244,12 +244,12 @@ Generate 5-7 realistic and diverse example payloads that demonstrate this tactic
       }
 
       throw new Error('Failed to parse AI response');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating tactic details with AI:', error);
       // Fallback to mock data if AI generation fails
       return res.status(200).json(generateMockTacticDetails(tactic));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in generate-tactic handler:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }

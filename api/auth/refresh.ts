@@ -41,7 +41,7 @@ async function handleRefresh(req: VercelRequest, res: VercelResponse) {
       refreshToken: tokens.refreshToken,
       expiresIn: 3600 // 1 hour in seconds
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Token refresh error:', error);
     return res.status(500).json({ 
       error: 'Internal Server Error',

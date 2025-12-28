@@ -13,7 +13,7 @@ export interface AuditLogEntry {
   action: string;
   resource_type: 'campaign' | 'tactic' | 'payload' | 'export' | 'user' | 'session';
   resource_id?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   ip_address?: string;
   user_agent?: string;
   timestamp: string;

@@ -13,7 +13,7 @@ describe('Generate Tactic API Integration', () => {
   it('should accept valid tactic request', async () => {
     server.use(
       http.post('/api/generate-tactic', async ({ request }) => {
-        const body = await request.json() as any;
+        const body = await request.json() as Record<string, unknown>;
         
         if (!body.id || !body.name || !body.framework) {
           return HttpResponse.json(
@@ -65,7 +65,7 @@ describe('Generate Tactic API Integration', () => {
   it('should reject invalid request body', async () => {
     server.use(
       http.post('/api/generate-tactic', async ({ request }) => {
-        const body = await request.json() as any;
+        const body = await request.json() as Record<string, unknown>;
         
         if (!body.id || !body.name || !body.framework) {
           return HttpResponse.json(

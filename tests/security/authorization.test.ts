@@ -150,7 +150,6 @@ describe('Authorization Security Tests', () => {
     });
 
     it('should maintain principle of least privilege', () => {
-      const analyst = createUser(UserRole.ANALYST);
       const analystPermissions = ROLE_PERMISSIONS[UserRole.ANALYST];
       
       // Analyst should not have user management permissions

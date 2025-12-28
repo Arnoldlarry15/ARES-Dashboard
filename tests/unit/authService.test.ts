@@ -161,7 +161,7 @@ describe('AuthService', () => {
       const session1 = AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
       
-      const session2 = AuthService.initLocalSession(UserRole.ANALYST);
+      AuthService.initLocalSession(UserRole.ANALYST);
       
       const filtered = AuthService.getAuditLogs({ user_id: session1.user.id });
       

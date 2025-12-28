@@ -37,8 +37,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ onClose }) => {
       setInviteEmail('');
       setNotification(`Invitation sent to ${inviteEmail}`);
       setTimeout(() => setNotification(null), 2000);
-    } catch (error: any) {
-      setNotification(error.message || 'Failed to invite member');
+    } catch (error: unknown) {
+      setNotification(error instanceof Error ? error.message : 'Failed to invite member');
       setTimeout(() => setNotification(null), 2000);
     }
   };

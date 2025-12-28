@@ -1,6 +1,8 @@
 // Authentication Service with Session Management and Audit Logging
+// Now uses database-backed API with localStorage fallback
 
 import { User, Session, UserRole } from '../types/auth';
+import { UserAPI, AuditLogAPI } from '../utils/apiClient';
 
 const AUTH_STORAGE_KEY = 'ares_auth_session';
 const LOCAL_AUTH_KEY = 'ares_local_auth';
@@ -135,7 +137,7 @@ export class AuthService {
     return newSession;
   }
 
-  // Audit logging
+  // Audit logging - now uses database
   static logAuditEvent(event: Omit<AuditLogEntry, 'id' | 'timestamp' | 'ip_address' | 'user_agent' | 'session_id'>): void {
     const session = this.getSession();
     const auditEntry: AuditLogEntry = {
@@ -147,62 +149,112 @@ export class AuthService {
       session_id: session?.token
     };
 
-    // Store in localStorage (in production, this would go to a backend)
+    // Try to save to database, fallback to localStorage
     this.saveAuditLog(auditEntry);
   }
 
-  private static saveAuditLog(entry: AuditLogEntry): void {
+  private static async saveAuditLog(entry: AuditLogEntry): Promise<void> {
     try {
-      const logs = this.getAuditLogs();
-      logs.unshift(entry); // Add to beginning
-      
-      // Keep only last 1000 entries in localStorage
-      const trimmedLogs = logs.slice(0, 1000);
-      localStorage.setItem('ares_audit_logs', JSON.stringify(trimmedLogs));
+      // Try database first
+      await AuditLogAPI.create({
+        actorId: entry.user_id,
+        action: entry.action,
+        target: entry.resource_id || entry.resource_type,
+        details: {
+          resource_type: entry.resource_type,
+          ...entry.details,
+        },
+        ipAddress: entry.ip_address,
+        userAgent: entry.user_agent,
+      });
     } catch (error) {
-      console.error('Failed to save audit log:', error);
+      // Fallback to localStorage if database is unavailable
+      try {
+        const stored = localStorage.getItem('ares_audit_logs');
+        const logs: AuditLogEntry[] = stored ? JSON.parse(stored) : [];
+        logs.unshift(entry);
+        
+        // Keep only last 1000 entries in localStorage
+        const trimmedLogs = logs.slice(0, 1000);
+        localStorage.setItem('ares_audit_logs', JSON.stringify(trimmedLogs));
+      } catch (localError) {
+        console.error('Failed to save audit log:', localError);
+      }
     }
   }
 
-  // Get audit logs
-  static getAuditLogs(filters?: {
+  // Get audit logs - now uses database
+  static async getAuditLogs(filters?: {
     user_id?: string;
     action?: string;
     resource_type?: string;
     since?: Date;
-  }): AuditLogEntry[] {
+  }): Promise<AuditLogEntry[]> {
     try {
-      const stored = localStorage.getItem('ares_audit_logs');
-      if (!stored) return [];
-
-      let logs: AuditLogEntry[] = JSON.parse(stored);
-
-      // Apply filters
-      if (filters) {
-        if (filters.user_id) {
-          logs = logs.filter(log => log.user_id === filters.user_id);
-        }
-        if (filters.action) {
-          logs = logs.filter(log => log.action === filters.action);
-        }
-        if (filters.resource_type) {
-          logs = logs.filter(log => log.resource_type === filters.resource_type);
-        }
-        if (filters.since) {
-          logs = logs.filter(log => new Date(log.timestamp) >= filters.since!);
-        }
+      // Try database first
+      const apiFilters: any = {};
+      if (filters?.user_id) apiFilters.actorId = filters.user_id;
+      if (filters?.action) apiFilters.action = filters.action;
+      if (filters?.since) apiFilters.startDate = filters.since.toISOString();
+      
+      const { auditLogs } = await AuditLogAPI.getAll(apiFilters, { take: 1000 });
+      
+      // Convert to old format for compatibility
+      const converted: AuditLogEntry[] = auditLogs.map(log => ({
+        id: log.id,
+        user_id: log.actorId,
+        user_email: log.actor?.email || 'unknown',
+        action: log.action,
+        resource_type: (log.details as any)?.resource_type || 'session',
+        resource_id: log.target,
+        details: log.details as Record<string, unknown>,
+        ip_address: log.ipAddress,
+        user_agent: log.userAgent,
+        timestamp: log.timestamp,
+        session_id: undefined,
+      }));
+      
+      // Apply resource_type filter
+      if (filters?.resource_type) {
+        return converted.filter(log => log.resource_type === filters.resource_type);
       }
-
-      return logs;
+      
+      return converted;
     } catch (error) {
-      console.error('Failed to load audit logs:', error);
-      return [];
+      // Fallback to localStorage
+      try {
+        const stored = localStorage.getItem('ares_audit_logs');
+        if (!stored) return [];
+
+        let logs: AuditLogEntry[] = JSON.parse(stored);
+
+        // Apply filters
+        if (filters) {
+          if (filters.user_id) {
+            logs = logs.filter(log => log.user_id === filters.user_id);
+          }
+          if (filters.action) {
+            logs = logs.filter(log => log.action === filters.action);
+          }
+          if (filters.resource_type) {
+            logs = logs.filter(log => log.resource_type === filters.resource_type);
+          }
+          if (filters.since) {
+            logs = logs.filter(log => new Date(log.timestamp) >= filters.since!);
+          }
+        }
+
+        return logs;
+      } catch (localError) {
+        console.error('Failed to load audit logs:', localError);
+        return [];
+      }
     }
   }
 
   // Export audit logs for compliance
-  static exportAuditLogs(format: 'json' | 'csv' = 'json'): string {
-    const logs = this.getAuditLogs();
+  static async exportAuditLogs(format: 'json' | 'csv' = 'json'): Promise<string> {
+    const logs = await this.getAuditLogs();
     
     if (format === 'csv') {
       const headers = ['Timestamp', 'User Email', 'Action', 'Resource Type', 'Resource ID', 'IP Address'];

@@ -114,11 +114,11 @@ describe('AuthService', () => {
       expect(localStorage.getItem('ares_demo_mode')).toBeNull();
     });
 
-    it('should create logout audit log', () => {
+    it('should create logout audit log', async () => {
       AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
       
-      const logs = AuthService.getAuditLogs();
+      const logs = await AuthService.getAuditLogs();
       const logoutLog = logs.find(log => log.action === 'logout');
       
       expect(logoutLog).toBeDefined();
@@ -149,31 +149,31 @@ describe('AuthService', () => {
       expect(logs).toEqual([]);
     });
 
-    it('should return audit logs after user actions', () => {
+    it('should return audit logs after user actions', async () => {
       AuthService.initLocalSession(UserRole.ADMIN);
       
-      const logs = AuthService.getAuditLogs();
+      const logs = await AuthService.getAuditLogs();
       expect(logs.length).toBeGreaterThan(0);
       expect(logs[0].action).toBe('login');
     });
 
-    it('should filter logs by user_id', () => {
+    it('should filter logs by user_id', async () => {
       const session1 = AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
       
       AuthService.initLocalSession(UserRole.ANALYST);
       
-      const filtered = AuthService.getAuditLogs({ user_id: session1.user.id });
+      const filtered = await AuthService.getAuditLogs({ user_id: session1.user.id });
       
       expect(filtered.every(log => log.user_id === session1.user.id)).toBe(true);
     });
 
-    it('should filter logs by action', () => {
+    it('should filter logs by action', async () => {
       AuthService.initLocalSession(UserRole.ADMIN);
       AuthService.clearSession();
       AuthService.initLocalSession(UserRole.ANALYST);
       
-      const loginLogs = AuthService.getAuditLogs({ action: 'login' });
+      const loginLogs = await AuthService.getAuditLogs({ action: 'login' });
       
       expect(loginLogs.every(log => log.action === 'login')).toBe(true);
       expect(loginLogs.length).toBe(2);
@@ -181,20 +181,20 @@ describe('AuthService', () => {
   });
 
   describe('exportAuditLogs', () => {
-    it('should export logs as JSON by default', () => {
+    it('should export logs as JSON by default', async () => {
       AuthService.initLocalSession(UserRole.ADMIN);
       
-      const exported = AuthService.exportAuditLogs();
+      const exported = await AuthService.exportAuditLogs();
       const parsed = JSON.parse(exported);
       
       expect(Array.isArray(parsed)).toBe(true);
       expect(parsed.length).toBeGreaterThan(0);
     });
 
-    it('should export logs as CSV when specified', () => {
+    it('should export logs as CSV when specified', async () => {
       AuthService.initLocalSession(UserRole.ADMIN);
       
-      const exported = AuthService.exportAuditLogs('csv');
+      const exported = await AuthService.exportAuditLogs('csv');
       
       expect(exported).toContain('Timestamp');
       expect(exported).toContain('User Email');

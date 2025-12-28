@@ -3,8 +3,8 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyRefreshToken, generateTokens } from '../../services/auth/jwt';
-import { securityHeaders, cors, requestLogger, compose } from '../middleware/security';
-import { rateLimit } from '../middleware/rateLimit';
+import { securityHeaders, cors, requestLogger, compose } from '../../lib/middleware/security';
+import { rateLimit } from '../../lib/middleware/rateLimit';
 
 async function handleRefresh(req: VercelRequest, res: VercelResponse) {
   try {

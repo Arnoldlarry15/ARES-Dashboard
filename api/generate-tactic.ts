@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
-import { rateLimit } from './middleware/rateLimit';
-import { validateRequest } from './middleware/validation';
-import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
+import { rateLimit } from '../lib/middleware/rateLimit';
+import { validateRequest } from '../lib/middleware/validation';
+import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
 
 // Types
 interface TacticMetadata {

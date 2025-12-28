@@ -1,4 +1,5 @@
 // Workspace and Collaboration Service
+// Updated to use database-backed audit logging
 
 import { Organization, WorkspaceMember, CampaignShare, TeamActivity } from '../types/workspace';
 import { AuthService } from './authService';

@@ -263,7 +263,7 @@ export default function App() {
 
   // Campaign Management Functions
   useEffect(() => {
-    setCampaigns(CampaignManager.getAllCampaigns());
+    CampaignManager.getAllCampaigns().then(setCampaigns);
   }, []);
 
   // Handle login
@@ -415,11 +415,11 @@ export default function App() {
     setTimeout(() => setNotification(null), 2000);
   };
 
-  const saveCampaign = () => {
+  const saveCampaign = async () => {
     if (!selectedTactic || !campaignName.trim()) return;
     
     try {
-      const campaign = CampaignManager.saveCampaign({
+      const campaign = await CampaignManager.saveCampaign({
         name: campaignName,
         description: campaignDescription,
         tactic_id: selectedTactic.id,
@@ -445,14 +445,16 @@ export default function App() {
             payloads_count: selectedPayloadIndices.length
           }
         });
-        
-        setCampaigns(CampaignManager.getAllCampaigns());
-        setShowSaveCampaignModal(false);
-        setCampaignName('');
-        setCampaignDescription('');
-        setNotification(`Campaign "${campaign.name}" saved`);
-        setTimeout(() => setNotification(null), 2000);
       });
+        
+      // Reload campaigns from database
+      const updatedCampaigns = await CampaignManager.getAllCampaigns();
+      setCampaigns(updatedCampaigns);
+      setShowSaveCampaignModal(false);
+      setCampaignName('');
+      setCampaignDescription('');
+      setNotification(`Campaign "${campaign.name}" saved`);
+      setTimeout(() => setNotification(null), 2000);
     } catch {
       setNotification("Failed to save campaign");
       setTimeout(() => setNotification(null), 2000);
@@ -499,8 +501,9 @@ export default function App() {
     }
   };
 
-  const deleteCampaign = (id: string, name: string) => {
-    if (CampaignManager.deleteCampaign(id)) {
+  const deleteCampaign = async (id: string, name: string) => {
+    const success = await CampaignManager.deleteCampaign(id);
+    if (success) {
       // Defer non-critical updates using startTransition
       startTransition(() => {
         // Audit log
@@ -512,11 +515,13 @@ export default function App() {
           resource_id: id,
           details: { campaign_name: name }
         });
-        
-        setCampaigns(CampaignManager.getAllCampaigns());
-        setNotification(`Campaign "${name}" deleted`);
-        setTimeout(() => setNotification(null), 2000);
       });
+        
+      // Reload campaigns from database
+      const updatedCampaigns = await CampaignManager.getAllCampaigns();
+      setCampaigns(updatedCampaigns);
+      setNotification(`Campaign "${name}" deleted`);
+      setTimeout(() => setNotification(null), 2000);
     }
   };
 

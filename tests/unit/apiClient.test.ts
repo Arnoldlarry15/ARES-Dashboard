@@ -1,5 +1,5 @@
 // Tests for API Client
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ApiError, UserAPI, CampaignAPI, AuditLogAPI } from '../../utils/apiClient';
 
 // Mock fetch globally
@@ -8,6 +8,11 @@ global.fetch = vi.fn();
 describe('ApiClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Ensure no pending timers or promises
+    vi.clearAllTimers();
   });
 
   describe('ApiError', () => {

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+
 # Test artifacts
 coverage
 .nyc_output
@@ -28,3 +31,5 @@ test-results
 *.njsproj
 *.sln
 *.sw?
+
+/generated/prisma

@@ -81,6 +81,10 @@ npm install
    - Copy `.env.example` to `.env.local`
    - Add configuration:
    ```bash
+   # Database (for persistent storage - optional for dev)
+   DATABASE_URL="postgresql://user:password@host:5432/ares_dashboard"
+   # Use Neon (https://neon.tech), Supabase (https://supabase.com), or local PostgreSQL
+   
    # AI-powered payloads (optional)
    GEMINI_API_KEY=your_actual_api_key_here
    
@@ -96,7 +100,22 @@ npm install
    ```
    - Get Gemini API key from: https://aistudio.google.com/apikey
    - Get Auth0 credentials from: https://auth0.com (see [Authentication Guide](docs/AUTHENTICATION.md))
+   - For database setup, see [Database Migration Guide](docs/DATABASE_MIGRATION.md)
    - **Note**: For local development with backend APIs, use `vercel dev` instead of `npm run dev`
+
+3a. (Optional) Set up persistent database:
+   ```bash
+   # Generate Prisma client
+   npm run db:generate
+   
+   # Push schema to database
+   npm run db:push
+   
+   # Open Prisma Studio to view data
+   npm run db:studio
+   ```
+   - See [Database Migration Guide](docs/DATABASE_MIGRATION.md) for detailed setup instructions
+   - Works with Neon, Supabase, AWS RDS, or local PostgreSQL
 
 4. Start the development server:
 ```bash

@@ -6,7 +6,6 @@ import { requireAuth, requireRole, AuthenticatedRequest } from '../lib/middlewar
 import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
 import { rateLimit } from '../lib/middleware/rateLimit';
 import { catchAsync } from '../lib/middleware/errorHandler';
-import { logger } from '../lib/logger';
 
 async function handleRequest(req: AuthenticatedRequest, res: VercelResponse) {
   // At this point, we know the user is authenticated and has proper role

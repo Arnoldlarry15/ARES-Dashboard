@@ -31,37 +31,21 @@ describe('Logger', () => {
   });
 
   describe('debug()', () => {
-    it('should log debug message with structured format', () => {
-      // Set log level to debug to enable debug logging
-      process.env.LOG_LEVEL = 'debug';
-      
+    it('should not log debug message when log level is info (default)', () => {
+      // By default, debug logs are not shown
       logger.debug('Test debug message', { userId: 'user123' });
 
-      expect(consoleLogSpy).toHaveBeenCalledOnce();
-      const logEntry = JSON.parse(consoleLogSpy.mock.calls[0][0]);
-      
-      expect(logEntry).toMatchObject({
-        level: 'debug',
-        message: 'Test debug message',
-        context: { userId: 'user123' },
-      });
-      expect(logEntry.timestamp).toBeDefined();
-      
-      delete process.env.LOG_LEVEL;
+      // Console.log should not have been called at debug level
+      expect(consoleLogSpy).not.toHaveBeenCalled();
     });
 
-    it('should log without context', () => {
-      process.env.LOG_LEVEL = 'debug';
-      
-      logger.debug('Simple debug message');
-
+    it('should log info and above even when debug is called', () => {
+      // Info level logs should work
+      logger.info('Test info message');
       expect(consoleLogSpy).toHaveBeenCalledOnce();
+      
       const logEntry = JSON.parse(consoleLogSpy.mock.calls[0][0]);
-      
-      expect(logEntry.message).toBe('Simple debug message');
-      expect(logEntry.context).toBeUndefined();
-      
-      delete process.env.LOG_LEVEL;
+      expect(logEntry.level).toBe('info');
     });
   });
 

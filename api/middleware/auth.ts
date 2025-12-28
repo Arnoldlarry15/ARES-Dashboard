@@ -3,6 +3,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyAccessToken, extractTokenFromHeader, TokenPayload } from '../../services/auth/jwt';
+import { audit } from '../../utils/audit';
 
 // Extend VercelRequest to include authenticated user
 export interface AuthenticatedRequest extends VercelRequest {
@@ -65,7 +66,7 @@ export function requireAuth(req: AuthenticatedRequest, res: VercelResponse, next
  * requireRole(['admin', 'red_team_lead'])
  */
 export function requireRole(allowedRoles: string[]) {
-  return (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
+  return async (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
     if (!req.user) {
       return res.status(401).json({ 
         error: 'Unauthorized',
@@ -74,6 +75,19 @@ export function requireRole(allowedRoles: string[]) {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
+      // Log permission failure
+      await audit(
+        req.user.userId,
+        'permission_denied',
+        `role_check:${allowedRoles.join(',')}`,
+        { 
+          userRole: req.user.role, 
+          requiredRoles: allowedRoles,
+          url: req.url,
+          method: req.method
+        }
+      );
+      
       return res.status(403).json({ 
         error: 'Forbidden',
         message: `Access denied. Required roles: ${allowedRoles.join(', ')}`,
@@ -95,7 +109,7 @@ export function requireRole(allowedRoles: string[]) {
  * requirePermission('campaign:write')
  */
 export function requirePermission(permission: string) {
-  return (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
+  return async (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
     if (!req.user) {
       return res.status(401).json({ 
         error: 'Unauthorized',
@@ -106,6 +120,19 @@ export function requirePermission(permission: string) {
     const userPermissions = req.user.permissions || [];
     
     if (!userPermissions.includes(permission)) {
+      // Log permission failure
+      await audit(
+        req.user.userId,
+        'permission_denied',
+        `permission_check:${permission}`,
+        { 
+          requiredPermission: permission,
+          userPermissions,
+          url: req.url,
+          method: req.method
+        }
+      );
+      
       return res.status(403).json({ 
         error: 'Forbidden',
         message: `Access denied. Required permission: ${permission}`,
@@ -121,7 +148,7 @@ export function requirePermission(permission: string) {
  * Middleware to check multiple permissions (requires ALL)
  */
 export function requireAllPermissions(permissions: string[]) {
-  return (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
+  return async (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
     if (!req.user) {
       return res.status(401).json({ 
         error: 'Unauthorized',
@@ -133,6 +160,20 @@ export function requireAllPermissions(permissions: string[]) {
     const missingPermissions = permissions.filter(p => !userPermissions.includes(p));
     
     if (missingPermissions.length > 0) {
+      // Log permission failure
+      await audit(
+        req.user.userId,
+        'permission_denied',
+        `permission_check_all:${permissions.join(',')}`,
+        { 
+          requiredPermissions: permissions,
+          missingPermissions,
+          userPermissions,
+          url: req.url,
+          method: req.method
+        }
+      );
+      
       return res.status(403).json({ 
         error: 'Forbidden',
         message: `Access denied. Missing permissions: ${missingPermissions.join(', ')}`,
@@ -148,7 +189,7 @@ export function requireAllPermissions(permissions: string[]) {
  * Middleware to check multiple permissions (requires ANY)
  */
 export function requireAnyPermission(permissions: string[]) {
-  return (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
+  return async (req: AuthenticatedRequest, res: VercelResponse, next: () => void) => {
     if (!req.user) {
       return res.status(401).json({ 
         error: 'Unauthorized',
@@ -160,6 +201,19 @@ export function requireAnyPermission(permissions: string[]) {
     const hasAnyPermission = permissions.some(p => userPermissions.includes(p));
     
     if (!hasAnyPermission) {
+      // Log permission failure
+      await audit(
+        req.user.userId,
+        'permission_denied',
+        `permission_check_any:${permissions.join(',')}`,
+        { 
+          requiredPermissions: permissions,
+          userPermissions,
+          url: req.url,
+          method: req.method
+        }
+      );
+      
       return res.status(403).json({ 
         error: 'Forbidden',
         message: `Access denied. Required one of: ${permissions.join(', ')}`,

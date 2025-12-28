@@ -3,6 +3,8 @@ import { GoogleGenAI } from '@google/genai';
 import { rateLimit } from './middleware/rateLimit';
 import { validateRequest } from './middleware/validation';
 import { securityHeaders, cors, requestLogger, compose } from './middleware/security';
+import { auditFromRequest } from '../utils/audit';
+import { isPromptStorageEnabled } from '../utils/dataRetention';
 
 // Types
 interface TacticMetadata {
@@ -186,6 +188,23 @@ async function handleRequest(
       return res.status(400).json({ error: 'Invalid tactic data' });
     }
 
+    // Log AI generation request (use 'system' if no user authenticated)
+    const actorId = (req as any).user?.id || 'system';
+    const promptStorageEnabled = isPromptStorageEnabled();
+    
+    await auditFromRequest(
+      req,
+      actorId,
+      'ai_generated',
+      `tactic_${tactic.id}`,
+      { 
+        tacticName: tactic.name, 
+        framework: tactic.framework,
+        tacticId: tactic.id,
+        promptStorageEnabled
+      }
+    );
+
     // Get API key from environment (no VITE_ prefix for backend)
     const apiKey = process.env.GEMINI_API_KEY || '';
 
@@ -199,6 +218,9 @@ async function handleRequest(
     try {
       const genAI = new GoogleGenAI({ apiKey });
 
+      // Note: Prompt and response storage is controlled by PROMPT_STORAGE env var
+      // When PROMPT_STORAGE=false (default), prompts/responses are not persisted
+      // Only metadata (tactic ID, framework) is logged to audit trail above
       const prompt = `You are a cybersecurity expert specializing in AI red-teaming. Generate detailed information about the following tactic:
 
 Tactic ID: ${tactic.id}

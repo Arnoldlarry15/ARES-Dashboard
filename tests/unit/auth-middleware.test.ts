@@ -3,6 +3,11 @@ import type { VercelResponse } from '@vercel/node';
 import { requireAuth, requireRole, requirePermission, AuthenticatedRequest } from '../../api/middleware/auth';
 import { generateTokens } from '../../services/auth/jwt';
 
+// Mock the audit helper to avoid Prisma initialization in tests
+vi.mock('../../utils/audit', () => ({
+  audit: vi.fn().mockResolvedValue(undefined)
+}));
+
 describe('Auth Middleware', () => {
   let mockReq: Partial<AuthenticatedRequest>;
   let mockRes: Partial<VercelResponse>;
@@ -151,10 +156,10 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user without required role', () => {
+    it('should reject user without required role', async () => {
       const middleware = requireRole(['admin', 'red_team_lead']);
 
-      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -206,10 +211,10 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user without required permission', () => {
+    it('should reject user without required permission', async () => {
       const middleware = requirePermission('campaign:write');
 
-      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -230,11 +235,11 @@ describe('Auth Middleware', () => {
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should handle user without permissions array', () => {
+    it('should handle user without permissions array', async () => {
       mockReq.user!.permissions = undefined;
       const middleware = requirePermission('campaign:read');
 
-      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(nextFn).not.toHaveBeenCalled();
@@ -271,7 +276,7 @@ describe('Auth Middleware', () => {
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should fail at role check even with valid token', () => {
+    it('should fail at role check even with valid token', async () => {
       const tokens = generateTokens({
         userId: 'viewer123',
         email: 'viewer@example.com',
@@ -283,9 +288,12 @@ describe('Auth Middleware', () => {
         authorization: `Bearer ${tokens.accessToken}`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, () => {
-        const roleMiddleware = requireRole(['admin']);
-        roleMiddleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await new Promise<void>((resolve) => {
+        requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, async () => {
+          const roleMiddleware = requireRole(['admin']);
+          await roleMiddleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+          resolve();
+        });
       });
 
       expect(mockRes.status).toHaveBeenCalledWith(403);

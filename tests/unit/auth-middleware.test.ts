@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelResponse } from '@vercel/node';
 import { requireAuth, requireRole, requirePermission, AuthenticatedRequest } from '../../api/middleware/auth';
 import { generateTokens } from '../../services/auth/jwt';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserRole, getRoleInfo } from '../types/auth';
 import { AuthService } from '../services/authService';
-import { Shield, Lock, User as UserIcon, ChevronRight } from 'lucide-react';
+import { Lock, User as UserIcon, ChevronRight } from 'lucide-react';
 
 interface AuthLoginProps {
   onLogin: () => void;

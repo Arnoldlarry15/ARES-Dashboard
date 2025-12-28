@@ -6,19 +6,16 @@ import { GeminiService } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { CampaignManager, Campaign } from './utils/campaigns';
 import { AuthService } from './services/authService';
-import { User, hasPermission } from './types/auth';
+import { User } from './types/auth';
 import { AuthLogin } from './components/AuthLogin';
 import { TeamManagement } from './components/TeamManagement';
 import { PayloadEditor } from './components/PayloadEditor';
 import { ThemeManager, Theme } from './utils/themeManager';
 import { 
-  ShieldAlert, 
-  Terminal, 
   Activity, 
   ChevronRight, 
   Search, 
   Download, 
-  Cpu, 
   FileJson,
   AlertTriangle,
   RefreshCw,
@@ -87,7 +84,7 @@ export default function App() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   // Performance: useTransition for non-urgent updates
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // Debounce search input for better performance
   useEffect(() => {
@@ -343,9 +340,9 @@ export default function App() {
       startTransition(() => {
         setResult(details);
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       startTransition(() => {
-        setError(err.message || "Content generation failed.");
+        setError(err instanceof Error ? err.message : "Content generation failed.");
       });
     } finally {
       // Immediate feedback when operation completes
@@ -376,7 +373,7 @@ export default function App() {
     setTimeout(() => setNotification(null), 2000);
   };
 
-  const downloadJson = (data: any, filename: string) => {
+  const downloadJson = (data: unknown, filename: string) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -456,7 +453,7 @@ export default function App() {
         setNotification(`Campaign "${campaign.name}" saved`);
         setTimeout(() => setNotification(null), 2000);
       });
-    } catch (error) {
+    } catch {
       setNotification("Failed to save campaign");
       setTimeout(() => setNotification(null), 2000);
     }

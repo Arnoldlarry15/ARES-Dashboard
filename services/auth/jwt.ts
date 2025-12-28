@@ -74,7 +74,7 @@ export function verifyAccessToken(token: string): TokenPayload | null {
     }
     
     return decoded as TokenPayload;
-  } catch (error) {
+  } catch {
     // Don't log token verification errors to avoid leaking information
     return null;
   }
@@ -108,7 +108,7 @@ export function verifyRefreshToken(token: string): TokenPayload | null {
     }
     
     return decoded as TokenPayload;
-  } catch (error) {
+  } catch {
     // Don't log token verification errors to avoid leaking information
     return null;
   }

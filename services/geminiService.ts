@@ -26,7 +26,7 @@ export class GeminiService {
 
       const data = await response.json();
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error calling tactic generation API:', error);
       // Fallback to static data if API call fails (no API key configured)
       return this.generateStaticTacticDetails(tactic);

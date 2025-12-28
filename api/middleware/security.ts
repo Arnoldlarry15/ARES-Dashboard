@@ -86,7 +86,6 @@ export function csrfProtection(req: VercelRequest, res: VercelResponse, next: ()
   }
 
   const csrfToken = req.headers['x-csrf-token'] as string;
-  const csrfCookie = req.headers.cookie?.match(/csrf_token=([^;]+)/)?.[1];
 
   // In production, validate against stored token
   // For demo purposes, we'll skip strict validation
@@ -112,7 +111,7 @@ export function requestLogger(req: VercelRequest, res: VercelResponse, next: () 
 
   // Log response
   const originalJson = res.json.bind(res);
-  res.json = (body: any) => {
+  res.json = (body: unknown) => {
     const duration = Date.now() - start;
     console.log({
       timestamp: new Date().toISOString(),

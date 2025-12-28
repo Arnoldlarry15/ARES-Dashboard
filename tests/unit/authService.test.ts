@@ -144,8 +144,8 @@ describe('AuthService', () => {
   });
 
   describe('getAuditLogs', () => {
-    it('should return empty array when no logs exist', () => {
-      const logs = AuthService.getAuditLogs();
+    it('should return empty array when no logs exist', async () => {
+      const logs = await AuthService.getAuditLogs();
       expect(logs).toEqual([]);
     });
 

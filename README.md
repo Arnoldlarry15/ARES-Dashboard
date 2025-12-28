@@ -197,8 +197,89 @@ npm run preview
 - **Icons**: Lucide React
 - **AI**: Google Gemini API (secure backend integration)
 - **Build Tool**: Vite
-- **State Management**: React Hooks, LocalStorage
+- **State Management**: React Hooks, Database-backed with localStorage fallback
+- **Database**: PostgreSQL with Prisma ORM
+- **Persistence**: Campaign, User, and Audit Log storage
 - **Deployment**: Vercel (recommended)
+
+## 💾 Database & Persistence
+
+ARES now supports **durable data persistence** using PostgreSQL with Prisma ORM, replacing localStorage for enterprise deployments.
+
+### Features
+- ✅ **Durable Data**: Campaigns and audit logs persist across sessions
+- ✅ **Multi-User Support**: Proper user isolation and organization-based access
+- ✅ **Audit Trails**: Comprehensive logging for compliance (SOC2, ISO 27001, GDPR)
+- ✅ **Auto-Fallback**: Gracefully falls back to localStorage if database is unavailable
+
+### Quick Setup
+
+1. **Choose a database provider:**
+   - [Neon](https://neon.tech) (Recommended for Vercel - serverless PostgreSQL)
+   - [Supabase](https://supabase.com) (PostgreSQL with extras)
+   - [AWS RDS](https://aws.amazon.com/rds/) (Enterprise-grade)
+   - Local PostgreSQL
+
+2. **Configure your database URL:**
+   ```bash
+   # In .env.local or Vercel environment variables
+   DATABASE_URL="postgresql://user:password@host:5432/ares_dashboard"
+   ```
+
+3. **Initialize the schema:**
+   ```bash
+   npm run db:generate  # Generate Prisma client
+   npm run db:push      # Push schema to database
+   npm run db:studio    # Open database GUI (optional)
+   ```
+
+4. **Migrate existing data (if upgrading):**
+   - Open your browser console on the dashboard
+   - Run: `exportLocalStorageData()` to backup
+   - Run: `migrateInBrowser()` to migrate to database
+   - See [Database Migration Guide](docs/DATABASE_MIGRATION.md) for details
+
+### Database Schema
+
+The system uses three core models:
+
+```typescript
+// User - for authentication and team management
+model User {
+  id        String   @id
+  email     String   @unique
+  role      String
+  orgId     String
+}
+
+// Campaign - for attack scenarios
+model Campaign {
+  id        String   @id
+  name      String
+  createdBy String
+  createdAt DateTime @default(now())
+}
+
+// AuditLog - for compliance and tracking
+model AuditLog {
+  id        String   @id
+  actorId   String
+  action    String
+  target    String
+  timestamp DateTime @default(now())
+}
+```
+
+### API Integration
+
+The frontend automatically uses database APIs when available:
+- `CampaignManager` → `/api/campaigns`
+- `AuthService` → `/api/users` and `/api/audit-logs`
+- Falls back to localStorage if API is unavailable
+
+For detailed setup instructions, see:
+- [Database Migration Guide](docs/DATABASE_MIGRATION.md)
+- [DATABASE.md](database/DATABASE.md)
 
 ## 📁 Project Structure
 
@@ -208,6 +289,9 @@ npm run preview
 ├── types.ts                     # TypeScript type definitions
 ├── api/
 │   ├── generate-tactic.ts      # Serverless API for AI (secure)
+│   ├── users.ts                # User management API
+│   ├── campaigns.ts            # Campaign persistence API
+│   ├── audit-logs.ts           # Audit trail API
 │   ├── protected-example.ts    # Example protected endpoint with RBAC
 │   ├── auth/
 │   │   ├── refresh.ts          # Token refresh endpoint
@@ -221,21 +305,37 @@ npm run preview
 │   │   ├── validation.ts       # Request validation
 │   │   └── security.ts         # Security headers & CORS
 │   └── tsconfig.json           # API TypeScript config
+├── prisma/
+│   └── schema.prisma           # Database schema definition
+├── prisma.config.ts            # Prisma configuration
+├── repositories/
+│   ├── userRepository.ts       # User data access layer
+│   ├── campaignRepository.ts   # Campaign data access layer
+│   └── auditLogRepository.ts   # Audit log data access layer
 ├── components/
 │   ├── AuthLogin.tsx           # Authentication UI
 │   ├── TeamManagement.tsx      # Team workspace management
 │   └── PayloadEditor.tsx       # In-line payload editor
 ├── services/
 │   ├── geminiService.ts        # AI integration service (calls backend)
-│   ├── authService.ts          # Authentication & RBAC
+│   ├── authService.ts          # Authentication & audit logging
 │   ├── workspaceService.ts     # Team collaboration
 │   └── auth/
 │       ├── jwt.ts              # JWT token management
 │       └── OAUTH_INTEGRATION.md # OAuth setup guide
 ├── utils/
+│   ├── db.ts                   # Prisma client singleton
+│   ├── apiClient.ts            # Type-safe API client
 │   ├── storage.ts              # Progress persistence
-│   ├── campaigns.ts            # Campaign management
+│   ├── campaigns.ts            # Campaign management (DB + localStorage)
 │   └── themeManager.ts         # Theme system
+├── database/
+│   ├── DATABASE.md             # Database setup guide
+│   └── schema/
+│       └── postgresql.sql      # SQL schema
+├── scripts/
+│   ├── validate-db.mjs         # Database validation
+│   └── migrate-localstorage.ts # localStorage migration tool
 ├── types/
 │   ├── auth.ts                 # Authentication types
 │   └── workspace.ts            # Workspace types

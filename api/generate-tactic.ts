@@ -258,6 +258,11 @@ Generate 5-7 realistic and diverse example payloads that demonstrate this tactic
 
       const text = response.text;
 
+      // Check if text is available
+      if (!text) {
+        throw new Error('No text returned from AI response');
+      }
+
       // Extract JSON from the response (handle markdown code blocks)
       const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || text.match(/(\{[\s\S]*\})/);
 

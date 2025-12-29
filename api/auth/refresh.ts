@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyRefreshToken, generateTokens } from '../../services/auth/jwt';
 import { securityHeaders, cors, requestLogger, compose } from '../../lib/middleware/security';
 import { rateLimit } from '../../lib/middleware/rateLimit';
+import { logger } from '../../lib/logger';
 
 async function handleRefresh(req: VercelRequest, res: VercelResponse) {
   try {
@@ -42,7 +43,7 @@ async function handleRefresh(req: VercelRequest, res: VercelResponse) {
       expiresIn: 3600 // 1 hour in seconds
     });
   } catch (error: unknown) {
-    console.error('Token refresh error:', error);
+    logger.error('Token refresh error', error instanceof Error ? error : new Error(String(error)));
     return res.status(500).json({ 
       error: 'Internal Server Error',
       message: 'Failed to refresh token'

@@ -3,6 +3,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateTokens } from '../../../services/auth/jwt';
+import { logger } from '../../../lib/logger';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -10,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Check for OAuth errors
     if (error) {
-      console.error('Auth0 OAuth error:', error, error_description);
+      logger.error('Auth0 OAuth error', new Error(error as string), { error_description });
       return res.redirect(`/?error=${encodeURIComponent(error as string)}`);
     }
 
@@ -61,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json();
-      console.error('Token exchange failed:', errorData);
+      logger.error('Token exchange failed', new Error('Token exchange failed'), { errorData });
       return res.redirect(`/?error=token_exchange_failed`);
     }
 
@@ -75,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!userInfoResponse.ok) {
-      console.error('Failed to fetch user info');
+      logger.error('Failed to fetch user info', new Error('Failed to fetch user info'));
       return res.redirect(`/?error=user_info_failed`);
     }
 
@@ -112,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Redirect to app (tokens are now in secure cookies)
     res.redirect(302, '/?auth=success');
   } catch (error: unknown) {
-    console.error('Auth0 callback error:', error);
+    logger.error('Auth0 callback error', error instanceof Error ? error : new Error(String(error)));
     return res.redirect(`/?error=authentication_failed`);
   }
 }

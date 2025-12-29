@@ -201,19 +201,28 @@ export class AuthService {
       const { auditLogs } = await AuditLogAPI.getAll(apiFilters, { take: 1000 });
       
       // Convert to old format for compatibility
-      const converted: AuditLogEntry[] = auditLogs.map(log => ({
-        id: log.id,
-        user_id: log.actorId,
-        user_email: log.actor?.email || 'unknown',
-        action: log.action,
-        resource_type: (log.details as Record<string, unknown>)?.resource_type as string || 'session',
-        resource_id: log.target,
-        details: log.details as Record<string, unknown>,
-        ip_address: log.ipAddress,
-        user_agent: log.userAgent,
-        timestamp: log.timestamp,
-        session_id: undefined,
-      }));
+      const converted: AuditLogEntry[] = auditLogs.map(log => {
+        const resourceType = (log.details as Record<string, unknown>)?.resource_type as string;
+        const validResourceTypes: AuditLogEntry['resource_type'][] = ['campaign', 'tactic', 'payload', 'export', 'user', 'session'];
+        const mappedResourceType: AuditLogEntry['resource_type'] = 
+          validResourceTypes.includes(resourceType as AuditLogEntry['resource_type']) 
+            ? resourceType as AuditLogEntry['resource_type']
+            : 'session';
+        
+        return {
+          id: log.id,
+          user_id: log.actorId,
+          user_email: log.actor?.email || 'unknown',
+          action: log.action,
+          resource_type: mappedResourceType,
+          resource_id: log.target,
+          details: log.details as Record<string, unknown>,
+          ip_address: log.ipAddress,
+          user_agent: log.userAgent,
+          timestamp: log.timestamp,
+          session_id: undefined,
+        };
+      });
       
       // Apply resource_type filter
       if (filters?.resource_type) {

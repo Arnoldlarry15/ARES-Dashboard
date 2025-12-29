@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
+import type { VercelResponse } from '@vercel/node';
 import { createServer } from 'http';
 import { requireAuth, type AuthenticatedRequest } from '../../lib/middleware/auth';
 

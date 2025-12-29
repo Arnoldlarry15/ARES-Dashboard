@@ -76,7 +76,7 @@ export default async function handler(
     const relayState = (req.query.returnTo as string) || '/';
 
     // Generate SAML request
-    const samlRequest = generateSAMLRequest(config, relayState);
+    const samlRequest = generateSAMLRequest(config);
 
     // Build redirect URL
     const params = new URLSearchParams({

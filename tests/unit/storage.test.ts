@@ -45,15 +45,19 @@ describe('StorageManager', () => {
     it('should handle errors gracefully', () => {
       // Mock localStorage.setItem to throw error
       const originalSetItem = localStorage.setItem;
-      localStorage.setItem = () => {
-        throw new Error('Storage full');
-      };
+      
+      try {
+        localStorage.setItem = () => {
+          throw new Error('Storage full');
+        };
 
-      expect(() => {
-        StorageManager.saveState({ selectedTacticId: 'LLM01' });
-      }).not.toThrow();
-
-      localStorage.setItem = originalSetItem;
+        expect(() => {
+          StorageManager.saveState({ selectedTacticId: 'LLM01' });
+        }).not.toThrow();
+      } finally {
+        // Always restore the original mock to prevent memory leaks
+        localStorage.setItem = originalSetItem;
+      }
     });
   });
 

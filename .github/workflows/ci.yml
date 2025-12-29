@@ -32,15 +32,23 @@ jobs:
 
       - name: Run unit tests
         run: npm run test:unit
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Run integration tests
         run: npm run test:integration
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Run security tests
         run: npm run test:security
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Generate coverage report
         run: npm run test:coverage
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4

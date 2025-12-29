@@ -8,6 +8,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateTokens } from '../../services/auth/jwt';
 import { logger } from '../../lib/logger';
 
+// Cookie expiry constants (in seconds)
+const ONE_HOUR = 3600;
+const SEVEN_DAYS = 7 * 24 * 60 * 60;
+const ONE_DAY = 24 * 60 * 60;
+
 interface SAMLResponse {
   nameID: string;
   email: string;
@@ -168,12 +173,12 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
 
     // Set tokens as secure HttpOnly cookies
     const cookieOptions = 'HttpOnly; Secure; SameSite=Strict; Path=/';
-    const accessTokenExpiry = new Date(Date.now() + 3600 * 1000).toUTCString(); // 1 hour
-    const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString(); // 7 days
+    const accessTokenExpiry = new Date(Date.now() + ONE_HOUR * 1000).toUTCString();
+    const refreshTokenExpiry = new Date(Date.now() + SEVEN_DAYS * 1000).toUTCString();
     
     res.setHeader('Set-Cookie', [
-      `access_token=${ourTokens.accessToken}; ${cookieOptions}; Max-Age=3600; Expires=${accessTokenExpiry}`,
-      `refresh_token=${ourTokens.refreshToken}; ${cookieOptions}; Max-Age=604800; Expires=${refreshTokenExpiry}`,
+      `access_token=${ourTokens.accessToken}; ${cookieOptions}; Max-Age=${ONE_HOUR}; Expires=${accessTokenExpiry}`,
+      `refresh_token=${ourTokens.refreshToken}; ${cookieOptions}; Max-Age=${SEVEN_DAYS}; Expires=${refreshTokenExpiry}`,
       'auth0_state=; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Path=/' // Clear state cookie
     ]);
 
@@ -212,13 +217,13 @@ async function handleSAMLCallback(req: VercelRequest, res: VercelResponse) {
 
     // Set secure cookies (matching Auth0 callback format for consistency)
     const cookieOptions = 'HttpOnly; Secure; SameSite=Strict; Path=/';
-    const accessTokenExpiry = new Date(Date.now() + 3600 * 1000).toUTCString(); // 1 hour
-    const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString(); // 7 days
+    const accessTokenExpiry = new Date(Date.now() + ONE_HOUR * 1000).toUTCString();
+    const refreshTokenExpiry = new Date(Date.now() + SEVEN_DAYS * 1000).toUTCString();
     
     res.setHeader('Set-Cookie', [
-      `access_token=${tokens.accessToken}; ${cookieOptions}; Max-Age=3600; Expires=${accessTokenExpiry}`,
-      `refresh_token=${tokens.refreshToken}; ${cookieOptions}; Max-Age=604800; Expires=${refreshTokenExpiry}`,
-      `ares_user=${encodeURIComponent(JSON.stringify({ email: user.email, role: role }))}; Path=/; Max-Age=${24 * 60 * 60}`
+      `access_token=${tokens.accessToken}; ${cookieOptions}; Max-Age=${ONE_HOUR}; Expires=${accessTokenExpiry}`,
+      `refresh_token=${tokens.refreshToken}; ${cookieOptions}; Max-Age=${SEVEN_DAYS}; Expires=${refreshTokenExpiry}`,
+      `ares_user=${encodeURIComponent(JSON.stringify({ email: user.email, role: role }))}; Path=/; Max-Age=${ONE_DAY}`
     ]);
 
     // Redirect to application or RelayState URL
@@ -226,7 +231,7 @@ async function handleSAMLCallback(req: VercelRequest, res: VercelResponse) {
     res.redirect(302, redirectUrl);
 
   } catch (error) {
-    console.error('SAML callback error:', error);
+    logger.error('SAML callback error', error instanceof Error ? error : new Error(String(error)));
     return res.status(500).json({ 
       error: 'Authentication failed',
       message: error instanceof Error ? error.message : 'Unknown error'

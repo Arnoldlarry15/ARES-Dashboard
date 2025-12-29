@@ -5,6 +5,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import crypto from 'crypto';
 
 interface SAMLConfig {
   entryPoint: string;
@@ -39,7 +40,6 @@ function generateSAMLRequest(config: SAMLConfig): string {
   // This is a simplified example showing the structure
   
   // Use cryptographically secure random ID generation
-  const crypto = require('crypto');
   const id = `_${crypto.randomUUID().replace(/-/g, '')}`;
   const issueInstant = new Date().toISOString();
   

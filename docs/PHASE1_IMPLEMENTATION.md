@@ -10,8 +10,10 @@ Successfully implemented **Core Enterprise Foundations** for ARES Dashboard, add
 - **Identity Provider**: Auth0 integration (recommended for ease of use)
 - **Alternative support**: Architecture supports Azure AD, Clerk, and other OAuth2/OIDC providers
 - **Endpoints implemented**:
-  - `GET /api/auth/login/auth0` - Initiates OAuth2 flow
-  - `GET /api/auth/callback/auth0` - Handles OAuth callback
+  - `GET /api/auth/login?provider=auth0` - Initiates OAuth2 flow
+  - `GET /api/auth/callback?provider=auth0` - Handles OAuth callback
+  - `GET /api/auth/login?provider=saml` - Initiates SAML flow
+  - `POST /api/auth/callback?provider=saml` - Handles SAML callback
   - `POST /api/auth/refresh` - Refreshes expired access tokens
 
 ### 2. Server-Side RBAC Enforcement ✓
@@ -97,14 +99,11 @@ Beyond the requirements, we also implemented:
 ```
 api/
 ├── auth/
-│   ├── login/
-│   │   └── auth0.ts          (NEW) Auth0 login endpoint
-│   ├── callback/
-│   │   └── auth0.ts          (NEW) OAuth callback with secure cookies
+│   ├── login.ts              (NEW) Unified login endpoint for all providers
+│   ├── callback.ts           (NEW) Unified OAuth/SAML callback handler
 │   └── refresh.ts            (NEW) Token refresh endpoint
 ├── middleware/
 │   └── auth.ts               (NEW) Auth & RBAC middleware
-└── protected-example.ts      (NEW) Example protected endpoint
 
 services/
 └── auth/
@@ -138,7 +137,7 @@ README.md                     (UPDATED) Enterprise features
 1. Create Auth0 account at https://auth0.com
 2. Create new Regular Web Application
 3. Configure application settings:
-   - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback/auth0`
+   - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback?provider=auth0`
    - **Allowed Logout URLs**: `https://your-domain.com`
    - **Allowed Web Origins**: `https://your-domain.com`
 
@@ -151,7 +150,7 @@ Add to Vercel environment variables:
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
-AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback/auth0
+AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback?provider=auth0
 
 # JWT Secrets (generate with: openssl rand -base64 32)
 JWT_SECRET=your_secure_random_secret_here
@@ -189,7 +188,7 @@ exports.onExecutePostLogin = async (event, api) => {
 ### Step 4: Deploy and Test
 
 1. Deploy to Vercel
-2. Test login flow: Navigate to `/api/auth/login/auth0`
+2. Test login flow: Navigate to `/api/auth/login?provider=auth0`
 3. Verify JWT tokens are set as secure cookies
 4. Test protected endpoints with authentication
 5. Verify role-based access control

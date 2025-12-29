@@ -1,9 +1,9 @@
 {
-  "name": "ares:-ai-red-teaming-&-evaluation-system",
+  "name": "ares-dashboard-ai-red-team-operations-console",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Enterprise AI Risk Governance and Red-Teaming Platform - Structured, compliant AI security testing with auditability and collaboration for security teams",
+  "description": "ARES is an AI Red Team Operations Dashboard for planning, executing, and auditing structured adversarial testing of AI systems across established risk frameworks.",
   "keywords": ["security", "ai", "red-teaming", "owasp", "mitre", "llm", "atlas", "governance", "compliance", "audit", "soc2", "iso27001"],
   "repository": {
     "type": "git",

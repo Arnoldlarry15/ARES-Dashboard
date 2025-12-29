@@ -47,8 +47,8 @@
 ## 📖 Need More Details?
 
 - **Complete Guide**: Read `BACKEND_MIGRATION.md`
-- **Full Summary**: Read `SUMMARY.md`
 - **Deployment Docs**: Read `DEPLOY.md`
+- **Main Documentation**: See `../README.md`
 
 ---
 

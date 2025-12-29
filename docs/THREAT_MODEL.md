@@ -4,13 +4,33 @@
 
 This document provides a comprehensive threat model for ARES (AI Red-teaming & Evaluation System) Dashboard. It identifies potential security threats, attack vectors, and mitigation strategies to help organizations understand and manage security risks when deploying ARES.
 
+**For explicit defense boundaries and assumptions, see [TRUST_BOUNDARY.md](TRUST_BOUNDARY.md).**
+
 ## Executive Summary
 
-ARES Dashboard is an AI red-teaming and governance platform that helps organizations safely evaluate, document, and mitigate LLM risks. As a security tool that generates attack payloads and stores sensitive testing data, ARES itself must be hardened against attacks.
+ARES Dashboard is an AI Red Team Operations Dashboard that helps security professionals plan, execute, and audit structured adversarial testing of AI systems. As a security tool that generates attack payloads and stores sensitive testing data, ARES itself must be hardened against attacks.
+
+**Product Identity:** Operations console for red team professionals, not an autonomous platform or exploit execution engine. See [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md) for complete positioning.
 
 **Risk Level by Deployment Mode:**
 - **Demo Mode**: Low to Medium risk (evaluation only, no sensitive data)
 - **Production Mode**: Medium to High risk (requires enterprise security controls)
+
+## Defense Scope (Summary)
+
+**What ARES Defends Against:**
+- LLM-specific vulnerabilities (prompt injection, jailbreaks, data leakage)
+- AI system weaknesses (bias, hallucinations, context manipulation)
+- Operational security gaps (insufficient access controls, audit trails)
+- Documentation gaps (undocumented attack vectors, missing mitigations)
+
+**What ARES Does NOT Defend Against:**
+- ❌ Production security controls (not a firewall, IDS, or WAF)
+- ❌ Automated defense (not automatic remediation)
+- ❌ Exploit execution (generates scenarios, doesn't execute attacks)
+- ❌ Runtime protection (not continuous monitoring)
+
+**Full details:** [TRUST_BOUNDARY.md](TRUST_BOUNDARY.md)
 
 ## System Overview
 
@@ -502,6 +522,14 @@ ARES Dashboard is designed with security as a priority, but like any security to
 
 ## Related Documentation
 
+### Enterprise Trust Documentation
+- [TRUST_BOUNDARY.md](TRUST_BOUNDARY.md) - **NEW**: Explicit threat model - what ARES defends/does not defend against, assumptions
+- [SECURITY_BOUNDARIES.md](SECURITY_BOUNDARIES.md) - **NEW**: Who should use ARES, misuse prevention
+- [AI_BEHAVIOR.md](AI_BEHAVIOR.md) - **NEW**: Determinism, reproducibility, hallucination handling
+- [VERSION_GUARANTEES.md](VERSION_GUARANTEES.md) - **NEW**: Behavioral stability promises
+- [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md) - **NEW**: Product identity and positioning
+
+### Security & Compliance
 - [SECURITY.md](SECURITY.md) - Security policy and vulnerability reporting
 - [DATA_HANDLING.md](DATA_HANDLING.md) - Data lifecycle and privacy
 - [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical use guidelines
@@ -510,5 +538,5 @@ ARES Dashboard is designed with security as a priority, but like any security to
 ---
 
 **Last Updated**: December 2024  
-**Version**: 0.9.0  
+**Version**: 1.0.0  
 **Next Review**: March 2025

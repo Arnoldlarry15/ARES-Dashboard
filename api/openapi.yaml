@@ -42,8 +42,138 @@ tags:
     description: AI security tactic generation and management
   - name: Authentication
     description: User authentication and session management
+  - name: Observability
+    description: Health checks and monitoring endpoints
 
 paths:
+  /health:
+    get:
+      tags:
+        - Observability
+      summary: Health check endpoint
+      description: |
+        Returns application health status and component health checks.
+        
+        This endpoint provides:
+        - Overall health status (healthy/degraded/unhealthy)
+        - Database connectivity status
+        - Cache connectivity status
+        - External service status (Gemini API, Auth providers)
+        - System metrics (memory usage)
+        
+        Used by load balancers, orchestrators, and monitoring systems.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Application is healthy or degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+              examples:
+                healthy:
+                  summary: Healthy system
+                  value:
+                    status: healthy
+                    timestamp: "2024-12-29T17:00:00.000Z"
+                    version: "1.0.0"
+                    uptime: 3600
+                    checks:
+                      database:
+                        status: healthy
+                        latency: 5
+                      cache:
+                        status: healthy
+                        latency: 2
+                      externalServices:
+                        gemini:
+                          status: healthy
+                        auth:
+                          status: healthy
+                    metrics:
+                      memory:
+                        used: 45000000
+                        total: 100000000
+                        percentage: 45
+                degraded:
+                  summary: Degraded system
+                  value:
+                    status: degraded
+                    timestamp: "2024-12-29T17:00:00.000Z"
+                    version: "1.0.0"
+                    uptime: 3600
+                    checks:
+                      database:
+                        status: healthy
+                        latency: 5
+                      cache:
+                        status: unhealthy
+                        error: "Connection timeout"
+        '503':
+          description: Application is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+              examples:
+                unhealthy:
+                  summary: Unhealthy system
+                  value:
+                    status: unhealthy
+                    timestamp: "2024-12-29T17:00:00.000Z"
+                    version: "1.0.0"
+                    uptime: 3600
+                    checks:
+                      database:
+                        status: unhealthy
+                        error: "Connection refused"
+
+  /metrics:
+    get:
+      tags:
+        - Observability
+      summary: Prometheus metrics endpoint
+      description: |
+        Returns application metrics in Prometheus exposition format.
+        
+        Metrics include:
+        - HTTP request counters and latencies
+        - Authentication success/failure rates
+        - Campaign operation counts
+        - Database connection pool statistics
+        - Memory and system metrics
+        
+        This endpoint can be scraped by Prometheus, Datadog, or other monitoring systems.
+      operationId: getMetrics
+      security:
+        - MetricsAuth: []
+      responses:
+        '200':
+          description: Metrics in Prometheus format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total number of HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total 1234
+                  # HELP http_request_duration_seconds HTTP request latencies in seconds
+                  # TYPE http_request_duration_seconds histogram
+                  http_request_duration_seconds 0.25
+                  # HELP auth_success_total Total successful authentications
+                  # TYPE auth_success_total counter
+                  auth_success_total 567
+                  # HELP campaigns_active Number of active campaigns
+                  # TYPE campaigns_active gauge
+                  campaigns_active 42
+        '401':
+          description: Unauthorized - authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /generate-tactic:
     post:
       tags:
@@ -166,6 +296,13 @@ components:
       description: |
         API key authentication (future implementation).
         Currently using demo mode authentication.
+    
+    MetricsAuth:
+      type: http
+      scheme: basic
+      description: |
+        Basic authentication for metrics endpoint.
+        Configure METRICS_AUTH environment variable in production.
 
   schemas:
     TacticRequest:
@@ -362,3 +499,128 @@ components:
           type: integer
           description: Seconds to wait before retrying
           example: 30
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - uptime
+        - checks
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+          description: Overall health status
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of health check
+          example: "2024-12-29T17:00:00.000Z"
+        version:
+          type: string
+          description: Application version
+          example: "1.0.0"
+        uptime:
+          type: number
+          description: Application uptime in seconds
+          example: 3600
+        checks:
+          type: object
+          description: Component health checks
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - healthy
+                    - unhealthy
+                  example: healthy
+                latency:
+                  type: number
+                  description: Response time in milliseconds
+                  example: 5
+                error:
+                  type: string
+                  description: Error message if unhealthy
+            cache:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - healthy
+                    - unhealthy
+                  example: healthy
+                latency:
+                  type: number
+                  description: Response time in milliseconds
+                  example: 2
+                error:
+                  type: string
+                  description: Error message if unhealthy
+            externalServices:
+              type: object
+              description: External service health
+              properties:
+                gemini:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                      example: healthy
+                    error:
+                      type: string
+                      description: Error message if unhealthy
+                auth:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                      example: healthy
+                    error:
+                      type: string
+                      description: Error message if unhealthy
+        metrics:
+          type: object
+          description: System metrics
+          properties:
+            memory:
+              type: object
+              required:
+                - used
+                - total
+                - percentage
+              properties:
+                used:
+                  type: number
+                  description: Used memory in bytes
+                  example: 45000000
+                total:
+                  type: number
+                  description: Total memory in bytes
+                  example: 100000000
+                percentage:
+                  type: number
+                  description: Memory usage percentage
+                  example: 45
+            cpu:
+              type: object
+              properties:
+                usage:
+                  type: number
+                  description: CPU usage percentage
+                  example: 25

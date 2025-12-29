@@ -30,7 +30,7 @@ ARES currently provides:
 
 ### Observability and Health
 
-- ✅ Implement `/health` and `/ready` endpoints
+- ✅ Implement `/health` endpoint (with readiness checks)
 - ✅ Add baseline application metrics (request counts, error rates, latency)
 - ✅ Integrate error tracking (Sentry, Datadog, or equivalent)
 - ✅ Document supported observability backends and integration points

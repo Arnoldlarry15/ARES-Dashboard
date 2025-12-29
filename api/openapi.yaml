@@ -144,6 +144,12 @@ paths:
         - Memory and system metrics
         
         This endpoint can be scraped by Prometheus, Datadog, or other monitoring systems.
+        
+        **Security Note**: In production, this endpoint should be:
+        - Protected with strong authentication (configure METRICS_AUTH environment variable)
+        - Accessible only from trusted monitoring systems (use firewall rules or network policies)
+        - Monitored for unauthorized access attempts
+        - Consider using API keys or JWT tokens for enhanced security
       operationId: getMetrics
       security:
         - MetricsAuth: []
@@ -302,7 +308,18 @@ components:
       scheme: basic
       description: |
         Basic authentication for metrics endpoint.
-        Configure METRICS_AUTH environment variable in production.
+        
+        **Production Recommendations**:
+        - Configure METRICS_AUTH environment variable with strong credentials
+        - Consider network-level restrictions (firewall rules, VPC policies)
+        - Use API gateway authentication for additional security
+        - Rotate credentials regularly
+        - Monitor access logs for suspicious activity
+        
+        Alternative authentication methods can be implemented based on your infrastructure:
+        - API keys via reverse proxy (e.g., nginx, Kong)
+        - JWT tokens for service-to-service authentication
+        - Mutual TLS for Prometheus scraping
 
   schemas:
     TacticRequest:

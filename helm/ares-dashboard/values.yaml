@@ -139,7 +139,10 @@ postgresql:
   enabled: true
   auth:
     username: ares
-    password: changeme
+    # IMPORTANT: Change default password for production!
+    # Use a strong random password or reference an external secret
+    # Example: kubectl create secret generic postgresql-password --from-literal=password=$(openssl rand -base64 32)
+    password: changeme  # CHANGE THIS IN PRODUCTION
     database: ares_dashboard
   primary:
     persistence:

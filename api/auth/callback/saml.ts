@@ -75,7 +75,12 @@ function mapGroupsToRole(groups: string[]): string {
  * Generate JWT token for authenticated user
  */
 function generateToken(user: SAMLResponse): string {
-  // In production, use proper JWT library with signing
+  // IMPORTANT: This is a placeholder implementation
+  // In production, use a proper JWT library (jsonwebtoken) with signing
+  // Example:
+  // import jwt from 'jsonwebtoken';
+  // return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '24h' });
+  
   const payload = {
     sub: user.nameID,
     email: user.email,
@@ -85,7 +90,16 @@ function generateToken(user: SAMLResponse): string {
     exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
   };
 
-  // TODO: Sign with JWT_SECRET from environment
+  // WARNING: This creates an UNSIGNED token for development/testing only
+  // DO NOT use in production - implement proper JWT signing
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET not configured - cannot sign token');
+  }
+  
+  // TODO: Replace with proper JWT signing using jsonwebtoken library
+  // const jwt = require('jsonwebtoken');
+  // return jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256' });
+  
   return Buffer.from(JSON.stringify(payload)).toString('base64');
 }
 

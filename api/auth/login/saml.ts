@@ -39,7 +39,8 @@ function generateSAMLRequest(config: SAMLConfig, relayState?: string): string {
   // In production, use a proper SAML library like passport-saml
   // This is a simplified example showing the structure
   
-  const id = `_${Math.random().toString(36).substr(2, 9)}`;
+  // Use cryptographically secure random ID generation
+  const id = `_${require('crypto').randomUUID().replace(/-/g, '')}`;
   const issueInstant = new Date().toISOString();
   
   const request = `<?xml version="1.0"?>

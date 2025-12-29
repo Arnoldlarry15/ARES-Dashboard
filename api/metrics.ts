@@ -213,11 +213,26 @@ export function setGauge(name: string, value: number, labels?: Record<string, st
 /**
  * Helper function to observe a histogram metric
  * Export this for use in other API handlers
+ * 
+ * NOTE: This is a simplified implementation for demonstration.
+ * In production, use a proper metrics library like prom-client which supports:
+ * - Histogram buckets for accurate percentile calculation
+ * - Summary metrics with quantiles
+ * - Proper aggregation across instances
+ * 
+ * Example with prom-client:
+ * const histogram = new promClient.Histogram({
+ *   name: 'http_request_duration_seconds',
+ *   help: 'HTTP request latencies',
+ *   buckets: [0.1, 0.3, 0.5, 1, 3, 5, 10]
+ * });
+ * histogram.observe(duration);
  */
 export function observeHistogram(name: string, value: number, labels?: Record<string, string>) {
   const metric = metrics.get(name);
   if (metric && metric.type === 'histogram') {
     // Simple average for demonstration (use proper histogram buckets in production)
+    // This loses distribution information - replace with prom-client for production
     metric.value = (metric.value + value) / 2;
     metric.labels = labels;
   }

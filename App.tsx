@@ -530,12 +530,14 @@ export default function App() {
       theme === 'light' ? 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 text-slate-900' : 'text-slate-200'
     }`}>
       {/* Animated background gradient with teal, amber, and red accents */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A3A52] to-[#0A192F]"></div>
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-red-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
-      </div>
+      {theme === 'dark' && (
+        <div className="fixed inset-0 z-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A3A52] to-[#0A192F]"></div>
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+          <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-red-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -675,7 +677,9 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col md:flex-row gap-6 overflow-hidden">
         {/* Sidebar: Framework Explorer */}
         <div className="w-full md:w-80 flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-2 p-2 glass rounded-2xl shadow-xl">
+          <div className={`grid grid-cols-1 gap-2 p-2 glass rounded-2xl shadow-xl ${
+            theme === 'light' ? 'bg-white/60' : ''
+          }`}>
             {(Object.values(Framework) as Framework[]).map((f) => (
               <button 
                 key={f}
@@ -683,7 +687,9 @@ export default function App() {
                 className={`py-3 text-[11px] font-black rounded-xl transition-all duration-300 uppercase tracking-wider relative overflow-hidden group ${
                   activeTab === f 
                     ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg glow-teal' 
-                    : 'text-slate-400 hover:text-white glass-strong hover:scale-[1.02]'
+                    : theme === 'light'
+                      ? 'text-slate-700 hover:text-slate-900 bg-slate-50/50 hover:bg-slate-100 hover:scale-[1.02] border border-slate-200'
+                      : 'text-slate-400 hover:text-white glass-strong hover:scale-[1.02]'
                 }`}
               >
                 {activeTab !== f && (
@@ -694,14 +700,22 @@ export default function App() {
             ))}
           </div>
 
-          <div className="flex-1 glass rounded-2xl flex flex-col overflow-hidden shadow-xl">
-            <div className="p-5 border-b border-white/10 glass-strong">
+          <div className={`flex-1 glass rounded-2xl flex flex-col overflow-hidden shadow-xl ${
+            theme === 'light' ? 'bg-white/60 border-slate-200' : ''
+          }`}>
+            <div className={`p-5 border-b glass-strong ${
+              theme === 'light' ? 'border-slate-200 bg-white/40' : 'border-white/10'
+            }`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-amber-400" />
-                  <span className="text-sm font-bold text-white uppercase tracking-wider">Tactics</span>
+                  <Layers className={`w-5 h-5 ${theme === 'light' ? 'text-teal-600' : 'text-amber-400'}`} />
+                  <span className={`text-sm font-bold uppercase tracking-wider ${
+                    theme === 'light' ? 'text-slate-900' : 'text-white'
+                  }`}>Tactics</span>
                 </div>
-                <div className="px-2 py-1 bg-teal-500/20 rounded-lg text-teal-400 text-xs font-bold">
+                <div className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                  theme === 'light' ? 'bg-teal-100 text-teal-700' : 'bg-teal-500/20 text-teal-400'
+                }`}>
                   {filteredTactics.length}
                 </div>
               </div>
@@ -736,11 +750,13 @@ export default function App() {
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {filteredTactics.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="p-4 glass rounded-2xl mb-3">
-                    <Search className="w-8 h-8 text-slate-600" />
+                  <div className={`p-4 glass rounded-2xl mb-3 ${
+                    theme === 'light' ? 'bg-slate-100' : ''
+                  }`}>
+                    <Search className={`w-8 h-8 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`} />
                   </div>
-                  <p className="text-sm font-bold text-slate-400">No tactics found</p>
-                  <p className="text-xs text-slate-600 mt-1">Try a different search</p>
+                  <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>No tactics found</p>
+                  <p className={`text-xs mt-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-600'}`}>Try a different search</p>
                 </div>
               ) : (
                 filteredTactics.map((t) => (
@@ -755,7 +771,9 @@ export default function App() {
                   className={`w-full text-left p-4 rounded-xl transition-all duration-300 flex items-start justify-between group relative overflow-hidden ${
                     selectedTactic?.id === t.id 
                     ? 'glass-strong border border-teal-500/30 shadow-lg glow-teal' 
-                    : 'glass border border-white/5 hover:border-white/10 hover:scale-[1.02]'
+                    : theme === 'light'
+                      ? 'bg-white/70 border border-slate-200 hover:border-slate-300 hover:shadow-md hover:scale-[1.02]'
+                      : 'glass border border-white/5 hover:border-white/10 hover:scale-[1.02]'
                   }`}
                 >
                   {selectedTactic?.id !== t.id && (
@@ -766,22 +784,34 @@ export default function App() {
                       <span className={`text-[10px] font-black px-2 py-1 rounded-lg transition-all ${
                          selectedTactic?.id === t.id 
                          ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md' 
-                         : 'glass text-slate-400 group-hover:text-teal-400'
+                         : theme === 'light'
+                           ? 'bg-slate-100 text-slate-700 group-hover:bg-teal-100 group-hover:text-teal-700'
+                           : 'glass text-slate-400 group-hover:text-teal-400'
                       }`}>
                         {t.id}
                       </span>
                       <span className={`font-bold text-sm truncate ${
-                        selectedTactic?.id === t.id ? 'text-white' : 'text-slate-300 group-hover:text-white'
+                        selectedTactic?.id === t.id 
+                          ? 'text-white' 
+                          : theme === 'light'
+                            ? 'text-slate-900 group-hover:text-slate-900'
+                            : 'text-slate-300 group-hover:text-white'
                       }`}>{t.name}</span>
                     </div>
                     <p className={`text-xs line-clamp-1 transition-colors ${
-                      selectedTactic?.id === t.id ? 'text-teal-200/70' : 'text-slate-500 group-hover:text-slate-400'
+                      selectedTactic?.id === t.id 
+                        ? 'text-teal-200/70' 
+                        : theme === 'light'
+                          ? 'text-slate-600 group-hover:text-slate-700'
+                          : 'text-slate-500 group-hover:text-slate-400'
                     }`}>{t.shortDesc}</p>
                   </div>
                   <ChevronRight className={`w-5 h-5 mt-1 transition-all relative z-10 ${
                     selectedTactic?.id === t.id 
                     ? 'translate-x-1 text-teal-400' 
-                    : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1 text-slate-400'
+                    : theme === 'light'
+                      ? 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1 text-slate-600'
+                      : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1 text-slate-400'
                   }`} />
                 </button>
               )))}
@@ -792,44 +822,70 @@ export default function App() {
         {/* Workspace */}
         <div className="flex-1 flex flex-col gap-4 overflow-hidden">
           {!selectedTactic ? (
-            <div className="flex-1 bg-slate-900/20 border-2 border-dashed border-slate-800/60 rounded-2xl flex flex-col items-center justify-center text-center p-8">
-              <div className="p-5 bg-slate-900 rounded-full border border-slate-800 mb-6 shadow-2xl shadow-cyan-500/10">
-                <Search className="w-10 h-10 text-slate-700" />
+            <div className={`flex-1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center p-8 ${
+              theme === 'light' ? 'bg-slate-50 border-slate-300' : 'bg-slate-900/20 border-slate-800/60'
+            }`}>
+              <div className={`p-5 rounded-full border mb-6 shadow-2xl ${
+                theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800 shadow-cyan-500/10'
+              }`}>
+                <Search className={`w-10 h-10 ${theme === 'light' ? 'text-slate-400' : 'text-slate-700'}`} />
               </div>
-              <h2 className="text-2xl font-bold text-slate-100 mb-2">Build Executable Red-Team JSONs</h2>
-              <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
-                Select a tactic to configure <span className="text-cyan-400">Attack Vectors</span> and specialized payloads.
+              <h2 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-slate-900' : 'text-slate-100'}`}>Build Executable Red-Team JSONs</h2>
+              <p className={`max-w-md mx-auto leading-relaxed ${
+                theme === 'light' ? 'text-slate-600' : 'text-slate-500'
+              }`}>
+                Select a tactic to configure <span className={theme === 'light' ? 'text-teal-600 font-semibold' : 'text-cyan-400'}>Attack Vectors</span> and specialized payloads.
               </p>
             </div>
           ) : (
             <div className="flex-1 flex flex-col gap-4 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
               {/* Profile Brief */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shrink-0">
+              <div className={`border rounded-2xl p-6 relative overflow-hidden shrink-0 ${
+                theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
+              }`}>
                 <div className="relative flex justify-between items-start gap-6">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs font-bold px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded">
+                      <span className={`text-xs font-bold px-2 py-0.5 border rounded ${
+                        theme === 'light' ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+                      }`}>
                         {selectedTactic.id}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{selectedTactic.framework}</span>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                        theme === 'light' ? 'text-slate-500' : 'text-slate-500'
+                      }`}>{selectedTactic.framework}</span>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-1">{selectedTactic.name}</h2>
-                    <p className="text-slate-400 text-sm line-clamp-1">{selectedTactic.shortDesc}</p>
+                    <h2 className={`text-2xl font-bold mb-1 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{selectedTactic.name}</h2>
+                    <p className={`text-sm line-clamp-1 ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{selectedTactic.shortDesc}</p>
                   </div>
                   
                   {/* Stepper Indicator */}
-                  <div className="hidden lg:flex items-center gap-4 bg-slate-950/50 border border-slate-800 rounded-xl p-2 px-4">
-                    <div className={`flex items-center gap-2 ${currentStep === 'vectors' ? 'text-cyan-400' : 'text-slate-600'}`}>
+                  <div className={`hidden lg:flex items-center gap-4 border rounded-xl p-2 px-4 ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/50 border-slate-800'
+                  }`}>
+                    <div className={`flex items-center gap-2 ${
+                      currentStep === 'vectors' 
+                        ? theme === 'light' ? 'text-teal-600' : 'text-cyan-400'
+                        : theme === 'light' ? 'text-slate-400' : 'text-slate-600'
+                    }`}>
                       <Settings2 className="w-4 h-4" />
                       <span className="text-[10px] font-bold uppercase">Vectors</span>
                     </div>
-                    <ChevronRight className="w-3 h-3 text-slate-800" />
-                    <div className={`flex items-center gap-2 ${currentStep === 'payloads' ? 'text-cyan-400' : 'text-slate-600'}`}>
+                    <ChevronRight className={`w-3 h-3 ${theme === 'light' ? 'text-slate-300' : 'text-slate-800'}`} />
+                    <div className={`flex items-center gap-2 ${
+                      currentStep === 'payloads' 
+                        ? theme === 'light' ? 'text-teal-600' : 'text-cyan-400'
+                        : theme === 'light' ? 'text-slate-400' : 'text-slate-600'
+                    }`}>
                       <Code2 className="w-4 h-4" />
                       <span className="text-[10px] font-bold uppercase">Payloads</span>
                     </div>
-                    <ChevronRight className="w-3 h-3 text-slate-800" />
-                    <div className={`flex items-center gap-2 ${currentStep === 'export' ? 'text-cyan-400' : 'text-slate-600'}`}>
+                    <ChevronRight className={`w-3 h-3 ${theme === 'light' ? 'text-slate-300' : 'text-slate-800'}`} />
+                    <div className={`flex items-center gap-2 ${
+                      currentStep === 'export' 
+                        ? theme === 'light' ? 'text-teal-600' : 'text-cyan-400'
+                        : theme === 'light' ? 'text-slate-400' : 'text-slate-600'
+                    }`}>
                       <Download className="w-4 h-4" />
                       <span className="text-[10px] font-bold uppercase">Export</span>
                     </div>
@@ -837,35 +893,49 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex-1 bg-slate-900/40 border border-slate-800/60 rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
+              <div className={`flex-1 border rounded-2xl flex flex-col overflow-hidden shadow-2xl relative ${
+                theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/40 border-slate-800/60'
+              }`}>
                 
                 {/* 1. Attack Vector Selection */}
                 {currentStep === 'vectors' && (
                   <div className="flex-1 flex flex-col p-6 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-teal-500/20 rounded-lg">
-                          <Settings2 className="w-5 h-5 text-teal-400" />
+                        <div className={`p-2 rounded-lg ${
+                          theme === 'light' ? 'bg-teal-100' : 'bg-teal-500/20'
+                        }`}>
+                          <Settings2 className={`w-5 h-5 ${theme === 'light' ? 'text-teal-600' : 'text-teal-400'}`} />
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-white">Step 1: Attack Vectors</h3>
-                          <p className="text-xs text-slate-500">Delivery methods identified for {selectedTactic.name}.</p>
+                          <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Step 1: Attack Vectors</h3>
+                          <p className={`text-xs ${theme === 'light' ? 'text-slate-600' : 'text-slate-500'}`}>Delivery methods identified for {selectedTactic.name}.</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setSelectedVectors(selectedTactic.staticVectors)}
-                          className="text-[10px] font-bold text-teal-400 hover:text-teal-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                          className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border ${
+                            theme === 'light' 
+                              ? 'text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 border-teal-200'
+                              : 'text-teal-400 hover:text-teal-300 bg-slate-800 hover:bg-slate-700 border-slate-700'
+                          }`}
                         >
                           Select All
                         </button>
                         <button
                           onClick={() => setSelectedVectors([])}
-                          className="text-[10px] font-bold text-slate-400 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                          className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border ${
+                            theme === 'light'
+                              ? 'text-slate-600 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
+                              : 'text-slate-400 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 border-slate-700'
+                          }`}
                         >
                           Clear All
                         </button>
-                        <div className="text-[10px] font-bold text-slate-600 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-tighter">
+                        <div className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter ${
+                          theme === 'light' ? 'text-slate-700 bg-slate-100' : 'text-slate-600 bg-slate-800'
+                        }`}>
                           {selectedVectors.length} Selected
                         </div>
                       </div>
@@ -880,12 +950,20 @@ export default function App() {
                             onClick={() => toggleVector(vec)}
                             className={`p-4 rounded-xl text-sm font-medium transition-all text-left flex items-start gap-4 border group ${
                               isSelected 
-                              ? 'bg-teal-500/10 border-teal-500/40 text-teal-300' 
-                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-800'
+                              ? theme === 'light'
+                                ? 'bg-teal-50 border-teal-300 text-teal-900'
+                                : 'bg-teal-500/10 border-teal-500/40 text-teal-300'
+                              : theme === 'light'
+                                ? 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-800'
                             }`}
                           >
                             <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                              isSelected ? 'bg-teal-500 border-teal-400 text-white shadow-lg' : 'border-slate-700 bg-slate-950'
+                              isSelected 
+                                ? 'bg-teal-500 border-teal-400 text-white shadow-lg' 
+                                : theme === 'light'
+                                  ? 'border-slate-300 bg-white'
+                                  : 'border-slate-700 bg-slate-950'
                             }`}>
                               {isSelected && <CheckCircle2 className="w-4 h-4" />}
                             </div>
@@ -895,7 +973,9 @@ export default function App() {
                       })}
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-slate-800 flex justify-end">
+                    <div className={`mt-6 pt-6 border-t flex justify-end ${
+                      theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                    }`}>
                       <button 
                         onClick={() => setCurrentStep('payloads')}
                         className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:grayscale"
@@ -913,29 +993,41 @@ export default function App() {
                   <div className="flex-1 flex flex-col p-6 animate-in fade-in slide-in-from-right-2">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setCurrentStep('vectors')} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
+                        <button onClick={() => setCurrentStep('vectors')} className={`p-2 rounded-lg transition-all ${
+                          theme === 'light' ? 'hover:bg-slate-100 text-slate-600' : 'hover:bg-slate-800 text-slate-400'
+                        }`}>
                            <ArrowLeft className="w-5 h-5" />
                         </button>
                         <div>
-                          <h3 className="text-lg font-bold text-white">Step 2: Payloads</h3>
-                          <p className="text-xs text-slate-500">Attack payloads based on threat intelligence.</p>
+                          <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Step 2: Payloads</h3>
+                          <p className={`text-xs ${theme === 'light' ? 'text-slate-600' : 'text-slate-500'}`}>Attack payloads based on threat intelligence.</p>
                         </div>
                       </div>
                       {result && result.example_payloads.length > 0 && (
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setSelectedPayloadIndices(result.example_payloads.map((_, idx) => idx))}
-                            className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border ${
+                              theme === 'light'
+                                ? 'text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 border-teal-200'
+                                : 'text-cyan-400 hover:text-cyan-300 bg-slate-800 hover:bg-slate-700 border-slate-700'
+                            }`}
                           >
                             Select All
                           </button>
                           <button
                             onClick={() => setSelectedPayloadIndices([])}
-                            className="text-[10px] font-bold text-slate-400 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border border-slate-700"
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border ${
+                              theme === 'light'
+                                ? 'text-slate-600 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
+                                : 'text-slate-400 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 border-slate-700'
+                            }`}
                           >
                             Clear All
                           </button>
-                          <div className="text-[10px] font-bold text-slate-600 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-tighter">
+                          <div className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter ${
+                            theme === 'light' ? 'text-slate-700 bg-slate-100' : 'text-slate-600 bg-slate-800'
+                          }`}>
                             {selectedPayloadIndices.length} Selected
                           </div>
                         </div>
@@ -944,21 +1036,27 @@ export default function App() {
 
                     {isGenerating && !result ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-center">
-                        <Activity className="w-10 h-10 text-amber-500/40 animate-pulse mb-4" />
-                        <h4 className="text-sm font-bold text-slate-300">Generating Payloads...</h4>
-                        <p className="text-xs text-slate-500 mt-2">Analysis of {selectedTactic.name} in progress.</p>
+                        <Activity className={`w-10 h-10 mb-4 animate-pulse ${
+                          theme === 'light' ? 'text-amber-500' : 'text-amber-500/40'
+                        }`} />
+                        <h4 className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Generating Payloads...</h4>
+                        <p className={`text-xs mt-2 ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>Analysis of {selectedTactic.name} in progress.</p>
                       </div>
                     ) : error ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                         <AlertTriangle className="w-10 h-10 text-red-500/60 mb-4" />
-                         <p className="text-red-400 text-sm mb-4">{error}</p>
+                         <AlertTriangle className={`w-10 h-10 mb-4 ${theme === 'light' ? 'text-red-500' : 'text-red-500/60'}`} />
+                         <p className={`text-sm mb-4 ${theme === 'light' ? 'text-red-600' : 'text-red-400'}`}>{error}</p>
                          <button onClick={() => {
                            if (selectedTactic) {
                              handleTacticSelect(selectedTactic).catch(err => {
                                console.error('Failed to retry tactic selection:', err);
                              });
                            }
-                         }} className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-800 px-4 py-2 rounded-lg hover:bg-slate-700 transition-all">
+                         }} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all ${
+                           theme === 'light' 
+                             ? 'text-slate-700 bg-slate-100 hover:bg-slate-200'
+                             : 'text-slate-300 bg-slate-800 hover:bg-slate-700'
+                         }`}>
                            <RefreshCw className="w-3 h-3" /> RETRY
                          </button>
                       </div>
@@ -967,36 +1065,68 @@ export default function App() {
                         {result?.example_payloads.map((p, idx) => {
                           const isSelected = selectedPayloadIndices.includes(idx);
                           return (
-                            <div key={idx} className={`rounded-2xl border transition-all overflow-hidden ${isSelected ? 'border-amber-500/40 bg-amber-500/5 shadow-lg' : 'border-slate-800 bg-slate-900/40'}`}>
-                               <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
+                            <div key={idx} className={`rounded-2xl border transition-all overflow-hidden ${
+                              isSelected 
+                                ? theme === 'light'
+                                  ? 'border-amber-300 bg-amber-50 shadow-md'
+                                  : 'border-amber-500/40 bg-amber-500/5 shadow-lg'
+                                : theme === 'light'
+                                  ? 'border-slate-200 bg-white'
+                                  : 'border-slate-800 bg-slate-900/40'
+                            }`}>
+                               <div className={`px-5 py-3 border-b flex items-center justify-between ${
+                                 theme === 'light' ? 'border-slate-200 bg-slate-50/50' : 'border-slate-800 bg-slate-900/40'
+                               }`}>
                                   <div className="flex items-center gap-3">
                                     <button 
                                       onClick={() => togglePayload(idx)}
                                       className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                                        isSelected ? 'bg-amber-500 border-amber-400 text-white shadow-md' : 'border-slate-700 bg-slate-950 text-transparent'
+                                        isSelected 
+                                          ? 'bg-amber-500 border-amber-400 text-white shadow-md' 
+                                          : theme === 'light'
+                                            ? 'border-slate-300 bg-white text-transparent'
+                                            : 'border-slate-700 bg-slate-950 text-transparent'
                                       }`}
                                     >
                                       <CheckCircle2 className="w-4 h-4" />
                                     </button>
-                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${isSelected ? 'text-amber-400' : 'text-slate-500'}`}>
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${
+                                      isSelected 
+                                        ? theme === 'light' ? 'text-amber-700' : 'text-amber-400'
+                                        : theme === 'light' ? 'text-slate-600' : 'text-slate-500'
+                                    }`}>
                                       {p.description}
                                     </h4>
                                   </div>
-                                  <span className="text-[10px] font-bold text-slate-600 mono">{p.format}</span>
+                                  <span className={`text-[10px] font-bold mono ${
+                                    theme === 'light' ? 'text-slate-500' : 'text-slate-600'
+                                  }`}>{p.format}</span>
                                </div>
                                <div className="relative group p-5">
-                                  <pre className={`text-xs mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto ${isSelected ? 'text-amber-300' : 'text-cyan-500/50'}`}>
+                                  <pre className={`text-xs mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto ${
+                                    isSelected 
+                                      ? theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+                                      : theme === 'light' ? 'text-slate-600' : 'text-cyan-500/50'
+                                  }`}>
                                     {p.payload}
                                   </pre>
                                   <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
                                     <button 
                                       onClick={() => handleEditPayload(idx, p.payload, p.description)} 
-                                      className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400 hover:text-cyan-400"
+                                      className={`p-2 rounded-lg border transition-all ${
+                                        theme === 'light'
+                                          ? 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 hover:text-teal-600'
+                                          : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-400 hover:text-cyan-400'
+                                      }`}
                                       title="Edit payload"
                                     >
                                       <Edit3 className="w-3 h-3" />
                                     </button>
-                                    <button onClick={() => copyToClipboard(p.payload)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400">
+                                    <button onClick={() => copyToClipboard(p.payload)} className={`p-2 rounded-lg border transition-all ${
+                                      theme === 'light'
+                                        ? 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                                        : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-400'
+                                    }`}>
                                       <Copy className="w-3 h-3" />
                                     </button>
                                   </div>
@@ -1007,8 +1137,12 @@ export default function App() {
                       </div>
                     )}
 
-                    <div className="mt-6 pt-6 border-t border-slate-800 flex justify-between items-center shrink-0">
-                      <button onClick={() => setCurrentStep('vectors')} className="px-6 py-3 text-slate-400 hover:text-white font-bold flex items-center gap-2 transition-all">
+                    <div className={`mt-6 pt-6 border-t flex justify-between items-center shrink-0 ${
+                      theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                    }`}>
+                      <button onClick={() => setCurrentStep('vectors')} className={`px-6 py-3 font-bold flex items-center gap-2 transition-all ${
+                        theme === 'light' ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                      }`}>
                         <ArrowLeft className="w-4 h-4" /> Back to Vectors
                       </button>
                       <button 
@@ -1027,47 +1161,75 @@ export default function App() {
                 {currentStep === 'export' && (
                   <div className="flex-1 flex flex-col p-6 animate-in fade-in slide-in-from-right-2">
                     <div className="flex items-center gap-3 mb-8">
-                       <button onClick={() => setCurrentStep('payloads')} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
+                       <button onClick={() => setCurrentStep('payloads')} className={`p-2 rounded-lg transition-all ${
+                         theme === 'light' ? 'hover:bg-slate-100 text-slate-600' : 'hover:bg-slate-800 text-slate-400'
+                       }`}>
                            <ArrowLeft className="w-5 h-5" />
                         </button>
                         <div>
-                          <h3 className="text-lg font-bold text-white">Step 3: Review</h3>
-                          <p className="text-xs text-slate-500">Confirm parameters and download the attack manifest.</p>
+                          <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Step 3: Review</h3>
+                          <p className={`text-xs ${theme === 'light' ? 'text-slate-600' : 'text-slate-500'}`}>Confirm parameters and download the attack manifest.</p>
                         </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto pr-2 space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
-                           <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Selected Vectors</h4>
+                        <div className={`p-5 rounded-2xl border ${
+                          theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-slate-800'
+                        }`}>
+                           <h4 className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${
+                             theme === 'light' ? 'text-slate-600' : 'text-slate-500'
+                           }`}>Selected Vectors</h4>
                            <div className="flex flex-wrap gap-2">
                               {selectedVectors.map((v, i) => (
-                                <span key={i} className="px-3 py-1 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg">{v}</span>
+                                <span key={i} className={`px-3 py-1 border text-xs rounded-lg ${
+                                  theme === 'light' 
+                                    ? 'bg-teal-50 border-teal-200 text-teal-700'
+                                    : 'bg-teal-500/10 border-teal-500/20 text-teal-400'
+                                }`}>{v}</span>
                               ))}
                            </div>
                         </div>
-                        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
-                           <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Payload Count</h4>
+                        <div className={`p-5 rounded-2xl border ${
+                          theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-slate-800'
+                        }`}>
+                           <h4 className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${
+                             theme === 'light' ? 'text-slate-600' : 'text-slate-500'
+                           }`}>Payload Count</h4>
                            <div className="flex items-center gap-3">
-                              <span className="text-4xl font-bold text-white">{selectedPayloadIndices.length}</span>
-                              <span className="text-xs text-slate-500 font-medium">Injection-ready samples.</span>
+                              <span className={`text-4xl font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{selectedPayloadIndices.length}</span>
+                              <span className={`text-xs font-medium ${
+                                theme === 'light' ? 'text-slate-600' : 'text-slate-500'
+                              }`}>Injection-ready samples.</span>
                            </div>
                         </div>
                       </div>
 
-                      <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
-                        <div className="px-5 py-3 bg-slate-900/40 border-b border-slate-800 flex items-center justify-between">
-                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">JSON Manifest Preview</span>
-                           <FileJson className="w-4 h-4 text-slate-600" />
+                      <div className={`border rounded-2xl overflow-hidden ${
+                        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-950 border-slate-800'
+                      }`}>
+                        <div className={`px-5 py-3 border-b flex items-center justify-between ${
+                          theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/40 border-slate-800'
+                        }`}>
+                           <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                             theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+                           }`}>JSON Manifest Preview</span>
+                           <FileJson className={`w-4 h-4 ${theme === 'light' ? 'text-slate-500' : 'text-slate-600'}`} />
                         </div>
-                        <pre className="p-6 text-[10px] mono text-amber-500/80 overflow-x-auto bg-black/40">
+                        <pre className={`p-6 text-[10px] mono overflow-x-auto ${
+                          theme === 'light' ? 'text-amber-700 bg-slate-50' : 'text-amber-500/80 bg-black/40'
+                        }`}>
                           {JSON.stringify(getExecutableData(), null, 2)}
                         </pre>
                       </div>
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-slate-800 flex justify-between items-center">
-                      <button onClick={() => setCurrentStep('payloads')} className="px-6 py-3 text-slate-400 hover:text-white font-bold flex items-center gap-2 transition-all">
+                    <div className={`mt-6 pt-6 border-t flex justify-between items-center ${
+                      theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                    }`}>
+                      <button onClick={() => setCurrentStep('payloads')} className={`px-6 py-3 font-bold flex items-center gap-2 transition-all ${
+                        theme === 'light' ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                      }`}>
                         <ArrowLeft className="w-4 h-4" /> Review Payloads
                       </button>
                       <button 
@@ -1086,33 +1248,39 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="glass border-t border-white/10 py-4 px-6 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-slate-400 text-[10px] mono uppercase font-bold">
+      <footer className={`glass border-t py-4 px-6 backdrop-blur-xl ${
+        theme === 'light' ? 'border-slate-200 bg-white/80' : 'border-white/10'
+      }`}>
+        <div className={`max-w-7xl mx-auto flex items-center justify-between text-[10px] mono uppercase font-bold ${
+          theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+        }`}>
            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
-                <span className="text-teal-400">Attack Engine: Online</span>
+                <span className={theme === 'light' ? 'text-teal-600' : 'text-teal-400'}>Attack Engine: Online</span>
               </div>
-              <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+              <span className={`w-1 h-1 rounded-full ${theme === 'light' ? 'bg-slate-400' : 'bg-slate-600'}`}></span>
               <span>Gemini 3 Pro Reasoning</span>
            </div>
            <div className="flex items-center gap-4">
               <button
                 onClick={() => setShowKeyboardShortcuts(true)}
-                className="flex items-center gap-2 glass-strong px-3 py-2 rounded-lg hover:text-teal-400 transition-all group"
+                className={`flex items-center gap-2 glass-strong px-3 py-2 rounded-lg transition-all group ${
+                  theme === 'light' ? 'hover:text-teal-600' : 'hover:text-teal-400'
+                }`}
                 title="Keyboard shortcuts"
               >
                 <Keyboard className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                 <span className="hidden sm:inline">Shortcuts</span>
               </button>
-              <span className="text-slate-500">ARES <span className="text-amber-400">v1.4.1</span></span>
+              <span className={theme === 'light' ? 'text-slate-500' : 'text-slate-500'}>ARES <span className="text-amber-400">v1.4.1</span></span>
            </div>
         </div>
       </footer>
 
       {/* Team Management Modal */}
       {showTeamManagement && (
-        <TeamManagement onClose={() => setShowTeamManagement(false)} />
+        <TeamManagement onClose={() => setShowTeamManagement(false)} theme={theme} />
       )}
 
       {/* Payload Editor Modal */}
@@ -1125,21 +1293,26 @@ export default function App() {
             setShowPayloadEditor(false);
             setEditingPayload(null);
           }}
+          theme={theme}
         />
       )}
 
       {/* Keyboard Shortcuts Modal */}
       {showKeyboardShortcuts && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className={`border rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 ${
+            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'
+          }`}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <Keyboard className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-bold text-white">Keyboard Shortcuts</h3>
+                <Keyboard className={`w-5 h-5 ${theme === 'light' ? 'text-teal-600' : 'text-cyan-400'}`} />
+                <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Keyboard Shortcuts</h3>
               </div>
               <button 
                 onClick={() => setShowKeyboardShortcuts(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+                className={`p-1 rounded-lg transition-all ${
+                  theme === 'light' ? 'hover:bg-slate-100 text-slate-600 hover:text-slate-900' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1147,61 +1320,99 @@ export default function App() {
 
             <div className="space-y-6">
               <div>
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Global</h4>
+                <h4 className={`text-xs font-bold uppercase tracking-wider mb-3 ${
+                  theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+                }`}>Global</h4>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-300">Show shortcuts</span>
-                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">?</kbd>
+                  <div className={`flex items-center justify-between py-2 border-b ${
+                    theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                  }`}>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Show shortcuts</span>
+                    <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                    }`}>?</kbd>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-300">Open campaigns</span>
+                  <div className={`flex items-center justify-between py-2 border-b ${
+                    theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                  }`}>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Open campaigns</span>
                     <div className="flex items-center gap-1">
-                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Ctrl</kbd>
-                      <span className="text-slate-600">+</span>
-                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">O</kbd>
+                      <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                      }`}>Ctrl</kbd>
+                      <span className={theme === 'light' ? 'text-slate-400' : 'text-slate-600'}>+</span>
+                      <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                      }`}>O</kbd>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-300">Save campaign</span>
+                  <div className={`flex items-center justify-between py-2 border-b ${
+                    theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                  }`}>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Save campaign</span>
                     <div className="flex items-center gap-1">
-                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Ctrl</kbd>
-                      <span className="text-slate-600">+</span>
-                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">S</kbd>
+                      <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                      }`}>Ctrl</kbd>
+                      <span className={theme === 'light' ? 'text-slate-400' : 'text-slate-600'}>+</span>
+                      <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                      }`}>S</kbd>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-300">Focus search</span>
+                  <div className={`flex items-center justify-between py-2 border-b ${
+                    theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                  }`}>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Focus search</span>
                     <div className="flex items-center gap-1">
-                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Ctrl</kbd>
-                      <span className="text-slate-600">+</span>
-                      <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">K</kbd>
+                      <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                      }`}>Ctrl</kbd>
+                      <span className={theme === 'light' ? 'text-slate-400' : 'text-slate-600'}>+</span>
+                      <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                      }`}>K</kbd>
                     </div>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-slate-300">Close modal</span>
-                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">Esc</kbd>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Close modal</span>
+                    <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                    }`}>Esc</kbd>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Navigation</h4>
+                <h4 className={`text-xs font-bold uppercase tracking-wider mb-3 ${
+                  theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+                }`}>Navigation</h4>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-300">Previous step</span>
-                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">←</kbd>
+                  <div className={`flex items-center justify-between py-2 border-b ${
+                    theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                  }`}>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Previous step</span>
+                    <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                    }`}>←</kbd>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-slate-300">Next step</span>
-                    <kbd className="px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs font-mono text-slate-400">→</kbd>
+                    <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Next step</span>
+                    <kbd className={`px-2 py-1 border rounded text-xs font-mono ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-700 text-slate-400'
+                    }`}>→</kbd>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-              <p className="text-xs text-slate-500">
-                <span className="text-cyan-400">Tip:</span> Press <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono">?</kbd> anytime to see this help
+            <div className={`mt-6 p-3 border rounded-lg ${
+              theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+            }`}>
+              <p className={`text-xs ${theme === 'light' ? 'text-slate-600' : 'text-slate-500'}`}>
+                <span className={theme === 'light' ? 'text-teal-600' : 'text-cyan-400'}>Tip:</span> Press <kbd className={`px-1.5 py-0.5 border rounded text-[10px] font-mono ${
+                  theme === 'light' ? 'bg-white border-slate-200 text-slate-700' : 'bg-slate-900 border-slate-700'
+                }`}>?</kbd> anytime to see this help
               </p>
             </div>
           </div>
@@ -1211,12 +1422,16 @@ export default function App() {
       {/* Save Campaign Modal */}
       {showSaveCampaignModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 ${
+            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'
+          }`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-white">Save Campaign</h3>
+              <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Save Campaign</h3>
               <button 
                 onClick={() => setShowSaveCampaignModal(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+                className={`p-1 rounded-lg transition-all ${
+                  theme === 'light' ? 'hover:bg-slate-100 text-slate-600 hover:text-slate-900' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1224,33 +1439,47 @@ export default function App() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Campaign Name *</label>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-slate-700' : 'text-slate-300'
+                }`}>Campaign Name *</label>
                 <input
                   type="text"
                   value={campaignName}
                   onChange={(e) => setCampaignName(e.target.value)}
                   placeholder="e.g., Prompt Injection Test Suite"
-                  className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                  className={`w-full px-4 py-2 border rounded-lg placeholder-slate-500 focus:outline-none focus:ring-1 transition-all ${
+                    theme === 'light'
+                      ? 'bg-white border-slate-200 text-slate-900 focus:border-teal-500 focus:ring-teal-500/20'
+                      : 'bg-slate-950 border-slate-700 text-slate-200 focus:border-cyan-500/40 focus:ring-cyan-500/20'
+                  }`}
                   autoFocus
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Description (Optional)</label>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-slate-700' : 'text-slate-300'
+                }`}>Description (Optional)</label>
                 <textarea
                   value={campaignDescription}
                   onChange={(e) => setCampaignDescription(e.target.value)}
                   placeholder="Brief description of this attack campaign..."
                   rows={3}
-                  className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all resize-none"
+                  className={`w-full px-4 py-2 border rounded-lg placeholder-slate-500 focus:outline-none focus:ring-1 transition-all resize-none ${
+                    theme === 'light'
+                      ? 'bg-white border-slate-200 text-slate-900 focus:border-teal-500 focus:ring-teal-500/20'
+                      : 'bg-slate-950 border-slate-700 text-slate-200 focus:border-cyan-500/40 focus:ring-cyan-500/20'
+                  }`}
                 />
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3">
-                <div className="text-xs text-slate-400 space-y-1">
-                  <p><span className="text-slate-500">Tactic:</span> {selectedTactic?.name}</p>
-                  <p><span className="text-slate-500">Vectors:</span> {selectedVectors.length} selected</p>
-                  <p><span className="text-slate-500">Payloads:</span> {selectedPayloadIndices.length} selected</p>
+              <div className={`border rounded-lg p-3 ${
+                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+              }`}>
+                <div className={`text-xs space-y-1 ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <p><span className={theme === 'light' ? 'text-slate-500' : 'text-slate-500'}>Tactic:</span> {selectedTactic?.name}</p>
+                  <p><span className={theme === 'light' ? 'text-slate-500' : 'text-slate-500'}>Vectors:</span> {selectedVectors.length} selected</p>
+                  <p><span className={theme === 'light' ? 'text-slate-500' : 'text-slate-500'}>Payloads:</span> {selectedPayloadIndices.length} selected</p>
                 </div>
               </div>
             </div>
@@ -1258,14 +1487,22 @@ export default function App() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowSaveCampaignModal(false)}
-                className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-all"
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                  theme === 'light' 
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                }`}
               >
                 Cancel
               </button>
               <button
                 onClick={saveCampaign}
                 disabled={!campaignName.trim()}
-                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                  theme === 'light'
+                    ? 'bg-teal-600 hover:bg-teal-500 text-white'
+                    : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                }`}
               >
                 <Save className="w-4 h-4" />
                 Save Campaign
@@ -1278,12 +1515,16 @@ export default function App() {
       {/* Load Campaign Modal */}
       {showCampaignModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
+          <div className={`border rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col ${
+            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'
+          }`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-white">Saved Campaigns</h3>
+              <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Saved Campaigns</h3>
               <button 
                 onClick={() => setShowCampaignModal(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-slate-200"
+                className={`p-1 rounded-lg transition-all ${
+                  theme === 'light' ? 'hover:bg-slate-100 text-slate-600 hover:text-slate-900' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1291,28 +1532,38 @@ export default function App() {
 
             {campaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FolderOpen className="w-12 h-12 text-slate-700 mb-4" />
-                <h4 className="text-sm font-bold text-slate-300 mb-2">No Campaigns Yet</h4>
-                <p className="text-xs text-slate-500 max-w-sm">
+                <FolderOpen className={`w-12 h-12 mb-4 ${theme === 'light' ? 'text-slate-400' : 'text-slate-700'}`} />
+                <h4 className={`text-sm font-bold mb-2 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>No Campaigns Yet</h4>
+                <p className={`text-xs max-w-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-500'}`}>
                   Create attack scenarios and save them as campaigns for quick access later.
                 </p>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto space-y-3 pr-2">
                 {campaigns.map((campaign) => (
-                  <div key={campaign.id} className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition-all group">
+                  <div key={campaign.id} className={`border rounded-xl p-4 transition-all group ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:shadow-md' : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                  }`}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-bold text-white truncate">{campaign.name}</h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded shrink-0">
+                          <h4 className={`font-bold truncate ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{campaign.name}</h4>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 border rounded shrink-0 ${
+                            theme === 'light' 
+                              ? 'bg-teal-50 border-teal-200 text-teal-700'
+                              : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+                          }`}>
                             {campaign.tactic_id}
                           </span>
                         </div>
                         {campaign.description && (
-                          <p className="text-xs text-slate-400 mb-2 line-clamp-2">{campaign.description}</p>
+                          <p className={`text-xs mb-2 line-clamp-2 ${
+                            theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+                          }`}>{campaign.description}</p>
                         )}
-                        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                        <div className={`flex items-center gap-4 text-[10px] ${
+                          theme === 'light' ? 'text-slate-500' : 'text-slate-500'
+                        }`}>
                           <span>{campaign.selected_vectors.length} vectors</span>
                           <span>•</span>
                           <span>{campaign.selected_payload_indices.length} payloads</span>
@@ -1323,13 +1574,21 @@ export default function App() {
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => loadCampaign(campaign)}
-                          className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-all"
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                            theme === 'light'
+                              ? 'bg-teal-600 hover:bg-teal-500 text-white'
+                              : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                          }`}
                         >
                           Load
                         </button>
                         <button
                           onClick={() => deleteCampaign(campaign.id, campaign.name)}
-                          className="p-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 rounded-lg transition-all"
+                          className={`p-1.5 border rounded-lg transition-all ${
+                            theme === 'light'
+                              ? 'bg-red-50 hover:bg-red-100 border-red-200 text-red-600'
+                              : 'bg-red-500/20 hover:bg-red-500/30 border-red-500/40 text-red-400'
+                          }`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

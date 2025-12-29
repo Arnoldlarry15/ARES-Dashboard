@@ -1,0 +1,19 @@
+apiVersion: v2
+name: ares-dashboard
+description: A Helm chart for ARES Dashboard - AI Red-teaming & Evaluation System
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - security
+  - ai
+  - red-teaming
+  - owasp
+  - mitre
+home: https://github.com/Arnoldlarry15/ARES-Dashboard
+sources:
+  - https://github.com/Arnoldlarry15/ARES-Dashboard
+maintainers:
+  - name: ARES Dashboard Team
+    email: security@ares-dashboard.example.com
+icon: https://raw.githubusercontent.com/Arnoldlarry15/ARES-Dashboard/main/public/favicon.svg

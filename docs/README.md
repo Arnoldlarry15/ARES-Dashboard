@@ -1,6 +1,6 @@
 # ARES Dashboard Documentation
 
-Complete documentation for the ARES AI Red Team Operations Dashboard.
+Complete documentation for the ARES Enterprise AI Risk Governance and Red-Teaming Platform.
 
 ## 🎯 Quick Start
 

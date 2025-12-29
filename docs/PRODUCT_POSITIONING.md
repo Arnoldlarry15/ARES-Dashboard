@@ -6,7 +6,7 @@ This document defines what ARES Dashboard is, who it's for, and what it is NOT. 
 
 **Document Version**: 1.0.0  
 **Last Updated**: December 2024  
-**Strategic Position**: AI Red Team Operations Dashboard
+**Strategic Position**: Enterprise AI Risk Governance and Red-Teaming Platform
 
 ---
 

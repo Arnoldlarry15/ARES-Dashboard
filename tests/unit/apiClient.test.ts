@@ -1,4 +1,5 @@
 // Tests for API Client
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ApiError, UserAPI, CampaignAPI, AuditLogAPI } from '../../utils/apiClient';
 

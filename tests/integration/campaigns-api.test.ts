@@ -7,9 +7,9 @@
  * Pattern: Test that unauthorized access is blocked at the API level
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelResponse } from '@vercel/node';
 import { createServer } from 'http';
 import { requireAuth, type AuthenticatedRequest } from '../../lib/middleware/auth';
 
@@ -81,7 +81,8 @@ function createTestServer(handler: (req: AuthenticatedRequest, res: VercelRespon
         } as VercelResponse;
 
         await handler(vercelReq, vercelRes);
-      } catch (error) {
+      } catch (err) {
+        console.error('Handler error:', err);
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ error: 'Internal server error' }));

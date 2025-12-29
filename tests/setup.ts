@@ -36,6 +36,28 @@ if (!global.crypto) {
   });
 }
 
+// Mock console methods to suppress output during tests
+// This prevents logger output from being treated as unhandled errors
+// Store original console for potential restoration if needed
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const originalConsole = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info,
+};
+
+// Suppress console output during tests unless explicitly needed
+global.console = {
+  ...console,
+  log: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  info: vi.fn(),
+  // Keep debug for troubleshooting
+  debug: console.debug,
+};
+
 // Reset mocks before each test
 beforeEach(() => {
   localStorage.clear();

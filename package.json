@@ -3,6 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "AI Red-teaming & Evaluation System - Enterprise-grade platform for AI security professionals",
+  "keywords": ["security", "ai", "red-teaming", "owasp", "mitre", "llm", "atlas"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Arnoldlarry15/ARES-Dashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Arnoldlarry15/ARES-Dashboard/issues"
+  },
+  "homepage": "https://github.com/Arnoldlarry15/ARES-Dashboard#readme",
   "engines": {
     "node": "20.x"
   },

@@ -2,7 +2,7 @@
 // Now uses database-backed API with localStorage fallback
 
 import { User, Session, UserRole } from '../types/auth';
-import { UserAPI, AuditLogAPI } from '../utils/apiClient';
+import { AuditLogAPI } from '../utils/apiClient';
 
 const AUTH_STORAGE_KEY = 'ares_auth_session';
 const LOCAL_AUTH_KEY = 'ares_local_auth';
@@ -167,8 +167,9 @@ export class AuthService {
         ipAddress: entry.ip_address,
         userAgent: entry.user_agent,
       });
-    } catch (error) {
+    } catch (err) {
       // Fallback to localStorage if database is unavailable
+      console.error('Failed to load audit logs from database:', err);
       try {
         const stored = localStorage.getItem('ares_audit_logs');
         const logs: AuditLogEntry[] = stored ? JSON.parse(stored) : [];
@@ -192,7 +193,7 @@ export class AuthService {
   }): Promise<AuditLogEntry[]> {
     try {
       // Try database first
-      const apiFilters: any = {};
+      const apiFilters: Record<string, string> = {};
       if (filters?.user_id) apiFilters.actorId = filters.user_id;
       if (filters?.action) apiFilters.action = filters.action;
       if (filters?.since) apiFilters.startDate = filters.since.toISOString();
@@ -200,19 +201,28 @@ export class AuthService {
       const { auditLogs } = await AuditLogAPI.getAll(apiFilters, { take: 1000 });
       
       // Convert to old format for compatibility
-      const converted: AuditLogEntry[] = auditLogs.map(log => ({
-        id: log.id,
-        user_id: log.actorId,
-        user_email: log.actor?.email || 'unknown',
-        action: log.action,
-        resource_type: (log.details as any)?.resource_type || 'session',
-        resource_id: log.target,
-        details: log.details as Record<string, unknown>,
-        ip_address: log.ipAddress,
-        user_agent: log.userAgent,
-        timestamp: log.timestamp,
-        session_id: undefined,
-      }));
+      const converted: AuditLogEntry[] = auditLogs.map(log => {
+        const resourceType = (log.details as Record<string, unknown>)?.resource_type as string;
+        const validResourceTypes: AuditLogEntry['resource_type'][] = ['campaign', 'tactic', 'payload', 'export', 'user', 'session'];
+        const mappedResourceType: AuditLogEntry['resource_type'] = 
+          validResourceTypes.includes(resourceType as AuditLogEntry['resource_type']) 
+            ? resourceType as AuditLogEntry['resource_type']
+            : 'session';
+        
+        return {
+          id: log.id,
+          user_id: log.actorId,
+          user_email: log.actor?.email || 'unknown',
+          action: log.action,
+          resource_type: mappedResourceType,
+          resource_id: log.target,
+          details: log.details as Record<string, unknown>,
+          ip_address: log.ipAddress,
+          user_agent: log.userAgent,
+          timestamp: log.timestamp,
+          session_id: undefined,
+        };
+      });
       
       // Apply resource_type filter
       if (filters?.resource_type) {
@@ -220,8 +230,9 @@ export class AuthService {
       }
       
       return converted;
-    } catch (error) {
+    } catch (err) {
       // Fallback to localStorage
+      console.error('Failed to load audit logs from database:', err);
       try {
         const stored = localStorage.getItem('ares_audit_logs');
         if (!stored) return [];

@@ -18,9 +18,9 @@ ARES Dashboard now includes **enterprise-grade server-side authentication and Ro
 └────────┬────────┘
          │ 1. Click "Login with Auth0"
          ↓
-┌─────────────────────────┐
-│  /api/auth/login/auth0  │
-└────────┬────────────────┘
+┌─────────────────────────────────────┐
+│  /api/auth/login?provider=auth0     │
+└────────┬────────────────────────────┘
          │ 2. Redirect to Auth0
          ↓
 ┌─────────────────────────┐
@@ -29,12 +29,12 @@ ARES Dashboard now includes **enterprise-grade server-side authentication and Ro
 └────────┬────────────────┘
          │ 3. Redirect with auth code
          ↓
-┌──────────────────────────────┐
-│  /api/auth/callback/auth0    │
-│  - Exchange code for tokens  │
-│  - Get user info             │
-│  - Generate JWT              │
-└────────┬─────────────────────┘
+┌────────────────────────────────────────┐
+│  /api/auth/callback?provider=auth0    │
+│  - Exchange code for tokens           │
+│  - Get user info                      │
+│  - Generate JWT                       │
+└────────┬───────────────────────────────┘
          │ 4. Return JWT tokens
          ↓
 ┌─────────────────┐
@@ -62,7 +62,7 @@ Add these variables to your Vercel project or `.env.local`:
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
-AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback/auth0
+AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback?provider=auth0
 
 # JWT Secrets (generate with: openssl rand -base64 32)
 JWT_SECRET=your_secure_random_secret_here
@@ -77,7 +77,7 @@ ALLOWED_ORIGINS=https://your-domain.com,https://app.your-domain.com
 1. Create an Auth0 account at [auth0.com](https://auth0.com)
 2. Create a new **Regular Web Application**
 3. Configure Application URIs:
-   - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback/auth0`
+   - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback?provider=auth0`
    - **Allowed Logout URLs**: `https://your-domain.com`
    - **Allowed Web Origins**: `https://your-domain.com`
 4. Copy your **Domain**, **Client ID**, and **Client Secret**
@@ -112,21 +112,37 @@ exports.onExecutePostLogin = async (event, api) => {
 
 ### Authentication Endpoints
 
-#### `GET /api/auth/login/auth0`
-Initiates OAuth2 login flow with Auth0.
+#### `GET /api/auth/login?provider={provider}`
+Initiates authentication flow with the specified provider.
 
-**Response**: Redirects to Auth0 login page
+**Query Parameters**:
+- `provider` - Authentication provider (`auth0` or `saml`)
+
+**Response**: Redirects to provider login page
+
+**Examples**:
+- Auth0: `GET /api/auth/login?provider=auth0`
+- SAML: `GET /api/auth/login?provider=saml`
 
 ---
 
-#### `GET /api/auth/callback/auth0`
-Handles OAuth2 callback from Auth0.
+#### `GET /api/auth/callback?provider={provider}`
+Handles authentication callback from the specified provider.
 
 **Query Parameters**:
-- `code` - Authorization code from Auth0
-- `state` - CSRF protection state parameter
+- `provider` - Authentication provider (`auth0` or `saml`)
+- For Auth0:
+  - `code` - Authorization code from Auth0
+  - `state` - CSRF protection state parameter
+- For SAML (POST):
+  - `SAMLResponse` - SAML assertion response
+  - `RelayState` - Post-auth redirect URL
 
-**Response**: Redirects to app with JWT tokens in URL
+**Response**: Redirects to app with JWT tokens in secure cookies
+
+**Examples**:
+- Auth0: `GET /api/auth/callback?provider=auth0&code=...&state=...`
+- SAML: `POST /api/auth/callback?provider=saml` (with form data)
 
 ---
 
@@ -150,38 +166,6 @@ Refreshes an expired access token using a refresh token.
 ```
 
 **Rate Limit**: 20 requests per minute
-
----
-
-### Protected Endpoint Example
-
-#### `GET /api/protected-example`
-Example endpoint demonstrating authentication and RBAC.
-
-**Headers**:
-```
-Authorization: Bearer <access_token>
-```
-
-**Required Roles**: `admin`, `red_team_lead`, or `analyst`
-
-**Response**:
-```json
-{
-  "message": "Success! You have access to this protected resource.",
-  "user": {
-    "userId": "auth0|123456",
-    "email": "user@example.com",
-    "role": "analyst",
-    "organizationId": "org_abc123"
-  },
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
-**Error Responses**:
-- `401 Unauthorized` - Missing or invalid token
-- `403 Forbidden` - Insufficient permissions/role
 
 ---
 

@@ -92,7 +92,7 @@ npm install
    AUTH0_DOMAIN=your-tenant.auth0.com
    AUTH0_CLIENT_ID=your_client_id
    AUTH0_CLIENT_SECRET=your_client_secret
-   AUTH0_CALLBACK_URL=http://localhost:3000/api/auth/callback/auth0
+   AUTH0_CALLBACK_URL=http://localhost:3000/api/auth/callback?provider=auth0
    
    # JWT secrets (required for auth)
    JWT_SECRET=your_secure_random_secret

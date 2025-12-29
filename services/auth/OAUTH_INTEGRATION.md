@@ -38,7 +38,7 @@ Frontend (with auth token)
 1. Create Auth0 account at [auth0.com](https://auth0.com)
 2. Create new Application (Regular Web Application)
 3. Configure settings:
-   - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback/auth0`
+   - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback?provider=auth0`
    - **Allowed Logout URLs**: `https://your-domain.com`
    - **Allowed Web Origins**: `https://your-domain.com`
 
@@ -48,7 +48,7 @@ Frontend (with auth token)
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
-AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback/auth0
+AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback?provider=auth0
 ```
 
 #### Implementation
@@ -60,43 +60,51 @@ npm install express-openid-connect
 
 Create API endpoint:
 ```typescript
-// api/auth/login/auth0.ts
+// api/auth/login.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
-  const authUrl = `https://${process.env.AUTH0_DOMAIN}/authorize?` +
-    `response_type=code&` +
-    `client_id=${process.env.AUTH0_CLIENT_ID}&` +
-    `redirect_uri=${encodeURIComponent(process.env.AUTH0_CALLBACK_URL!)}&` +
-    `scope=openid profile email`;
+  const provider = req.query.provider as string;
   
-  res.redirect(authUrl);
+  if (provider === 'auth0') {
+    const authUrl = `https://${process.env.AUTH0_DOMAIN}/authorize?` +
+      `response_type=code&` +
+      `client_id=${process.env.AUTH0_CLIENT_ID}&` +
+      `redirect_uri=${encodeURIComponent(process.env.AUTH0_CALLBACK_URL!)}&` +
+      `scope=openid profile email`;
+    
+    res.redirect(authUrl);
+  } else {
+    res.status(400).json({ error: 'Invalid provider' });
+  }
 }
 ```
 
 ```typescript
-// api/auth/callback/auth0.ts
+// api/auth/callback.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const provider = req.query.provider as string;
   const { code } = req.query;
   
   if (!code) {
     return res.status(400).json({ error: 'Missing authorization code' });
   }
 
-  // Exchange code for tokens
-  const tokenResponse = await fetch(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      client_id: process.env.AUTH0_CLIENT_ID,
-      client_secret: process.env.AUTH0_CLIENT_SECRET,
-      code,
-      redirect_uri: process.env.AUTH0_CALLBACK_URL
-    })
-  });
+  if (provider === 'auth0') {
+    // Exchange code for tokens
+    const tokenResponse = await fetch(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        client_id: process.env.AUTH0_CLIENT_ID,
+        client_secret: process.env.AUTH0_CLIENT_SECRET,
+        code,
+        redirect_uri: process.env.AUTH0_CALLBACK_URL
+      })
+    });
 
   const tokens = await tokenResponse.json();
   

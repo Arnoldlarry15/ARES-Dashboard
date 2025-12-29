@@ -139,7 +139,8 @@ async function migrateInBrowser() {
           } else {
             failCount++;
           }
-        } catch (error) {
+        } catch (err) {
+          console.error('Failed to migrate campaign:', err);
           failCount++;
         }
       }
@@ -210,7 +211,9 @@ if (typeof window !== 'undefined') {
   `);
 
   // Make functions globally available
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).migrateInBrowser = migrateInBrowser;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).exportLocalStorageData = exportLocalStorageData;
 }
 

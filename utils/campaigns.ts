@@ -91,7 +91,8 @@ export const CampaignManager = {
     try {
       await CampaignAPI.getAll();
       return true;
-    } catch (error) {
+    } catch (err) {
+      console.error('Database check failed:', err);
       return false;
     }
   },
@@ -171,7 +172,7 @@ export const CampaignManager = {
       if (dbAvailable) {
         const userId = this._getCurrentUserId();
         const dbUpdates = appToDb(updates, userId);
-        const dbCampaign = await CampaignAPI.update(id, dbUpdates as any) as unknown as DBCampaign;
+        const dbCampaign = await CampaignAPI.update(id, dbUpdates as Record<string, unknown>) as unknown as DBCampaign;
         return dbToApp(dbCampaign);
       } else {
         // Fallback to localStorage

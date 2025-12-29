@@ -270,8 +270,8 @@ export async function isDatabaseAvailable(): Promise<boolean> {
   try {
     await fetchApi('/users?orgId=test');
     return true;
-  } catch (error) {
-    console.warn('Database not available, falling back to localStorage');
+  } catch (err) {
+    console.warn('Database not available, falling back to localStorage', err);
     return false;
   }
 }

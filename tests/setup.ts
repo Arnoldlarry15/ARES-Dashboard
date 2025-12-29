@@ -38,6 +38,8 @@ if (!global.crypto) {
 
 // Mock console methods to suppress output during tests
 // This prevents logger output from being treated as unhandled errors
+// Store original console for potential restoration if needed
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const originalConsole = {
   log: console.log,
   error: console.error,

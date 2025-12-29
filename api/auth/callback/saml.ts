@@ -24,25 +24,22 @@ function parseSAMLResponse(samlResponse: string): SAMLResponse {
   // In production, use a proper SAML library like passport-saml
   // This is a placeholder showing the structure
   
-  try {
-    // Decode and parse SAML assertion
-    const decoded = Buffer.from(samlResponse, 'base64').toString('utf-8');
-    
-    // Extract user attributes from SAML assertion
-    // This is simplified - real implementation needs XML parsing and signature verification
-    
-    return {
-      nameID: 'user@example.com',
-      email: 'user@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      role: 'analyst',
-      groups: ['security-team'],
-      attributes: {}
-    };
-  } catch (error) {
-    throw new Error('Invalid SAML response');
-  }
+  // Decode and parse SAML assertion
+  // In real implementation, this would parse XML and verify signatures
+  Buffer.from(samlResponse, 'base64').toString('utf-8');
+  
+  // Extract user attributes from SAML assertion
+  // This is simplified - real implementation needs XML parsing and signature verification
+  
+  return {
+    nameID: 'user@example.com',
+    email: 'user@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+    role: 'analyst',
+    groups: ['security-team'],
+    attributes: {}
+  };
 }
 
 /**

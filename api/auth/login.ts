@@ -39,8 +39,8 @@ function generateSAMLRequest(config: SAMLConfig): string {
   // This is a simplified example showing the structure
   
   // Use cryptographically secure random ID generation
-  import('crypto').then(crypto => crypto.randomUUID());
-  const id = `_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+  const crypto = require('crypto');
+  const id = `_${crypto.randomUUID().replace(/-/g, '')}`;
   const issueInstant = new Date().toISOString();
   
   const request = `<?xml version="1.0"?>

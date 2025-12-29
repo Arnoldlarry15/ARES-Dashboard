@@ -70,38 +70,6 @@ function mapGroupsToRole(groups: string[]): string {
 }
 
 /**
- * Generate JWT token for authenticated user (SAML)
- */
-function generateSAMLToken(user: SAMLResponse): string {
-  // IMPORTANT: This is a placeholder implementation
-  // In production, use a proper JWT library (jsonwebtoken) with signing
-  // Example:
-  // import jwt from 'jsonwebtoken';
-  // return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '24h' });
-  
-  const payload = {
-    sub: user.nameID,
-    email: user.email,
-    name: `${user.firstName} ${user.lastName}`,
-    role: user.role || mapGroupsToRole(user.groups || []),
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
-  };
-
-  // WARNING: This creates an UNSIGNED token for development/testing only
-  // DO NOT use in production - implement proper JWT signing
-  if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET not configured - cannot sign token');
-  }
-  
-  // TODO: Replace with proper JWT signing using jsonwebtoken library
-  // const jwt = require('jsonwebtoken');
-  // return jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256' });
-  
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
-}
-
-/**
  * Handle Auth0 callback
  */
 async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
@@ -231,13 +199,26 @@ async function handleSAMLCallback(req: VercelRequest, res: VercelResponse) {
     // Parse and validate SAML response
     const user = parseSAMLResponse(SAMLResponse);
 
-    // Generate JWT token
-    const token = generateSAMLToken(user);
+    // Map SAML user to token payload
+    const role = user.role || mapGroupsToRole(user.groups || []);
+    
+    // Generate JWT tokens using the same service as Auth0
+    const tokens = generateTokens({
+      userId: user.nameID,
+      email: user.email,
+      role: role,
+      permissions: []
+    });
 
-    // Set secure cookie
+    // Set secure cookies (matching Auth0 callback format for consistency)
+    const cookieOptions = 'HttpOnly; Secure; SameSite=Strict; Path=/';
+    const accessTokenExpiry = new Date(Date.now() + 3600 * 1000).toUTCString(); // 1 hour
+    const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString(); // 7 days
+    
     res.setHeader('Set-Cookie', [
-      `ares_token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${24 * 60 * 60}`,
-      `ares_user=${encodeURIComponent(JSON.stringify({ email: user.email, role: user.role }))}; Path=/; Max-Age=${24 * 60 * 60}`
+      `access_token=${tokens.accessToken}; ${cookieOptions}; Max-Age=3600; Expires=${accessTokenExpiry}`,
+      `refresh_token=${tokens.refreshToken}; ${cookieOptions}; Max-Age=604800; Expires=${refreshTokenExpiry}`,
+      `ares_user=${encodeURIComponent(JSON.stringify({ email: user.email, role: role }))}; Path=/; Max-Age=${24 * 60 * 60}`
     ]);
 
     // Redirect to application or RelayState URL

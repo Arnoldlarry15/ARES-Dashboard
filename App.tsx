@@ -531,21 +531,10 @@ export default function App() {
     }`}>
       {/* Animated background gradient with teal, amber, and red accents */}
       <div className="fixed inset-0 z-0">
-        {theme === 'dark' ? (
-          <>
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A0A14] to-[#0A192F]"></div>
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl opacity-50"></div>
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl opacity-50"></div>
-            <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl opacity-50"></div>
-          </>
-        ) : (
-          <>
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50"></div>
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-300/20 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl"></div>
-            <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-amber-200/15 rounded-full blur-3xl"></div>
-          </>
-        )}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A192F] via-[#1A3A52] to-[#0A192F]"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-red-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
       </div>
 
       {/* Content */}

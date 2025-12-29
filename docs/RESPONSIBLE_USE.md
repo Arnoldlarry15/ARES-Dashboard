@@ -2,13 +2,13 @@
 
 ## Overview
 
-ARES Dashboard is an AI Red Team Operations Dashboard designed to help security professionals plan, execute, and audit structured adversarial testing of AI systems. With this capability comes significant responsibility. This document establishes ethical guidelines and responsible use policies for ARES users.
+ARES Dashboard is an Enterprise AI Risk Governance and Red-Teaming Platform designed to help security professionals conduct structured, compliant AI red-team assessments, generate attack scenarios, and manage risk documentation. With this capability comes significant responsibility. This document establishes ethical guidelines and responsible use policies for ARES users.
 
 **For complete security and misuse boundaries, see [SECURITY_BOUNDARIES.md](SECURITY_BOUNDARIES.md).**
 
 ## Product Understanding
 
-**What ARES Is:** Operations console for red team professionals to plan and document AI security testing  
+**What ARES Is:** Enterprise AI security governance platform for structured, auditable AI red-teaming operations  
 **What ARES Is NOT:** Automated exploit engine, autonomous security platform, or replacement for human judgment
 
 See [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md) for complete positioning.

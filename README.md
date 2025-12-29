@@ -2,14 +2,123 @@
 
 **A**I **R**ed-teaming & **E**valuation **S**ystem
 
-> **ARES is an AI Red Team Operations Dashboard designed to plan, execute, and audit structured adversarial testing of AI systems across recognized risk frameworks.**
+> **ARES is an Enterprise AI Risk Governance and Red-Teaming Platform designed to conduct structured, compliant AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks with auditability and collaboration built in.**
 
-An operations console for AI red team professionals to conduct day-to-day security testing. ARES helps red teams, security engineers, and AI safety researchers organize campaigns, generate attack scenarios, and create comprehensive audit trails for compliance.
+An enterprise security tool for AI red team professionals, security engineers, and compliance teams to conduct governance-first AI security testing. ARES enables security teams to conduct structured, repeatable, audited workflows for AI risk assessment—essential for compliance and enterprise adoption.
 
-**What ARES is:** The tactical workspace where AI security testing gets planned and documented  
+**What ARES is:** Enterprise AI security governance platform for structured, auditable AI red-teaming operations  
 **What ARES is NOT:** An automated exploit engine, autonomous security platform, or replacement for human judgment
 
 See [PRODUCT_POSITIONING.md](docs/PRODUCT_POSITIONING.md) for complete positioning details.
+
+## 🎯 Why ARES
+
+### The Problem
+
+Security teams need more than ad-hoc prompt tests and manual documentation. Modern AI deployments require:
+- **Structured, repeatable workflows** for consistent security assessments
+- **Auditable processes** for SOC 2, ISO 27001, and GDPR compliance
+- **Framework alignment** with OWASP LLM Top 10, MITRE ATLAS, and ATT&CK
+- **Team collaboration** with role-based access and permission management
+- **Risk documentation** that meets enterprise governance requirements
+
+Manual approaches to AI security testing are inconsistent, difficult to audit, and don't scale across enterprise teams.
+
+### The Solution
+
+ARES provides a governance-ready AI red-teaming and audit platform that:
+- ✅ **Enforces structured methodology** through campaign-based workflows
+- ✅ **Generates comprehensive audit trails** with immutable logging for compliance
+- ✅ **Aligns with industry frameworks** (OWASP, MITRE) built into the core platform
+- ✅ **Enables team collaboration** with enterprise RBAC and workspace management
+- ✅ **Produces risk documentation** that satisfies auditors and compliance officers
+- ✅ **Supports both modes**: Static fallback for evaluation + optional AI-generation for enhanced scenarios
+
+### Why It Matters
+
+**For Security Teams:** Move from ad-hoc testing to structured, documented security operations  
+**For Compliance Officers:** Get the audit trail and framework alignment required for certification  
+**For AI Product Owners:** Validate security controls before production deployment  
+**For Auditors:** Access comprehensive, timestamped evidence of security testing activities
+
+## 📋 Typical Use Cases
+
+### 1. Risk Assessment & Pre-Deployment Validation
+**Scenario:** Enterprise deploying a new AI-powered customer service chatbot  
+**ARES Usage:** 
+- Create structured campaign aligned with OWASP LLM Top 10
+- Generate and test prompt injection, jailbreak, and data leakage scenarios
+- Document findings and mitigation strategies
+- Export comprehensive risk assessment for security review
+
+**Outcome:** Validated security controls with documented evidence before production launch
+
+### 2. Compliance Reporting & Audit Preparation
+**Scenario:** Annual SOC 2 audit requires evidence of AI security testing  
+**ARES Usage:**
+- Access complete audit logs of all red-team activities
+- Export timestamped campaign documentation
+- Generate compliance reports showing framework coverage
+- Provide auditor-ready evidence of structured security practices
+
+**Outcome:** Pass compliance audit with comprehensive security testing documentation
+
+### 3. Team Collaboration & Knowledge Sharing
+**Scenario:** Distributed red team conducting quarterly AI security assessment  
+**ARES Usage:**
+- Assign campaigns to team members with appropriate roles (Admin, Lead, Analyst, Viewer)
+- Share attack scenarios with granular permissions
+- Monitor team activity through real-time activity feed
+- Collaborate on scenario development and refinement
+
+**Outcome:** Coordinated team effort with clear accountability and access controls
+
+### 4. Continuous Security Testing in CI/CD
+**Scenario:** DevSecOps team integrating AI security into deployment pipeline  
+**ARES Usage:**
+- Export attack manifests as JSON for automated testing
+- Version control campaign configurations
+- Maintain regression test scenarios across releases
+- Track security posture over time
+
+**Outcome:** Integrated security testing with historical tracking
+
+### 5. Framework-Aligned Security Research
+**Scenario:** Security researcher studying LLM vulnerability patterns  
+**ARES Usage:**
+- Conduct reproducible experiments aligned with MITRE ATLAS
+- Document methodology and results
+- Generate publication-ready evidence
+- Share research scenarios with community
+
+**Outcome:** Rigorous, framework-aligned security research
+
+## 👥 User Personas
+
+### Security Engineer
+**Role:** Application security professional conducting pre-deployment validation  
+**Needs:** Structured testing methodology, framework alignment, integration with SDLC  
+**ARES Value:** Campaign-based workflows, export for automation, version-controlled scenarios
+
+### Compliance Officer / Auditor
+**Role:** Ensuring AI deployments meet regulatory requirements  
+**Needs:** Audit trails, framework coverage, compliance reports, timestamped evidence  
+**ARES Value:** Comprehensive logging, OWASP/MITRE alignment, export capabilities, immutable audit trail
+
+### AI Product Owner
+**Role:** Managing AI product security and risk posture  
+**Needs:** Risk visibility, pre-deployment validation, documented security posture  
+**ARES Value:** Risk assessment campaigns, documented findings, executive-ready reports
+
+### Red Team Operator
+**Role:** Offensive security specialist conducting adversarial AI testing  
+**Needs:** Attack scenario generation, team collaboration, evidence documentation  
+**ARES Value:** AI-assisted scenario generation, workspace management, comprehensive documentation
+
+### AI Safety Researcher
+**Role:** Academic or industry researcher studying AI vulnerabilities  
+**Needs:** Framework alignment, reproducible methodology, publication-ready documentation  
+**ARES Value:** Structured experiments, deterministic mode, comprehensive evidence export
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Arnoldlarry15/ARES-Dashboard)
 
@@ -23,17 +132,19 @@ See [PRODUCT_POSITIONING.md](docs/PRODUCT_POSITIONING.md) for complete positioni
 - 💾 **Campaign Management**: Save, load, and delete attack scenarios with metadata
 - 🔍 **Search & Filter**: Real-time search across all tactics and frameworks
 
-### Enterprise Features
-- 🔐 **Enterprise Authentication**: OAuth2/OIDC ready (Auth0, Azure AD, Clerk)
-- 🛡️ **Server-Side RBAC**: Backend enforcement of roles and permissions
-- 🔑 **JWT with Scoped Claims**: Secure token-based authentication
-- 🏢 **SSO Ready**: Enterprise identity provider integration
-- 👥 **Team Workspaces**: Collaborative red team operations with member management
-- 🤝 **Campaign Sharing**: Granular permissions (view, edit, delete, reshare)
-- 📊 **Audit Logging**: Comprehensive activity tracking for compliance (SOC2, ISO 27001, GDPR)
-- 🔒 **Session Management**: JWT tokens with automatic refresh
-- 📝 **Activity Feed**: Real-time monitoring of all team actions
-- 🔐 **Multi-Tenant Support**: Organization-based data isolation
+### Enterprise & Governance Features
+- 🔐 **Enterprise Authentication**: OAuth2/OIDC ready (Auth0, Azure AD, Clerk, Okta)
+- 🛡️ **Server-Side RBAC**: Backend enforcement of roles and permissions with multi-level access control
+- 🔑 **JWT with Scoped Claims**: Secure token-based authentication with automatic refresh
+- 🏢 **SSO Ready**: Enterprise identity provider integration for seamless authentication
+- 👥 **Team Workspaces**: Collaborative red team operations with member management and activity tracking
+- 🤝 **Campaign Sharing**: Granular permissions (view, edit, delete, reshare) for controlled collaboration
+- 📊 **Audit Logging**: Comprehensive, immutable activity tracking for compliance (SOC 2, ISO 27001, GDPR)
+- 🔒 **Session Management**: Secure JWT tokens with automatic refresh and device tracking
+- 📝 **Activity Feed**: Real-time monitoring of all team actions with full attribution
+- 🔐 **Multi-Tenant Support**: Organization-based data isolation and access control
+- 📋 **Compliance-Ready**: Built-in audit trail generation for regulatory requirements
+- 🎯 **Framework Alignment**: Native OWASP LLM Top 10, MITRE ATLAS, and ATT&CK support
 
 ### UX Enhancements
 - 🎨 **Modern UI**: 2026 design aesthetics with glassmorphism effects
@@ -45,21 +156,24 @@ See [PRODUCT_POSITIONING.md](docs/PRODUCT_POSITIONING.md) for complete positioni
 
 ## 👥 Who Should Use ARES
 
-### ✅ ARES is for:
+### ✅ ARES is designed for:
 
-- **AI Red Team Operators** - Professional red team members specializing in AI/ML security
-- **Security Engineering Teams** - Security engineers conducting pre-deployment validation
-- **AI Safety Researchers** - Academic and industry researchers studying AI vulnerabilities
-- **Enterprise AI Governance Programs** - Compliance officers and risk management teams
+- **Security Engineering Teams** - Security engineers conducting structured, auditable pre-deployment AI validation
+- **Compliance Officers & Auditors** - Professionals requiring documented evidence of AI security testing for SOC 2, ISO 27001, GDPR
+- **AI Red Team Operators** - Professional offensive security specialists conducting governance-ready adversarial AI testing
+- **AI Product Owners** - Product managers requiring risk assessment and security validation for AI deployments
+- **AI Safety Researchers** - Academic and industry researchers conducting framework-aligned vulnerability research
+- **Enterprise AI Governance Teams** - Risk management teams establishing repeatable AI security processes
 
 ### ❌ ARES is NOT for:
 
-- **Unauthorized Testing** - Do not use without written authorization
-- **Automated Exploit Execution** - ARES generates scenarios, not executable exploits
-- **Malicious Activities** - Designed for defensive security testing only
-- **Replacing Human Judgment** - Professional expertise and analysis required
+- **Unauthorized Testing** - Requires written authorization and proper legal compliance
+- **Automated Exploit Execution** - Generates documented scenarios, does not execute exploits
+- **Malicious Activities** - Professional security tool for authorized defensive testing only
+- **Untrained Users** - Requires security expertise and understanding of AI vulnerabilities
+- **Ad-hoc Testing Without Governance** - Designed for structured, auditable workflows
 
-**Important:** ARES is a professional security tool requiring proper authorization and expertise. See [SECURITY_BOUNDARIES.md](docs/SECURITY_BOUNDARIES.md) for complete guidelines.
+**Important:** ARES is an enterprise security tool requiring proper authorization, security expertise, and governance processes. See [SECURITY_BOUNDARIES.md](docs/SECURITY_BOUNDARIES.md) for complete guidelines.
 
 ## 🚀 Quick Deploy
 
@@ -396,33 +510,37 @@ ARES supports four enterprise roles with server-side RBAC enforcement:
 
 See [Authentication Guide](docs/AUTHENTICATION.md) for OAuth integration and advanced permission management.
 
-## ⚠️ Security & Responsible Use
+## ⚠️ Governance & Responsible Use
 
-**ARES is a professional security tool for authorized testing only.**
+**ARES is an enterprise security tool for authorized, structured AI security testing.**
 
-### Authorization Required
-This tool is designed for **authorized security testing only**. Always:
+### Authorization & Governance Required
+This tool is designed for **authorized security testing within governance frameworks only**. Always:
 - ✅ Obtain written authorization before testing any system
-- ✅ Use in controlled, isolated test environments
-- ✅ Follow responsible disclosure practices
-- ✅ Comply with applicable laws and regulations
+- ✅ Operate within established governance and compliance frameworks
+- ✅ Use in controlled, isolated test environments with proper oversight
+- ✅ Follow responsible disclosure practices and industry standards
+- ✅ Comply with applicable laws, regulations, and organizational policies
+- ✅ Maintain comprehensive audit trails and documentation
 
-### What ARES Does
-- ✅ Plans and documents security test scenarios
-- ✅ Generates attack vectors aligned with industry frameworks
-- ✅ Creates audit trails for compliance
-- ✅ Supports team collaboration on red team operations
+### What ARES Provides
+- ✅ Structured campaign planning and risk assessment workflows
+- ✅ Framework-aligned attack vectors (OWASP, MITRE) for repeatable testing
+- ✅ Immutable audit trails for compliance and governance
+- ✅ Team collaboration with role-based access control
+- ✅ Documentation and evidence generation for audits
 
-### What ARES Does NOT Do
-- ❌ Execute attacks automatically
-- ❌ Provide authorization for testing
-- ❌ Interact directly with target systems
-- ❌ Replace human security expertise
+### What ARES Does NOT Provide
+- ❌ Automated attack execution or autonomous operations
+- ❌ Authorization or legal permission for testing
+- ❌ Direct interaction with target systems
+- ❌ Replacement for human security expertise and judgment
+- ❌ Guarantee of security or compliance certification
 
-**For complete guidelines, see:**
-- [SECURITY_BOUNDARIES.md](docs/SECURITY_BOUNDARIES.md) - Who should/should not use ARES
-- [RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) - Ethical guidelines and best practices
-- [TRUST_BOUNDARY.md](docs/TRUST_BOUNDARY.md) - What ARES defends against and assumptions
+**For complete governance guidelines, see:**
+- [SECURITY_BOUNDARIES.md](docs/SECURITY_BOUNDARIES.md) - Who should/should not use ARES and governance requirements
+- [RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) - Ethical guidelines, best practices, and compliance considerations
+- [TRUST_BOUNDARY.md](docs/TRUST_BOUNDARY.md) - Security assumptions, threat model, and trust boundaries
 
 ## 🧪 Testing
 

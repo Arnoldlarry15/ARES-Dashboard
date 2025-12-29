@@ -1,6 +1,6 @@
 {
-  "name": "ARES: AI Red-Teaming & Evaluation System",
-  "description": "An automated AI red-teaming dashboard generating structured, schema-compliant JSON payloads and attack strategies based on OWASP Top 10 for LLMs and MITRE ATLAS.",
+  "name": "ARES Dashboard - AI Red Team Operations Console",
+  "description": "ARES is an AI Red Team Operations Dashboard for planning, executing, and auditing structured adversarial testing of AI systems across established risk frameworks.",
   "requestFramePermissions": [
     "camera",
     "microphone"

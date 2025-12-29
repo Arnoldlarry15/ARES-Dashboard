@@ -1,13 +1,29 @@
 # ARES Dashboard
+## AI Red Team Operations Console
 
-**A**I **R**ed-teaming & **E**valuation **S**ystem
+ARES is an AI Red Team Operations Dashboard for planning, executing, and auditing structured adversarial testing of AI systems across established risk frameworks.
 
-> **ARES is an Enterprise AI Risk Governance and Red-Teaming Platform designed to conduct structured, compliant AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks with auditability and collaboration built in.**
+ARES Dashboard is an enterprise-oriented AI red team operations console designed to help security teams, AI safety researchers, and governance programs conduct structured, repeatable, and auditable adversarial testing of AI systems.
 
-An enterprise security tool for AI red team professionals, security engineers, and compliance teams to conduct governance-first AI security testing. ARES enables security teams to conduct structured, repeatable, audited workflows for AI risk assessment—essential for compliance and enterprise adoption.
+ARES provides a centralized workspace for building attack manifests, managing red team campaigns, aligning assessments with recognized frameworks such as OWASP LLM Top 10 and MITRE, and exporting evidence for review and compliance workflows.
 
-**What ARES is:** Enterprise AI security governance platform for structured, auditable AI red-teaming operations  
-**What ARES is NOT:** An automated exploit engine, autonomous security platform, or replacement for human judgment
+The system supports role-based access control, audit logging, persistent campaign storage, and optional AI-assisted scenario generation. A built-in demo mode allows full exploration of core functionality without requiring external API keys.
+
+ARES is designed to serve as the operational execution layer within a broader AI safety and governance ecosystem, enabling disciplined red teaming without automating exploitation or removing human oversight.
+
+## What ARES Is / Is Not
+
+### ARES is:
+
+- An AI red team operations and campaign management tool
+- A governance-ready system for structured AI risk assessment
+- A collaboration and documentation layer for adversarial testing
+
+### ARES is not:
+
+- An automated hacking or exploit framework
+- A consumer product
+- A replacement for human judgment or security review
 
 See [PRODUCT_POSITIONING.md](docs/PRODUCT_POSITIONING.md) for complete positioning details.
 

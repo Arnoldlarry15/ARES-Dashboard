@@ -46,5 +46,5 @@ export interface TeamActivity {
   resource_id?: string;
   resource_name?: string;
   timestamp: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }

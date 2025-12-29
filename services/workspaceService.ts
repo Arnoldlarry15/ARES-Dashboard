@@ -1,7 +1,9 @@
 // Workspace and Collaboration Service
+// Updated to use database-backed audit logging
 
 import { Organization, WorkspaceMember, CampaignShare, TeamActivity } from '../types/workspace';
 import { AuthService } from './authService';
+import { EmailService } from './emailService';
 import { UserRole } from '../types/auth';
 
 const WORKSPACE_KEY = 'ares_workspace';
@@ -23,7 +25,7 @@ export class WorkspaceService {
         id: 'workspace_' + Date.now(),
         name: 'ARES Red Team',
         slug: 'ares-red-team',
-        owner_id: AuthService.getCurrentUser()?.id || 'demo_owner',
+        owner_id: AuthService.getCurrentUser()?.id || 'default_owner',
         created_at: new Date().toISOString(),
         settings: {
           allow_campaign_sharing: true,
@@ -71,7 +73,7 @@ export class WorkspaceService {
   }
 
   // Add member to workspace (invite)
-  static inviteMember(email: string, role: UserRole): WorkspaceMember {
+  static async inviteMember(email: string, role: UserRole): Promise<WorkspaceMember> {
     const currentUser = AuthService.getCurrentUser();
     if (!currentUser) throw new Error('Not authenticated');
 
@@ -94,6 +96,23 @@ export class WorkspaceService {
 
     members.push(newMember);
     localStorage.setItem(WORKSPACE_MEMBERS_KEY, JSON.stringify(members));
+
+    // Send invite email
+    try {
+      const emailSent = await EmailService.sendInvite({
+        to: email,
+        role,
+        invitedBy: currentUser.name,
+        inviteLink: window.location.origin + '/accept-invite'
+      });
+      
+      if (!emailSent) {
+        console.warn('Failed to send invite email to', email);
+      }
+    } catch (err) {
+      console.error('Error sending invite email:', err);
+      // Don't throw - member is still added even if email fails
+    }
 
     // Log activity
     this.logActivity({

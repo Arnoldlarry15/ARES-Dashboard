@@ -63,7 +63,7 @@ After updating the environment variables, you need to trigger a new deployment:
 
 1. Visit your deployed application URL
 2. Try selecting a tactic to generate payload details
-3. Check that AI generation is working (or fallback to mock data if no API key)
+3. Check that AI generation is working (or fallback to static data if no API key)
 4. Open browser DevTools → Network tab
 5. Confirm you see a call to `/api/generate-tactic` (not direct Gemini API calls)
 
@@ -112,7 +112,7 @@ This will run both your frontend and the serverless function locally at `http://
 - [ ] Old environment variable removed (`VITE_GEMINI_API_KEY`)
 - [ ] Application redeployed
 - [ ] Can access the application
-- [ ] AI generation works (or mock data fallback)
+- [ ] AI generation works (or static data fallback)
 - [ ] No console errors in browser
 - [ ] API endpoint responding at `/api/generate-tactic`
 
@@ -146,7 +146,7 @@ If you encounter any issues:
 - ✅ **Secure**: API keys protected on the backend
 - ✅ **Scalable**: Vercel serverless functions auto-scale
 - ✅ **Fast**: Global edge deployment
-- ✅ **Reliable**: Automatic fallback to mock data
+- ✅ **Reliable**: Automatic fallback to static data
 - ✅ **Simple**: No infrastructure to manage
 
 ---

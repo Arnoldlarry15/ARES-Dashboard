@@ -1,5 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
+import { rateLimit } from '../lib/middleware/rateLimit';
+import { validateRequest } from '../lib/middleware/validation';
+import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
+import { catchAsync } from '../lib/middleware/errorHandler';
+import { logger } from '../lib/logger';
 
 // Types
 interface TacticMetadata {
@@ -162,15 +167,19 @@ function generateMockTacticDetails(tactic: TacticMetadata): RedTeamTactic {
   };
 }
 
-export default async function handler(
+// Validation rules for tactic requests
+const tacticValidationRules = [
+  { field: 'id', type: 'string' as const, required: true, minLength: 1, maxLength: 50 },
+  { field: 'name', type: 'string' as const, required: true, minLength: 1, maxLength: 200 },
+  { field: 'framework', type: 'string' as const, required: true, minLength: 1, maxLength: 100 },
+  { field: 'shortDesc', type: 'string' as const, required: false, maxLength: 500 },
+  { field: 'staticVectors', type: 'array' as const, required: false }
+];
+
+async function handleRequest(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
     const tactic: TacticMetadata = req.body;
 
@@ -184,7 +193,7 @@ export default async function handler(
 
     // If no API key, return mock data
     if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
-      console.log('No API key provided, returning mock data');
+      logger.info('Using mock data for tactic generation', { tacticId: tactic.id });
       return res.status(200).json(generateMockTacticDetails(tactic));
     }
 
@@ -237,13 +246,36 @@ Generate 5-7 realistic and diverse example payloads that demonstrate this tactic
       }
 
       throw new Error('Failed to parse AI response');
-    } catch (error: any) {
-      console.error('Error generating tactic details with AI:', error);
+    } catch (error: unknown) {
+      logger.error('Error generating tactic details with AI', error as Error, { tacticId: tactic.id });
       // Fallback to mock data if AI generation fails
       return res.status(200).json(generateMockTacticDetails(tactic));
     }
-  } catch (error: any) {
-    console.error('Error in generate-tactic handler:', error);
+  } catch (error: unknown) {
+    logger.error('Error in generate-tactic handler', error as Error);
     return res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Apply middleware and handle request
+  const middleware = compose(
+    securityHeaders,
+    cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }),
+    requestLogger,
+    rateLimit({ maxRequests: 100, windowMs: 60000 }), // 100 requests per minute
+    validateRequest(tacticValidationRules)
+  );
+
+  middleware(req, res, async () => {
+    await catchAsync(handleRequest)(req, res);
+  });
 }

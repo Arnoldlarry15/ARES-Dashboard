@@ -35,7 +35,7 @@ vercel
 
 ## 🔑 Environment Variables (Optional)
 
-The app works perfectly **without any environment variables** using mock data.
+The app works fully **without any environment variables** using built-in static data.
 
 If you want AI-powered payload generation, add this in Vercel:
 

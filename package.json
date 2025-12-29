@@ -3,8 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "AI Red-teaming & Evaluation System - Enterprise-grade platform for AI security professionals",
-  "keywords": ["security", "ai", "red-teaming", "owasp", "mitre", "llm", "atlas"],
+  "description": "Enterprise AI Risk Governance and Red-Teaming Platform - Structured, compliant AI security testing with auditability and collaboration for security teams",
+  "keywords": ["security", "ai", "red-teaming", "owasp", "mitre", "llm", "atlas", "governance", "compliance", "audit", "soc2", "iso27001"],
   "repository": {
     "type": "git",
     "url": "https://github.com/Arnoldlarry15/ARES-Dashboard.git"

@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VercelResponse } from '@vercel/node';
-import { requireAuth, requireRole, requirePermission, AuthenticatedRequest } from '../../lib/middleware/auth';
+import { 
+  requireAuth, 
+  requireRole, 
+  requirePermission,
+  requireAllPermissions,
+  requireAnyPermission,
+  optionalAuth,
+  requireOrganization,
+  AuthenticatedRequest 
+} from '../../lib/middleware/auth';
 import { generateTokens } from '../../services/auth/jwt';
 
 describe('Auth Middleware', () => {
@@ -122,6 +131,87 @@ describe('Auth Middleware', () => {
           permissions: expect.arrayContaining(['campaign:read', 'campaign:write'])
         })
       );
+    });
+
+    it('should accept request with valid token in cookie', () => {
+      const tokens = generateTokens({
+        userId: 'user789',
+        email: 'cookie@example.com',
+        role: 'analyst',
+        organizationId: 'org789'
+      });
+
+      mockReq.headers = {
+        cookie: `access_token=${tokens.accessToken}; other_cookie=value`
+      };
+
+      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+      expect(mockReq.user).toBeDefined();
+      expect(mockReq.user?.userId).toBe('user789');
+      expect(mockReq.user?.email).toBe('cookie@example.com');
+    });
+
+    it('should reject request with invalid token in cookie', () => {
+      mockReq.headers = {
+        cookie: 'access_token=invalid_token; other_cookie=value'
+      };
+
+      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Unauthorized',
+          message: 'Authentication failed'
+        })
+      );
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should prefer Authorization header over cookie', () => {
+      const headerTokens = generateTokens({
+        userId: 'header-user',
+        email: 'header@example.com',
+        role: 'admin',
+        organizationId: 'org-header'
+      });
+
+      const cookieTokens = generateTokens({
+        userId: 'cookie-user',
+        email: 'cookie@example.com',
+        role: 'analyst',
+        organizationId: 'org-cookie'
+      });
+
+      mockReq.headers = {
+        authorization: `Bearer ${headerTokens.accessToken}`,
+        cookie: `access_token=${cookieTokens.accessToken}`
+      };
+
+      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+      expect(mockReq.user?.userId).toBe('header-user');
+      expect(mockReq.user?.email).toBe('header@example.com');
+    });
+
+    it('should reject when cookie exists but no token present', () => {
+      mockReq.headers = {
+        cookie: 'other_cookie=value; session_id=123'
+      };
+
+      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Unauthorized',
+          message: 'No authentication token provided'
+        })
+      );
+      expect(nextFn).not.toHaveBeenCalled();
     });
   });
 
@@ -290,6 +380,168 @@ describe('Auth Middleware', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(nextFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requireAllPermissions', () => {
+    beforeEach(() => {
+      mockReq.user = {
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        organizationId: 'org123',
+        permissions: ['campaign:read', 'campaign:write', 'tactic:read']
+      };
+    });
+
+    it('should reject unauthenticated request', () => {
+      mockReq.user = undefined;
+      const middleware = requireAllPermissions(['campaign:read', 'campaign:write']);
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should reject user missing one of the required permissions', () => {
+      const middleware = requireAllPermissions(['campaign:read', 'campaign:delete']);
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should accept user with all required permissions', () => {
+      const middleware = requireAllPermissions(['campaign:read', 'campaign:write']);
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+    });
+  });
+
+  describe('requireAnyPermission', () => {
+    beforeEach(() => {
+      mockReq.user = {
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        organizationId: 'org123',
+        permissions: ['campaign:read', 'tactic:read']
+      };
+    });
+
+    it('should reject unauthenticated request', () => {
+      mockReq.user = undefined;
+      const middleware = requireAnyPermission(['campaign:write', 'campaign:delete']);
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should reject user without any of the required permissions', () => {
+      const middleware = requireAnyPermission(['campaign:write', 'campaign:delete']);
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should accept user with at least one required permission', () => {
+      const middleware = requireAnyPermission(['campaign:read', 'campaign:write']);
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+    });
+  });
+
+  describe('optionalAuth', () => {
+    it('should proceed without user if no token provided', () => {
+      optionalAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+      expect(mockReq.user).toBeUndefined();
+    });
+
+    it('should attach user if token is valid', () => {
+      const tokens = generateTokens({
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        organizationId: 'org123'
+      });
+
+      mockReq.headers = {
+        authorization: `Bearer ${tokens.accessToken}`
+      };
+
+      optionalAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+      expect(mockReq.user).toBeDefined();
+      expect(mockReq.user?.userId).toBe('user123');
+    });
+  });
+
+  describe('requireOrganization', () => {
+    beforeEach(() => {
+      mockReq.user = {
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        organizationId: 'org123'
+      };
+    });
+
+    it('should reject unauthenticated request', () => {
+      mockReq.user = undefined;
+      const middleware = requireOrganization();
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should reject user without organization when none specified', () => {
+      mockReq.user!.organizationId = undefined;
+      const middleware = requireOrganization();
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should accept user with organization when none specified', () => {
+      const middleware = requireOrganization();
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+    });
+
+    it('should reject user from different organization', () => {
+      const middleware = requireOrganization('org456');
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(nextFn).not.toHaveBeenCalled();
+    });
+
+    it('should accept user from correct organization', () => {
+      const middleware = requireOrganization('org123');
+
+      middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
     });
   });
 });

@@ -529,7 +529,7 @@ export default function App() {
     <div className={`min-h-screen flex flex-col relative overflow-hidden ${
       theme === 'light' ? 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 text-slate-900' : 'text-slate-200'
     }`}>
-      {/* Animated background gradient with red, gold, and teal */}
+      {/* Animated background gradient with teal, amber, and red accents */}
       <div className="fixed inset-0 z-0">
         {theme === 'dark' ? (
           <>

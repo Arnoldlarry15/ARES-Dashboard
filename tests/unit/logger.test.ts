@@ -177,4 +177,140 @@ describe('Logger', () => {
       expect(() => JSON.parse(logString)).not.toThrow();
     });
   });
+
+  describe('Sentry integration (when not initialized)', () => {
+    it('should handle warn without Sentry', () => {
+      // Sentry is not initialized by default in tests
+      logger.warn('Warning message', { issue: 'performance' });
+
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+      const logEntry = JSON.parse(consoleWarnSpy.mock.calls[0][0]);
+      expect(logEntry.level).toBe('warn');
+    });
+
+    it('should handle error without Sentry', () => {
+      const error = new Error('Test error');
+      logger.error('Error message', error);
+
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const logEntry = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      expect(logEntry.error).toBeDefined();
+    });
+
+    it('should handle error with context but no error object', () => {
+      logger.error('Error message without error object', undefined, { userId: 'user123' });
+
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const logEntry = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      expect(logEntry.level).toBe('error');
+      expect(logEntry.error).toBeUndefined();
+      expect(logEntry.context).toMatchObject({ userId: 'user123' });
+    });
+
+    it('should handle fatal without Sentry', () => {
+      const error = new Error('Fatal error');
+      logger.fatal('Fatal message', error);
+
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      const logEntry = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      expect(logEntry.level).toBe('fatal');
+    });
+
+    it('should call setUser without error when Sentry not initialized', () => {
+      expect(() => {
+        logger.setUser({ id: 'user123', email: 'test@example.com' });
+      }).not.toThrow();
+    });
+
+    it('should call clearUser without error when Sentry not initialized', () => {
+      expect(() => {
+        logger.clearUser();
+      }).not.toThrow();
+    });
+
+    it('should call addBreadcrumb without error when Sentry not initialized', () => {
+      expect(() => {
+        logger.addBreadcrumb('User action', { action: 'click', target: 'button' });
+      }).not.toThrow();
+    });
+
+    it('should flush and return true when Sentry not initialized', async () => {
+      const result = await logger.flush(1000);
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('Log level filtering', () => {
+    it('should not log debug when level is info', () => {
+      logger.debug('Debug message');
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should log info when level is info', () => {
+      logger.info('Info message');
+      expect(consoleLogSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should log warn when level is info', () => {
+      logger.warn('Warn message');
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should log error when level is info', () => {
+      logger.error('Error message');
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should log fatal when level is info', () => {
+      logger.fatal('Fatal message');
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('Context handling', () => {
+    it('should log without context', () => {
+      logger.info('Message without context');
+
+      const logEntry = JSON.parse(consoleLogSpy.mock.calls[0][0]);
+      expect(logEntry.message).toBe('Message without context');
+      expect(logEntry.context).toBeUndefined();
+    });
+
+    it('should log with multiple context fields', () => {
+      logger.info('Message with context', {
+        userId: 'user123',
+        organizationId: 'org456',
+        requestId: 'req789',
+        method: 'POST',
+        url: '/api/test'
+      });
+
+      const logEntry = JSON.parse(consoleLogSpy.mock.calls[0][0]);
+      expect(logEntry.context).toMatchObject({
+        userId: 'user123',
+        organizationId: 'org456',
+        requestId: 'req789',
+        method: 'POST',
+        url: '/api/test'
+      });
+    });
+
+    it('should handle error with both error object and context', () => {
+      const error = new Error('Test error');
+      logger.error('Error with context', error, { action: 'database_query' });
+
+      const logEntry = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      expect(logEntry.error).toBeDefined();
+      expect(logEntry.context).toMatchObject({ action: 'database_query' });
+    });
+
+    it('should handle fatal with both error object and context', () => {
+      const error = new Error('Fatal error');
+      logger.fatal('Fatal with context', error, { criticalSection: 'auth' });
+
+      const logEntry = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      expect(logEntry.error).toBeDefined();
+      expect(logEntry.context).toMatchObject({ criticalSection: 'auth' });
+    });
+  });
 });

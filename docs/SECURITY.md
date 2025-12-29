@@ -198,6 +198,14 @@ ARES is designed to support compliance with:
 
 ## Additional Resources
 
+### Enterprise Trust Documentation
+- **Trust Boundaries**: See [TRUST_BOUNDARY.md](TRUST_BOUNDARY.md) - What ARES defends against and does NOT defend against
+- **Security Boundaries**: See [SECURITY_BOUNDARIES.md](SECURITY_BOUNDARIES.md) - Who should use ARES and misuse prevention
+- **AI Behavior**: See [AI_BEHAVIOR.md](AI_BEHAVIOR.md) - Determinism and reproducibility guarantees
+- **Version Guarantees**: See [VERSION_GUARANTEES.md](VERSION_GUARANTEES.md) - Behavioral stability promises
+- **Product Positioning**: See [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md) - What ARES is and isn't
+
+### Security & Operations
 - **Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for technical design
 - **Data Handling**: See [DATA_HANDLING.md](DATA_HANDLING.md) for data policies
 - **Responsible Use**: See [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) for ethical guidelines
@@ -214,4 +222,4 @@ For security-related questions:
 ---
 
 **Last Updated**: December 2024  
-**Version**: 0.9.0
+**Version**: 1.0.0

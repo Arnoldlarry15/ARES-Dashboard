@@ -15,10 +15,10 @@ Instead, please report security vulnerabilities via one of these methods:
    - Create a new security advisory
    - We will respond within 48 hours
 
-2. **Email**
-   - Send to: security@example.com (Update with actual security contact)
+2. **Email** (Optional - if configured)
    - Subject: "ARES Security Vulnerability Report"
    - Include: Detailed description, reproduction steps, impact assessment
+   - Note: Email contact can be configured in your deployment
 
 ### What to Include
 

@@ -102,8 +102,8 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
           {/* Login button */}
           <button
             onClick={() => handleLogin(selectedRole)}
-            className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-xl transition-[background-color,box-shadow] duration-200 text-white font-bold shadow-lg glow-teal hover:glow-teal-strong group flex items-center justify-center gap-2"
-            style={{ contain: 'layout style paint', willChange: 'box-shadow' }}
+            className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-xl transition-[background-image,box-shadow] duration-200 text-white font-bold shadow-lg glow-teal hover:glow-teal-strong group flex items-center justify-center gap-2"
+            style={{ contain: 'layout style paint', willChange: 'box-shadow, background-image' }}
           >
             <span>Enter Dashboard</span>
             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />

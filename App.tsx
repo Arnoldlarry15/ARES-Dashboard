@@ -563,7 +563,7 @@ export default function App() {
                 <img 
                   src="/logo.jpg" 
                   alt="ARES Dashboard" 
-                  className="h-32 w-auto object-contain"
+                  className="h-96 w-auto object-contain"
                   loading="eager"
                 />
               </div>
@@ -1273,7 +1273,7 @@ export default function App() {
                 <Keyboard className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                 <span className="hidden sm:inline">Shortcuts</span>
               </button>
-              <span className={theme === 'light' ? 'text-slate-500' : 'text-slate-500'}>ARES <span className="text-amber-400">v1.4.1</span></span>
+              <span className={theme === 'light' ? 'text-slate-500' : 'text-slate-500'}>ARES <span className="text-amber-400">v1.0.0</span></span>
            </div>
         </div>
       </footer>

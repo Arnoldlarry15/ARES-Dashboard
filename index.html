@@ -127,13 +127,15 @@
             box-shadow: 0 0 30px rgba(20, 184, 166, 0.5), 0 0 60px rgba(20, 184, 166, 0.2);
         }
         
-        /* Teal glow */
+        /* Teal glow - Optimized for performance */
         .glow-teal {
-            box-shadow: 0 0 20px rgba(20, 184, 166, 0.3), 0 0 40px rgba(20, 184, 166, 0.1);
+            box-shadow: 0 0 20px rgba(20, 184, 166, 0.3);
+            transform: translateZ(0); /* Force GPU acceleration */
         }
         
         .glow-teal-strong {
-            box-shadow: 0 0 30px rgba(20, 184, 166, 0.5), 0 0 60px rgba(20, 184, 166, 0.2);
+            box-shadow: 0 0 30px rgba(20, 184, 166, 0.5);
+            transform: translateZ(0); /* Force GPU acceleration */
         }
         
         /* Gold glow */

@@ -557,13 +557,13 @@ export default function App() {
         <header className={`glass border-b sticky top-0 z-50 backdrop-blur-xl ${
           theme === 'light' ? 'border-slate-200/50 bg-white/80' : 'border-white/10'
         }`}>
-          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <img 
                   src="/logo.jpg" 
                   alt="ARES Dashboard" 
-                  className="h-96 w-auto object-contain"
+                  className="h-24 w-auto object-contain"
                   loading="eager"
                 />
               </div>
@@ -1259,8 +1259,6 @@ export default function App() {
                 <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
                 <span className={theme === 'light' ? 'text-teal-600' : 'text-teal-400'}>Attack Engine: Online</span>
               </div>
-              <span className={`w-1 h-1 rounded-full ${theme === 'light' ? 'bg-slate-400' : 'bg-slate-600'}`}></span>
-              <span>Gemini 3 Pro Reasoning</span>
            </div>
            <div className="flex items-center gap-4">
               <button

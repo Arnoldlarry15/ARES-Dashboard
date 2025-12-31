@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 describe('Consolidated Auth Endpoints', () => {
   beforeAll(() => {
@@ -31,11 +32,11 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'GET',
         query: {},
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       const res = {
         status: (code: number) => ({
-          json: (data: any) => {
+          json: (data: Record<string, unknown>) => {
             expect(code).toBe(400);
             expect(data.error).toBe('Bad Request');
             expect(data.message).toContain('Invalid or missing provider');
@@ -43,7 +44,7 @@ describe('Consolidated Auth Endpoints', () => {
         }),
         redirect: () => {},
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
     });
@@ -55,18 +56,18 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'POST',
         query: { provider: 'auth0' },
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       const res = {
         status: (code: number) => ({
-          json: (data: any) => {
+          json: (data: Record<string, unknown>) => {
             expect(code).toBe(405);
             expect(data.error).toBe('Method not allowed');
           }
         }),
         redirect: () => {},
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
     });
@@ -78,7 +79,7 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'GET',
         query: { provider: 'auth0' },
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       let redirectUrl = '';
       const res = {
@@ -89,7 +90,7 @@ describe('Consolidated Auth Endpoints', () => {
           expect(url).toContain('client_id=test_client_id');
         },
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
       expect(redirectUrl).toBeTruthy();
@@ -102,7 +103,7 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'GET',
         query: { provider: 'saml' },
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       let redirectUrl = '';
       const res = {
@@ -112,7 +113,7 @@ describe('Consolidated Auth Endpoints', () => {
           expect(url).toContain('idp.example.com');
         },
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
       expect(redirectUrl).toBeTruthy();
@@ -127,11 +128,11 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'GET',
         query: {},
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       const res = {
         status: (code: number) => ({
-          json: (data: any) => {
+          json: (data: Record<string, unknown>) => {
             expect(code).toBe(400);
             expect(data.error).toBe('Bad Request');
             expect(data.message).toContain('Invalid or missing provider');
@@ -139,7 +140,7 @@ describe('Consolidated Auth Endpoints', () => {
         }),
         redirect: () => {},
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
     });
@@ -151,18 +152,18 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'GET',
         query: { provider: 'saml' },
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       const res = {
         status: (code: number) => ({
-          json: (data: any) => {
+          json: (data: Record<string, unknown>) => {
             expect(code).toBe(405);
             expect(data.error).toBe('Method not allowed. SAML callback requires POST.');
           }
         }),
         redirect: () => {},
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
     });
@@ -174,18 +175,18 @@ describe('Consolidated Auth Endpoints', () => {
         method: 'POST',
         query: { provider: 'auth0' },
         headers: {},
-      } as any;
+      } as unknown as VercelRequest;
 
       const res = {
         status: (code: number) => ({
-          json: (data: any) => {
+          json: (data: Record<string, unknown>) => {
             expect(code).toBe(405);
             expect(data.error).toBe('Method not allowed. Auth0 callback requires GET.');
           }
         }),
         redirect: () => {},
         setHeader: () => {},
-      } as any;
+      } as unknown as VercelResponse;
 
       await handler(req, res);
     });

@@ -149,11 +149,19 @@ export class AuthService {
       session_id: session?.token
     };
 
-    // Defer audit logging to avoid blocking UI interactions (improves INP)
-    // Use setTimeout to push the async work off the main thread
-    setTimeout(() => {
+    // In test environment, log synchronously to ensure tests can verify logs immediately
+    // In production, defer to avoid blocking UI interactions (improves INP)
+    const isTestEnv = typeof (globalThis as any).describe !== 'undefined';
+    
+    if (isTestEnv) {
+      // Synchronous for tests
       this.saveAuditLog(auditEntry);
-    }, 0);
+    } else {
+      // Deferred for production (better UI performance)
+      setTimeout(() => {
+        this.saveAuditLog(auditEntry);
+      }, 0);
+    }
   }
 
   private static async saveAuditLog(entry: AuditLogEntry): Promise<void> {

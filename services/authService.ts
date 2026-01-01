@@ -137,7 +137,7 @@ export class AuthService {
     return newSession;
   }
 
-  // Audit logging - now uses database
+  // Audit logging - now uses database (non-blocking for better performance)
   static logAuditEvent(event: Omit<AuditLogEntry, 'id' | 'timestamp' | 'ip_address' | 'user_agent' | 'session_id'>): void {
     const session = this.getSession();
     const auditEntry: AuditLogEntry = {
@@ -149,8 +149,11 @@ export class AuthService {
       session_id: session?.token
     };
 
-    // Try to save to database, fallback to localStorage
-    this.saveAuditLog(auditEntry);
+    // Defer audit logging to avoid blocking UI interactions (improves INP)
+    // Use setTimeout to push the async work off the main thread
+    setTimeout(() => {
+      this.saveAuditLog(auditEntry);
+    }, 0);
   }
 
   private static async saveAuditLog(entry: AuditLogEntry): Promise<void> {

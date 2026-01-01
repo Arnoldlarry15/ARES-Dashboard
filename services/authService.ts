@@ -151,7 +151,7 @@ export class AuthService {
 
     // In test environment, log synchronously to ensure tests can verify logs immediately
     // In production, defer to avoid blocking UI interactions (improves INP)
-    const isTestEnv = typeof (globalThis as any).describe !== 'undefined';
+    const isTestEnv = 'describe' in globalThis && typeof (globalThis as any).describe === 'function';
     
     if (isTestEnv) {
       // Synchronous for tests

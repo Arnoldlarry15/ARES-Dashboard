@@ -4,7 +4,20 @@
   "version": "1.0.0",
   "type": "module",
   "description": "ARES is an AI Red Team Operations Dashboard for planning, executing, and auditing structured adversarial testing of AI systems across established risk frameworks.",
-  "keywords": ["security", "ai", "red-teaming", "owasp", "mitre", "llm", "atlas", "governance", "compliance", "audit", "soc2", "iso27001"],
+  "keywords": [
+    "security",
+    "ai",
+    "red-teaming",
+    "owasp",
+    "mitre",
+    "llm",
+    "atlas",
+    "governance",
+    "compliance",
+    "audit",
+    "soc2",
+    "iso27001"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Arnoldlarry15/ARES-Dashboard.git"
@@ -42,6 +55,7 @@
     "db:validate": "node scripts/validate-db.mjs"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.11.0",
     "@google/genai": "^1.34.0",
     "@prisma/client": "^7.2.0",
     "@sentry/node": "^10.32.1",

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { UserRole, getRoleInfo } from '../types/auth';
-import { AuthService } from '../services/authService';
-import { Lock, User as UserIcon, ChevronRight } from 'lucide-react';
+import { Lock, User as UserIcon, ChevronRight, Shield } from 'lucide-react';
+import { isAuth0Configured } from '../config/auth0Config';
 
 interface AuthLoginProps {
-  onLogin: () => void;
+  onLogin: (role?: UserRole) => void;
+  onAuth0Login?: () => void;
 }
 
-export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
+export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin, onAuth0Login }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.ANALYST);
+  const auth0Enabled = isAuth0Configured();
 
   const roles = [
     UserRole.ADMIN,
@@ -17,9 +19,14 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
     UserRole.VIEWER
   ];
 
-  const handleLogin = (role: UserRole) => {
-    AuthService.initLocalSession(role);
-    onLogin();
+  const handleLocalLogin = (role: UserRole) => {
+    onLogin(role);
+  };
+
+  const handleAuth0Login = () => {
+    if (onAuth0Login) {
+      onAuth0Login();
+    }
   };
 
   return (
@@ -46,14 +53,41 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
             </div>
           </div>
 
+          {/* Auth0 login (if configured) */}
+          {auth0Enabled && (
+            <>
+              <button
+                onClick={handleAuth0Login}
+                className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-xl transition-all duration-200 text-white font-bold shadow-lg glow-teal hover:glow-teal-strong group flex items-center justify-center gap-2 mb-4"
+              >
+                <Shield className="w-5 h-5" />
+                <span>Sign In with Auth0</span>
+              </button>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 glass rounded-lg text-slate-400">Or use local auth</span>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Local authentication notice */}
           <div className="mb-6 p-4 glass rounded-xl border border-teal-500/30">
             <div className="flex items-center gap-2 mb-2">
               <Lock className="w-4 h-4 text-teal-400" />
-              <span className="text-sm font-bold text-teal-400">Local Authentication</span>
+              <span className="text-sm font-bold text-teal-400">
+                {auth0Enabled ? 'Local Authentication (Dev Only)' : 'Local Authentication'}
+              </span>
             </div>
             <p className="text-xs text-slate-400">
-              Select a role to explore ARES Dashboard with role-based access control and audit logging.
+              {auth0Enabled 
+                ? 'For development purposes only. Production uses secure Auth0 authentication.'
+                : 'Select a role to explore ARES Dashboard with role-based access control and audit logging.'
+              }
             </p>
           </div>
 
@@ -101,7 +135,7 @@ export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin }) => {
 
           {/* Login button */}
           <button
-            onClick={() => handleLogin(selectedRole)}
+            onClick={() => handleLocalLogin(selectedRole)}
             className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-xl transition-[background-image,box-shadow] duration-200 text-white font-bold shadow-lg glow-teal hover:glow-teal-strong group flex items-center justify-center gap-2"
             style={{ contain: 'layout style paint', willChange: 'box-shadow, background-image' }}
           >

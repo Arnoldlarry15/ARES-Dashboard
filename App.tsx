@@ -6,6 +6,7 @@ import { GeminiService } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { CampaignManager, Campaign } from './utils/campaigns';
 import { AuthService } from './services/authService';
+import { UserRole } from './types/auth';
 import { AuthLogin } from './components/AuthLogin';
 import { TeamManagement } from './components/TeamManagement';
 import { PayloadEditor } from './components/PayloadEditor';

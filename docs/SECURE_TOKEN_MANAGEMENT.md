@@ -74,7 +74,11 @@ const token = await getAccessTokenSilently();
 
 ## Configuration
 
-### Environment Variables
+### Quick Start
+
+For complete step-by-step setup instructions, see [Auth0 Setup Guide](./AUTH0_SETUP_GUIDE.md).
+
+### Environment Variables (Summary)
 
 Add these to your `.env.local` or Vercel project:
 

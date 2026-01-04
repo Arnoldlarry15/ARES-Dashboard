@@ -252,7 +252,7 @@ npm install
    JWT_REFRESH_SECRET=your_secure_refresh_secret
    ```
    - Get Gemini API key from: https://aistudio.google.com/apikey
-   - Get Auth0 credentials from: https://auth0.com (see [Authentication Guide](docs/AUTHENTICATION.md))
+   - Get Auth0 credentials from: https://auth0.com (see [Auth0 Setup Guide](docs/AUTH0_SETUP_GUIDE.md))
    - For database setup, see [Database Migration Guide](docs/DATABASE_MIGRATION.md)
    - **Note**: For local development with backend APIs, use `vercel dev` instead of `npm run dev`
 

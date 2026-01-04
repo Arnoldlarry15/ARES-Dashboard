@@ -1,9 +1,13 @@
 // Authentication Service with Session Management and Audit Logging
-// Now uses database-backed API with localStorage fallback
+// Now uses database-backed API
+// IMPORTANT: This service NO LONGER stores tokens in localStorage
+// Tokens are managed by Auth0 SDK in memory for security
 
 import { User, Session, UserRole } from '../types/auth';
 import { AuditLogAPI } from '../utils/apiClient';
 
+// Legacy keys - kept for backward compatibility during migration
+// These are used ONLY for local/demo auth, NOT for real Auth0 tokens
 const AUTH_STORAGE_KEY = 'ares_auth_session';
 const LOCAL_AUTH_KEY = 'ares_local_auth';
 
@@ -63,6 +67,8 @@ export class AuthService {
   }
 
   // Save session to localStorage
+  // WARNING: This is ONLY for local/demo authentication
+  // DO NOT use this to store Auth0 tokens - Auth0 SDK manages tokens in memory
   static saveSession(session: Session): void {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -73,6 +79,8 @@ export class AuthService {
   }
 
   // Get current session
+  // WARNING: This is ONLY for local/demo authentication
+  // For Auth0 tokens, use useAuth0() hook and getAccessTokenSilently()
   static getSession(): Session | null {
     try {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -151,7 +159,7 @@ export class AuthService {
 
     // In test environment, log synchronously to ensure tests can verify logs immediately
     // In production, defer to avoid blocking UI interactions (improves INP)
-    const isTestEnv = 'describe' in globalThis && typeof (globalThis as any).describe === 'function';
+    const isTestEnv = 'describe' in globalThis && typeof (globalThis as Record<string, unknown>).describe === 'function';
     
     if (isTestEnv) {
       // Synchronous for tests

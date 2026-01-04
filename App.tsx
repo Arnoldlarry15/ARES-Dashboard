@@ -6,11 +6,11 @@ import { GeminiService } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { CampaignManager, Campaign } from './utils/campaigns';
 import { AuthService } from './services/authService';
-import { User } from './types/auth';
 import { AuthLogin } from './components/AuthLogin';
 import { TeamManagement } from './components/TeamManagement';
 import { PayloadEditor } from './components/PayloadEditor';
 import { ThemeManager, Theme } from './utils/themeManager';
+import { useAuthManager } from './hooks/useAuthManager';
 import { 
   Activity, 
   ChevronRight, 
@@ -45,9 +45,16 @@ const gemini = new GeminiService();
 type BuilderStep = 'vectors' | 'payloads' | 'export';
 
 export default function App() {
-  // Authentication State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Use the new unified auth hook - handles Auth0 and local auth
+  // Tokens are managed in memory, NOT in localStorage
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    user: currentUser,
+    loginWithAuth0,
+    loginLocal, // Used in AuthLogin component
+    logout,
+  } = useAuthManager();
 
   const [activeTab, setActiveTab] = useState<Framework>(Framework.OWASP);
   const [selectedTactic, setSelectedTactic] = useState<TacticMetadata | null>(null);
@@ -122,30 +129,8 @@ export default function App() {
     setTheme(ThemeManager.getTheme());
   }, []);
 
-  // Note: Session restoration is now done via cookie/session storage only for recent authorized users
-  // Check for existing session on mount - only restore if valid and not expired
-  useEffect(() => {
-    try {
-      const session = AuthService.getSession();
-      if (session && session.user) {
-        // Only restore session if it's recent (within last hour)
-        const sessionAge = Date.now() - new Date(session.user.last_login || 0).getTime();
-        const oneHour = 60 * 60 * 1000;
-        
-        if (sessionAge < oneHour) {
-          setCurrentUser(session.user);
-          setIsAuthenticated(true);
-        } else {
-          // Clear old session
-          AuthService.clearSession();
-        }
-      }
-    } catch (err) {
-      console.error('Failed to restore session:', err);
-      // Clear corrupted session
-      AuthService.clearSession();
-    }
-  }, []);
+  // NOTE: Session restoration is now handled by Auth0 SDK
+  // Auth0 manages tokens in memory and handles silent authentication automatically
 
   // Load persisted state on mount
   useEffect(() => {
@@ -266,23 +251,10 @@ export default function App() {
     CampaignManager.getAllCampaigns().then(setCampaigns);
   }, []);
 
-  // Handle login
-  const handleLogin = () => {
-    const user = AuthService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      setNotification(`Welcome, ${user.name}!`);
-      setTimeout(() => setNotification(null), 2000);
-    }
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    AuthService.clearSession();
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setNotification('Logged out successfully');
+  // Handle local login (for development)
+  const handleLocalLogin = (role?: UserRole) => {
+    loginLocal(role);
+    setNotification(`Welcome, ${currentUser?.name || 'User'}!`);
     setTimeout(() => setNotification(null), 2000);
   };
 
@@ -351,8 +323,17 @@ export default function App() {
   };
 
   // Show login screen if not authenticated
+  // Auth0 manages auth state; loading handled by SDK
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0A192F] via-[#1A3A52] to-[#0A192F]">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <AuthLogin onLogin={handleLogin} />;
+    return <AuthLogin onLogin={handleLocalLogin} onAuth0Login={loginWithAuth0} />;
   }
 
   const toggleVector = (vector: string) => {
@@ -661,7 +642,11 @@ export default function App() {
                </button>
              )}
              <button 
-               onClick={handleLogout}
+               onClick={() => {
+                 logout();
+                 setNotification('Logged out successfully');
+                 setTimeout(() => setNotification(null), 2000);
+               }}
                className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group ${
                  theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-400 hover:text-white'
                }`}

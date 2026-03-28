@@ -5,6 +5,7 @@ import { validateRequest } from '../lib/middleware/validation';
 import { securityHeaders, cors, requestLogger, compose } from '../lib/middleware/security';
 import { catchAsync } from '../lib/middleware/errorHandler';
 import { logger } from '../lib/logger';
+import { selectRandom } from '../utils/payloadUtils';
 
 // Types
 interface TacticMetadata {
@@ -30,17 +31,6 @@ interface RedTeamTactic {
   }>;
   mitigation_strategies: string[];
   references: string[];
-}
-
-// Selects `count` items at random from a pool (without replacement) so that
-// every call produces a different set, giving users fresh payloads each session.
-function selectRandom<T>(pool: T[], count: number): T[] {
-  const shuffled = [...pool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
 type Payload = { description: string; payload: string; format: string };
@@ -710,7 +700,7 @@ function generateMockPayloads(tactic: TacticMetadata): Array<{ description: stri
     }),
     (vector: string, idx: number): Payload => ({
       description: `${vector} – Encoded Bypass`,
-      payload: `# ${vector} bypass attempt ${idx + 1}\nimport base64\npayload = base64.b64decode("${Buffer.from(`exploit for ${vector}`).toString('base64')}")\nexec(payload)`,
+      payload: `# ${vector} bypass attempt ${idx + 1}\nimport base64\npayload = base64.b64decode("${btoa(`exploit for ${vector}`)}")\nexec(payload.decode())`,
       format: 'Python'
     }),
     (vector: string): Payload => ({

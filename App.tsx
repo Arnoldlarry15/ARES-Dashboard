@@ -283,9 +283,12 @@ export default function App() {
       setNotification('Payloads regenerated – new unique set ready');
       setTimeout(() => setNotification(null), 3000);
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Payload regeneration failed.';
       startTransition(() => {
-        setError(err instanceof Error ? err.message : 'Payload regeneration failed.');
+        setError(message);
       });
+      setNotification(message);
+      setTimeout(() => setNotification(null), 3000);
     } finally {
       setIsGenerating(false);
     }
@@ -1016,11 +1019,7 @@ export default function App() {
                       {result && result.example_payloads.length > 0 && (
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleRegeneratePayloads().catch(err => {
-                              console.error('Regenerate failed:', err);
-                              setNotification('Failed to regenerate payloads. Please try again.');
-                              setTimeout(() => setNotification(null), 3000);
-                            })}
+                            onClick={() => { void handleRegeneratePayloads(); }}
                             disabled={isGenerating}
                             className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border flex items-center gap-1 ${
                               theme === 'light'

@@ -1,15 +1,5 @@
 import { TacticMetadata, RedTeamTactic } from '../types';
-
-// Selects `count` random items from a pool (without replacement) so that
-// every invocation produces a different set of payloads.
-function selectRandom<T>(pool: T[], count: number): T[] {
-  const shuffled = [...pool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled.slice(0, Math.min(count, shuffled.length));
-}
+import { selectRandom } from '../utils/payloadUtils';
 
 type Payload = { description: string; payload: string; format: string };
 

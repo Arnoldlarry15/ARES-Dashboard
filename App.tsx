@@ -267,6 +267,33 @@ export default function App() {
     setTimeout(() => setNotification(null), 2000);
   };
 
+  // Handle payload regeneration – re-runs generation for the current tactic
+  // so operators get a fresh randomised set of payloads from the pool.
+  const handleRegeneratePayloads = async () => {
+    if (!selectedTactic || isGenerating) return;
+    setIsGenerating(true);
+    setSelectedPayloadIndices([]);
+    setResult(null);
+    setError(null);
+    try {
+      const details = await gemini.generateTacticDetails(selectedTactic);
+      startTransition(() => {
+        setResult(details);
+      });
+      setNotification('Payloads regenerated – new unique set ready');
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Payload regeneration failed.';
+      startTransition(() => {
+        setError(message);
+      });
+      setNotification(message);
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Handle payload edit
   const handleEditPayload = (index: number, payload: string, description: string) => {
     setEditingPayload({ index, payload, title: description });
@@ -991,6 +1018,19 @@ export default function App() {
                       </div>
                       {result && result.example_payloads.length > 0 && (
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => { void handleRegeneratePayloads(); }}
+                            disabled={isGenerating}
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border flex items-center gap-1 ${
+                              theme === 'light'
+                                ? 'text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200 disabled:opacity-50'
+                                : 'text-purple-400 hover:text-purple-300 bg-slate-800 hover:bg-slate-700 border-slate-700 disabled:opacity-50'
+                            }`}
+                            title="Generate a new randomised set of payloads for this tactic"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                            Regenerate
+                          </button>
                           <button
                             onClick={() => setSelectedPayloadIndices(result.example_payloads.map((_, idx) => idx))}
                             className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border ${

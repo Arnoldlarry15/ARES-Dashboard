@@ -75,7 +75,7 @@
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "@types/supertest": "^6.0.3",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.17",
     "c8": "^10.1.3",

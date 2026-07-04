@@ -1,4 +1,5 @@
 import { TacticMetadata, RedTeamTactic } from '../types';
+import { AiModelSettings, StorageManager } from '../utils/storage';
 
 export class GeminiService {
   private apiEndpoint: string;
@@ -10,14 +11,18 @@ export class GeminiService {
     this.apiEndpoint = '/api/generate-tactic';
   }
 
-  async generateTacticDetails(tactic: TacticMetadata): Promise<RedTeamTactic> {
+  async generateTacticDetails(tactic: TacticMetadata, aiSettings?: AiModelSettings): Promise<RedTeamTactic> {
     try {
+      const settings = aiSettings || StorageManager.loadAiSettings();
       const response = await fetch(this.apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(tactic),
+        body: JSON.stringify({
+          ...tactic,
+          aiConfig: settings
+        }),
       });
 
       if (!response.ok) {

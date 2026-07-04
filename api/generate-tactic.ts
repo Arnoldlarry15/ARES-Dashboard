@@ -30,7 +30,8 @@ async function handleRequest(
   res: VercelResponse
 ) {
   try {
-    const tactic: TacticMetadata = req.body;
+    const requestBody = req.body as TacticMetadata & { aiConfig?: AiProviderConfig };
+    const tactic: TacticMetadata = requestBody;
 
     // Validate request body
     if (!tactic || !tactic.id || !tactic.name || !tactic.framework) {
@@ -38,11 +39,13 @@ async function handleRequest(
     }
 
     const providerConfig: AiProviderConfig = {
-      preferredProvider: process.env.AI_PROVIDER || process.env.TACTIC_AI_PROVIDER || 'auto',
-      geminiApiKey: process.env.GEMINI_API_KEY || '',
-      openaiApiKey: process.env.OPENAI_API_KEY || '',
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-      localBaseUrl: process.env.LOCAL_LLM_BASE_URL || ''
+      preferredProvider: requestBody.aiConfig?.preferredProvider || process.env.AI_PROVIDER || process.env.TACTIC_AI_PROVIDER || 'auto',
+      geminiApiKey: requestBody.aiConfig?.geminiApiKey || process.env.GEMINI_API_KEY || '',
+      openaiApiKey: requestBody.aiConfig?.openaiApiKey || process.env.OPENAI_API_KEY || '',
+      anthropicApiKey: requestBody.aiConfig?.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '',
+      localBaseUrl: requestBody.aiConfig?.localBaseUrl || process.env.LOCAL_LLM_BASE_URL || '',
+      localApiKey: requestBody.aiConfig?.localApiKey || process.env.LOCAL_LLM_API_KEY || '',
+      localModel: requestBody.aiConfig?.localModel || process.env.LOCAL_LLM_MODEL || ''
     };
 
     const activeProvider = selectProvider(providerConfig);
@@ -83,7 +86,7 @@ async function generateWithProvider(provider: AiProvider, config: AiProviderConf
     case 'openai':
       return generateWithOpenAI(config.openaiApiKey || '', prompt);
     case 'local':
-      return generateWithLocalModel(config.localBaseUrl || '', prompt);
+      return generateWithLocalModel(config, prompt);
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
@@ -115,15 +118,16 @@ async function generateWithOpenAI(apiKey: string, prompt: string): Promise<unkno
   });
 }
 
-async function generateWithLocalModel(baseUrl: string, prompt: string): Promise<unknown> {
+async function generateWithLocalModel(config: AiProviderConfig, prompt: string): Promise<unknown> {
+  const baseUrl = config.localBaseUrl || '';
   if (!baseUrl) {
     throw new Error('LOCAL_LLM_BASE_URL is required for local model generation');
   }
 
   return generateWithOpenAICompatible({
     baseUrl: baseUrl.replace(/\/$/, ''),
-    apiKey: process.env.LOCAL_LLM_API_KEY || '',
-    model: process.env.LOCAL_LLM_MODEL || 'llama3.1:8b-instruct',
+    apiKey: config.localApiKey || process.env.LOCAL_LLM_API_KEY || '',
+    model: config.localModel || process.env.LOCAL_LLM_MODEL || 'llama3.1:8b-instruct',
     prompt,
     provider: 'local',
     enforceJsonResponse: false

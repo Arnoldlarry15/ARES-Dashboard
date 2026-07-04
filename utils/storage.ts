@@ -1,6 +1,17 @@
 // LocalStorage utility for persisting dashboard state
 
 const STORAGE_KEY = 'ares_dashboard_state';
+const AI_SETTINGS_KEY = 'ares_dashboard_ai_settings';
+
+export interface AiModelSettings {
+  preferredProvider?: 'auto' | 'gemini' | 'openai' | 'anthropic' | 'local';
+  geminiApiKey?: string;
+  openaiApiKey?: string;
+  anthropicApiKey?: string;
+  localBaseUrl?: string;
+  localApiKey?: string;
+  localModel?: string;
+}
 
 export interface PersistedState {
   selectedTacticId?: string;
@@ -61,5 +72,35 @@ export const StorageManager = {
   updateState(partialState: Partial<PersistedState>): void {
     const currentState = this.loadState() || {};
     this.saveState({ ...currentState, ...partialState });
+  },
+
+  // Save AI provider settings to localStorage
+  saveAiSettings(settings: AiModelSettings): void {
+    try {
+      localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.error('Failed to save AI settings to localStorage:', error);
+    }
+  },
+
+  // Load AI provider settings from localStorage
+  loadAiSettings(): AiModelSettings {
+    try {
+      const stored = localStorage.getItem(AI_SETTINGS_KEY);
+      if (!stored) return {};
+      return JSON.parse(stored) as AiModelSettings;
+    } catch (error) {
+      console.error('Failed to load AI settings from localStorage:', error);
+      return {};
+    }
+  },
+
+  // Clear AI provider settings from localStorage
+  clearAiSettings(): void {
+    try {
+      localStorage.removeItem(AI_SETTINGS_KEY);
+    } catch (error) {
+      console.error('Failed to clear AI settings from localStorage:', error);
+    }
   }
 };

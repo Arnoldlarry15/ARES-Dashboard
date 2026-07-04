@@ -203,6 +203,9 @@ ARES provides a governance-ready AI red-teaming and audit platform that:
 3. Configure your project name
 4. (Optional) Add environment variables:
    - `GEMINI_API_KEY` - For AI-powered payloads
+   - `OPENAI_API_KEY` - Optional ChatGPT/OpenAI provider
+   - `ANTHROPIC_API_KEY` - Optional Claude provider
+   - `LOCAL_LLM_BASE_URL` - Optional local or OpenAI-compatible model endpoint
    - `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` - For enterprise authentication (see [Authentication Guide](docs/AUTHENTICATION.md))
    - `JWT_SECRET`, `JWT_REFRESH_SECRET` - For JWT token signing
 5. Click "Deploy"
@@ -215,7 +218,7 @@ For detailed deployment instructions, see [DEPLOY.md](docs/DEPLOY.md) or [QUICK_
 
 **Prerequisites:**
 - Node.js 20.x and npm
-- (Optional) Google Gemini API key for AI-generated payloads
+- (Optional) Gemini, OpenAI, Anthropic, or local LLM access for AI-generated payloads
 
 **Installation:**
 
@@ -240,6 +243,9 @@ npm install
    
    # AI-powered payloads (optional)
    GEMINI_API_KEY=your_actual_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   LOCAL_LLM_BASE_URL=http://localhost:11434/v1
    
    # Enterprise authentication (optional, for production)
    AUTH0_DOMAIN=your-tenant.auth0.com

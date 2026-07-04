@@ -10,6 +10,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getProviderAvailabilityReport } from '../lib/ai/tacticGeneration';
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -29,6 +30,18 @@ interface HealthCheck {
     };
     externalServices?: {
       gemini?: {
+        status: 'healthy' | 'unhealthy';
+        error?: string;
+      };
+      openai?: {
+        status: 'healthy' | 'unhealthy';
+        error?: string;
+      };
+      anthropic?: {
+        status: 'healthy' | 'unhealthy';
+        error?: string;
+      };
+      localModel?: {
         status: 'healthy' | 'unhealthy';
         error?: string;
       };
@@ -105,17 +118,35 @@ async function checkCache(): Promise<HealthCheck['checks']['cache']> {
 async function checkExternalServices(): Promise<HealthCheck['checks']['externalServices']> {
   const checks: HealthCheck['checks']['externalServices'] = {};
 
-  // Check Gemini API
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      // In production, make a lightweight API call
-      checks.gemini = { status: 'healthy' };
-    } catch (error) {
-      checks.gemini = {
-        status: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
+  const providerReport = getProviderAvailabilityReport({
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+    localBaseUrl: process.env.LOCAL_LLM_BASE_URL || ''
+  });
+
+  if (providerReport.gemini.configured) {
+    checks.gemini = providerReport.gemini.available
+      ? { status: 'healthy' }
+      : { status: 'unhealthy', error: 'GEMINI_API_KEY is configured but unavailable' };
+  }
+
+  if (providerReport.openai.configured) {
+    checks.openai = providerReport.openai.available
+      ? { status: 'healthy' }
+      : { status: 'unhealthy', error: 'OPENAI_API_KEY is configured but unavailable' };
+  }
+
+  if (providerReport.anthropic.configured) {
+    checks.anthropic = providerReport.anthropic.available
+      ? { status: 'healthy' }
+      : { status: 'unhealthy', error: 'ANTHROPIC_API_KEY is configured but unavailable' };
+  }
+
+  if (providerReport.local.configured) {
+    checks.localModel = providerReport.local.available
+      ? { status: 'healthy' }
+      : { status: 'unhealthy', error: 'LOCAL_LLM_BASE_URL is configured but unavailable' };
   }
 
   // Check Auth provider
@@ -164,6 +195,9 @@ function calculateOverallStatus(checks: HealthCheck['checks']): HealthCheck['sta
   const hasUnhealthyComponent = 
     checks.cache?.status === 'unhealthy' ||
     checks.externalServices?.gemini?.status === 'unhealthy' ||
+    checks.externalServices?.openai?.status === 'unhealthy' ||
+    checks.externalServices?.anthropic?.status === 'unhealthy' ||
+    checks.externalServices?.localModel?.status === 'unhealthy' ||
     checks.externalServices?.auth?.status === 'unhealthy';
 
   if (hasUnhealthyComponent) {

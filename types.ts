@@ -1,4 +1,3 @@
-
 export enum Framework {
   OWASP = 'OWASP LLM Top 10',
   MITRE_ATLAS = 'MITRE ATLAS',
@@ -8,9 +7,29 @@ export enum Framework {
 export interface TacticMetadata {
   id: string;
   name: string;
-  framework: Framework;
+  framework: Framework | string;
   shortDesc: string;
   staticVectors: string[]; // Preloaded vectors for instant display
+}
+
+export type FallbackReason =
+  | 'missing_api_key'
+  | 'auth_error'
+  | 'rate_limit'
+  | 'quota_exceeded'
+  | 'timeout'
+  | 'model_error'
+  | 'validation_error'
+  | 'parse_error'
+  | 'network_error'
+  | 'unknown';
+
+export interface GenerationMetadata {
+  source: 'dynamic' | 'fallback';
+  model?: string;
+  generatedAt: string;
+  fallbackReason?: FallbackReason;
+  errorMessage?: string;
 }
 
 export interface RedTeamTactic {
@@ -28,6 +47,7 @@ export interface RedTeamTactic {
   }[];
   mitigation_strategies: string[];
   references: string[];
+  generation_metadata?: GenerationMetadata;
 }
 
 export interface ExecutablePayload {
@@ -42,6 +62,7 @@ export interface ExecutablePayload {
   }[];
   timestamp: string;
   version: string;
+  generation_metadata?: GenerationMetadata;
 }
 
 export interface DashboardState {

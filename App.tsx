@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useTransition } from 'react';
 import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload } from './types';
 import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './constants';
-import { GeminiService } from './services/geminiService';
+import { GeminiService, GeminiGenerationError } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { AiModelSettings } from './utils/storage';
 import { CampaignManager, Campaign } from './utils/campaigns';
@@ -40,7 +40,8 @@ import {
   Users,
   Sun,
   Moon,
-  Edit3
+  Edit3,
+  Sparkles
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -64,6 +65,13 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<RedTeamTactic | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [generationFailure, setGenerationFailure] = useState<{
+    reason: string;
+    message: string;
+    statusCode: number;
+    fallbackTactic?: RedTeamTactic;
+  } | null>(null);
+
 
   // Builder Flow State
   const [currentStep, setCurrentStep] = useState<BuilderStep>('vectors');
@@ -303,7 +311,7 @@ export default function App() {
     setEditingPayload(null);
   };
 
-  const handleTacticSelect = async (tactic: TacticMetadata) => {
+    const handleTacticSelect = async (tactic: TacticMetadata) => {
     // 1. Immediate UI feedback (urgent)
     setIsGenerating(true);
     
@@ -315,24 +323,92 @@ export default function App() {
       setSelectedPayloadIndices([]);
       setResult(null);
       setError(null);
+      setGenerationFailure(null);
     });
 
     // 3. Start dynamic generation of Payloads in background (non-blocking)
     try {
-      const details = await gemini.generateTacticDetails(tactic, aiSettings);
-      // Use startTransition for non-urgent state update
+      const details = await gemini.generateTacticDetails(tactic, { aiSettings });
       startTransition(() => {
         setResult(details);
+        setGenerationFailure(null);
       });
     } catch (err: unknown) {
-      startTransition(() => {
-        setError(err instanceof Error ? err.message : "Content generation failed.");
-      });
+      if (err instanceof GeminiGenerationError) {
+        startTransition(() => {
+          setError(err.message);
+          setGenerationFailure({
+            reason: err.fallbackReason,
+            message: err.message,
+            statusCode: err.statusCode,
+            fallbackTactic: err.fallbackTactic
+          });
+        });
+      } else {
+        const msg = err instanceof Error ? err.message : 'Content generation failed.';
+        startTransition(() => {
+          setError(msg);
+          setGenerationFailure({
+            reason: 'unknown',
+            message: msg,
+            statusCode: 0,
+            fallbackTactic: gemini.getStaticTacticDetails(tactic, 'unknown', msg)
+          });
+        });
+      }
     } finally {
       // Immediate feedback when operation completes
       setIsGenerating(false);
     }
   };
+
+    const handleRegeneratePayloads = async () => {
+    if (!selectedTactic) return;
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const details = await gemini.generateTacticDetails(selectedTactic, {
+        selectedVectors,
+        objectives: selectedVectors.length > 0
+          ? `Adversarial evaluation targeting ${selectedVectors.join(', ')}`
+          : undefined,
+        aiSettings
+      });
+      startTransition(() => {
+        setResult(details);
+        setSelectedPayloadIndices([]);
+        setGenerationFailure(null);
+      });
+      const isDynamic = details.generation_metadata?.source === 'dynamic';
+      setNotification(
+        isDynamic
+          ? `Generated dynamic payloads via ${details.generation_metadata?.model || 'Gemini'}`
+          : `Fallback fixtures active (${details.generation_metadata?.fallbackReason || 'Emergency samples'})`
+      );
+      setTimeout(() => setNotification(null), 3500);
+    } catch (err: unknown) {
+      if (err instanceof GeminiGenerationError) {
+        startTransition(() => {
+          setError(err.message);
+          setGenerationFailure({
+            reason: err.fallbackReason,
+            message: err.message,
+            statusCode: err.statusCode,
+            fallbackTactic: err.fallbackTactic
+          });
+        });
+      } else {
+        const msg = err instanceof Error ? err.message : 'Generation failed';
+        startTransition(() => {
+          setError(msg);
+        });
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
 
   // Show login screen if not authenticated
   // Auth0 manages auth state; loading handled by SDK
@@ -386,7 +462,8 @@ export default function App() {
       selected_vectors: selectedVectors,
       selected_payloads: result.example_payloads.filter((_, idx) => selectedPayloadIndices.includes(idx)),
       timestamp: new Date().toISOString(),
-      version: "1.0.0"
+      version: "1.0.0",
+      generation_metadata: result.generation_metadata
     };
   };
 
@@ -1058,9 +1135,63 @@ export default function App() {
                           }`}>
                             {selectedPayloadIndices.length} Selected
                           </div>
+                          <button
+                            onClick={handleRegeneratePayloads}
+                            disabled={isGenerating}
+                            title="Regenerate dynamic payloads with Gemini based on selected vectors"
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-tighter transition-all border flex items-center gap-1.5 ${
+                              theme === 'light'
+                                ? 'text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 border-teal-200'
+                                : 'text-cyan-400 hover:text-cyan-300 bg-slate-800 hover:bg-slate-700 border-slate-700'
+                            }`}
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                            {isGenerating ? 'Generating...' : 'Regenerate'}
+                          </button>
                         </div>
                       )}
                     </div>
+
+
+                    {result?.generation_metadata && (
+                      result.generation_metadata.source === 'dynamic' ? (
+                        <div className={`p-3 mb-4 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                          theme === 'light'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="font-semibold">Dynamically Generated via Gemini ({result.generation_metadata.model || 'AI Engine'})</span>
+                            <span className="text-[10px] opacity-75 font-mono px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                              OWASP/MITRE Aligned
+                            </span>
+                          </div>
+                          <span className="text-[10px] opacity-70 font-mono">
+                            {new Date(result.generation_metadata.generatedAt).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className={`p-3.5 mb-4 rounded-xl border flex flex-col gap-1.5 text-xs transition-all ${
+                          theme === 'light'
+                            ? 'bg-amber-50 border-amber-300 text-amber-900'
+                            : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 font-bold">
+                              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                              <span>Fallback Mode Active — Predefined Sample Prompts</span>
+                            </div>
+                            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
+                              {result.generation_metadata.fallbackReason || 'Emergency Fallback'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] opacity-90 leading-relaxed">
+                            {result.generation_metadata.errorMessage || 'Live generation was unavailable. Displaying predefined fixtures.'}
+                          </p>
+                        </div>
+                      )
+                    )}
 
                     {isGenerating && !result ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -1070,23 +1201,43 @@ export default function App() {
                         <h4 className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Generating Payloads...</h4>
                         <p className={`text-xs mt-2 ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>Analysis of {selectedTactic.name} in progress.</p>
                       </div>
-                    ) : error ? (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                         <AlertTriangle className={`w-10 h-10 mb-4 ${theme === 'light' ? 'text-red-500' : 'text-red-500/60'}`} />
-                         <p className={`text-sm mb-4 ${theme === 'light' ? 'text-red-600' : 'text-red-400'}`}>{error}</p>
-                         <button onClick={() => {
-                           if (selectedTactic) {
-                             handleTacticSelect(selectedTactic).catch(err => {
-                               console.error('Failed to retry tactic selection:', err);
-                             });
-                           }
-                         }} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all ${
-                           theme === 'light' 
-                             ? 'text-slate-700 bg-slate-100 hover:bg-slate-200'
-                             : 'text-slate-300 bg-slate-800 hover:bg-slate-700'
-                         }`}>
-                           <RefreshCw className="w-3 h-3" /> RETRY
-                         </button>
+                                        ) : error && !result ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 max-w-lg mx-auto">
+                         <AlertTriangle className={`w-12 h-12 mb-4 ${theme === 'light' ? 'text-amber-500' : 'text-amber-500/80'}`} />
+                         <h4 className={`text-base font-bold mb-1 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                           Dynamic Prompt Generation Failed
+                         </h4>
+                         <p className={`text-xs mb-6 ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'} leading-relaxed`}>
+                           {error}
+                         </p>
+                         <div className="flex flex-wrap items-center justify-center gap-3">
+                           <button 
+                             onClick={() => {
+                               if (selectedTactic) {
+                                 handleTacticSelect(selectedTactic);
+                               }
+                             }} 
+                             className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-md"
+                           >
+                             <RefreshCw className="w-3.5 h-3.5" /> Retry with Gemini
+                           </button>
+                           {generationFailure?.fallbackTactic && (
+                             <button
+                               onClick={() => {
+                                 setResult(generationFailure.fallbackTactic);
+                                 setGenerationFailure(null);
+                                 setError(null);
+                               }}
+                               className={`flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border transition-all ${
+                                 theme === 'light'
+                                   ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                               }`}
+                             >
+                               Load Predefined Sample Fixtures (Fallback)
+                             </button>
+                           )}
+                         </div>
                       </div>
                     ) : (
                       <div className="flex-1 overflow-y-auto space-y-4 pr-2">

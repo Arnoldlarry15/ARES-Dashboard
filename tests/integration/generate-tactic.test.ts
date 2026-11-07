@@ -213,4 +213,60 @@ describe('Generate Tactic API Integration', () => {
     expect(typeof payload.payload).toBe('string');
     expect(typeof payload.format).toBe('string');
   });
+
+  it('should include generation_metadata indicating dynamic or fallback source', async () => {
+    server.use(
+      http.post('/api/generate-tactic', () => {
+        return HttpResponse.json(
+          {
+            id: 'LLM01',
+            name: 'Prompt Injection',
+            framework: 'OWASP LLM Top 10',
+            severity: 'Critical',
+            description: 'Dynamic description',
+            technical_summary: 'Dynamic technical summary',
+            attack_vectors: ['Context Escape'],
+            example_payloads: [
+              {
+                description: 'Injection payload',
+                payload: 'Override directive',
+                format: 'Prompt'
+              }
+            ],
+            mitigation_strategies: ['Guardrails'],
+            references: ['OWASP LLM01'],
+            generation_metadata: {
+              source: 'dynamic',
+              model: 'gemini-3.5-flash-lite',
+              generatedAt: new Date().toISOString()
+            }
+          },
+          {
+            headers: {
+              'X-ARES-Generation-Source': 'dynamic',
+              'X-ARES-Model': 'gemini-3.5-flash-lite'
+            }
+          }
+        );
+      })
+    );
+
+    const response = await fetch('/api/generate-tactic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'LLM01',
+        name: 'Prompt Injection',
+        framework: 'OWASP LLM Top 10',
+        shortDesc: 'Test',
+        staticVectors: ['Context Escape']
+      })
+    });
+
+    expect(response.headers.get('X-ARES-Generation-Source')).toBe('dynamic');
+    const data = await response.json();
+    expect(data.generation_metadata).toBeDefined();
+    expect(data.generation_metadata.source).toBe('dynamic');
+    expect(data.generation_metadata.model).toBe('gemini-3.5-flash-lite');
+  });
 });

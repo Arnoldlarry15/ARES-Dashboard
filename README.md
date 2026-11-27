@@ -214,10 +214,64 @@ ARES provides a governance-ready AI red-teaming and audit platform that:
 
 For detailed deployment instructions, see [DEPLOY.md](docs/DEPLOY.md) or [QUICK_START.md](docs/QUICK_START.md)
 
-### Local Development
+### Local Development (Complete Setup)
 
-**Prerequisites:**
-- Node.js 20.x and npm
+1. **Required software**: Node.js `>=20 <23` (tested on Node 20/24), npm, Git, and Docker Desktop (for local PostgreSQL + `pgvector`).
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   ```
+   Set `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CSRF_SECRET`, `WORKER_SECRET`, `CRON_SECRET`, and (for live generation/embeddings) `GEMINI_API_KEY`. Never commit `.env`.
+4. **Start local PostgreSQL with `pgvector`**:
+   ```bash
+   docker run -d --name ares-pgvector-local \
+     -e POSTGRES_USER=postgres \
+     -e POSTGRES_PASSWORD=postgres \
+     -e POSTGRES_DB=ares_dashboard \
+     -p 127.0.0.1:5432:5432 \
+     pgvector/pgvector:pg16
+   ```
+   (Or use `docker compose up -d postgres` with `docker-compose.yml`.)
+5. **Apply Prisma migrations**:
+   ```bash
+   npx prisma migrate deploy
+   ```
+6. **Generate the Prisma client**:
+   ```bash
+   npm run db:generate
+   ```
+7. **Configure Auth0 (or local dev auth)**:
+   - For Auth0: create a Regular Web App + SPA in your own Auth0 tenant and set `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_CALLBACK_URL`, `VITE_AUTH0_DOMAIN`, and `VITE_AUTH0_CLIENT_ID` (see [docs/AUTH0_SETUP_GUIDE.md](docs/AUTH0_SETUP_GUIDE.md)).
+   - For local-only non-production testing without Auth0: set `ALLOW_LOCAL_AUTH=true` in `.env` (`NODE_ENV` must not be `production`).
+8. **Configure Gemini API access**:
+   - Obtain your own key from Google AI Studio and set `GEMINI_API_KEY` in `.env`.
+9. **Start the frontend and backend**:
+   - Frontend dev server: `npm run dev`
+   - Full serverless API + frontend locally: `npx vercel dev` (requires Vercel CLI; `npm run dev` mounts `/api/generate-tactic` only).
+10. **Start and operate the background worker** (required for continuous autonomous execution):
+    ```bash
+    npm run worker
+    ```
+    - **Why a self-hosted worker is required:** Vercel Hobby's built-in cron (`/api/generation-jobs?action=recover`, `"0 0 * * *"`) only runs **once per day at 00:00 UTC** and is a stalled-job recovery sweep rather than a continuous queue runner. Browser-triggered `Run Step` is an interactive manual action, not an autonomous scheduler. For continuous background processing independent of browser sessions, run `npm run worker` (or trigger `POST /api/generation-jobs?id=<jobId>&action=worker` with `x-worker-secret` from an external scheduler).
+    - **Embedding backfill:** For existing registry rows needing `pgvector` HNSW backfill, run:
+      ```bash
+      npm run backfill:embeddings -- --dry-run
+      npm run backfill:embeddings
+      ```
+11. **Run tests and production builds**:
+    ```bash
+    npm run lint
+    npm run typecheck
+    npm run test:unit
+    npm run test:security
+    npm run test:integration
+    npm run build
+    ```
+    *Note:* `tests/integration/liveGeminiGeneration.test.ts` skips automatically when `GEMINI_API_KEY` is unset; `realPostgresValidation.test.ts` and `p1OriginalityPg.test.ts` require a `localhost`/`127.0.0.1` PostgreSQL + `pgvector` `DATABASE_URL`.
 - (Optional) Gemini, OpenAI, Anthropic, or local LLM access for AI-generated payloads
 
 **Installation:**
@@ -447,23 +501,27 @@ For detailed setup instructions, see:
 ├── constants.tsx                # Framework tactics and metadata
 ├── types.ts                     # TypeScript type definitions
 ├── api/
-│   ├── generate-tactic.ts      # Serverless API for AI (secure)
-│   ├── users.ts                # User management API
-│   ├── campaigns.ts            # Campaign persistence API
-│   ├── audit-logs.ts           # Audit trail API
-│   ├── protected-example.ts    # Example protected endpoint with RBAC
-│   ├── auth/
-│   │   ├── refresh.ts          # Token refresh endpoint
-│   │   ├── login/
-│   │   │   └── auth0.ts        # Auth0 login initiation
-│   │   └── callback/
-│   │       └── auth0.ts        # Auth0 OAuth callback
-│   ├── middleware/
-│   │   ├── auth.ts             # Authentication & RBAC middleware
-│   │   ├── rateLimit.ts        # Rate limiting
-│   │   ├── validation.ts       # Request validation
-│   │   └── security.ts         # Security headers & CORS
-│   └── tsconfig.json           # API TypeScript config
+│   ├── generate-tactic.ts       # Synchronous tactic generation API
+│   ├── generation-jobs.ts       # Persistent generation jobs, worker step, recovery & credits
+│   ├── prompt-vault.ts          # Customer Prompt Vault & duplicate reporting API
+│   ├── users.ts                 # User management API (tenant-scoped admin)
+│   ├── campaigns.ts             # Campaign persistence API
+│   ├── audit-logs.ts            # Audit trail API
+│   ├── health.ts                # Health check endpoint
+│   ├── metrics.ts               # Prometheus metrics endpoint
+│   └── auth/
+│       ├── login.ts             # Unified login / logout initiation
+│       └── callback.ts          # Auth0 OAuth callback
+├── lib/
+│   ├── ai/                      # Generator & independent Evaluator services
+│   ├── jobs/                    # Persistent GenerationJob, credit ledger & recovery service
+│   ├── middleware/              # Auth, RBAC, CSRF, CORS, rate-limit, error handler
+│   ├── originality/             # Multi-stage originality & pgvector HNSW service
+│   └── taxonomy/                # OWASP 2026 & MITRE ATLAS v4.5 taxonomies
+├── scripts/
+│   ├── runWorker.ts             # Self-hosted/local background job worker
+│   ├── backfillPromptEmbeddings.ts # Resumable pgvector embedding backfill
+│   └── checkSecrets.mjs         # Tracked-file secret scanner
 ├── prisma/
 │   └── schema.prisma           # Database schema definition
 ├── prisma.config.ts            # Prisma configuration

@@ -5,8 +5,15 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateTokens } from '../../services/auth/jwt';
+import crypto from 'crypto';
+import {
+  createCsrfToken,
+  generateTokens,
+  isProductionEnvironment
+} from '../../services/auth/jwt';
+import { UserRepository } from '../../repositories/userRepository';
 import { logger } from '../../lib/logger';
+import { securityHeaders } from '../../lib/middleware/security';
 
 // Cookie expiry constants (in seconds)
 const ONE_HOUR = 3600;
@@ -88,16 +95,18 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
     }
 
     // Validate required parameters
-    if (!code || !state) {
+    if (typeof code !== 'string' || !code || typeof state !== 'string' || !state) {
       return res.status(400).json({
         error: 'Bad Request',
         message: 'Missing authorization code or state'
       });
     }
 
-    // Verify state parameter (CSRF protection)
-    const stateCookie = req.headers.cookie?.match(/auth0_state=([^;]+)/)?.[1];
-    if (!stateCookie || stateCookie !== state) {
+    // Verify state parameter (constant-time CSRF protection)
+    const stateCookie = req.headers.cookie?.match(/auth0_state=([^;]+)/)?.[1] || '';
+    const stateBuf = Buffer.from(state, 'utf8');
+    const cookieBuf = Buffer.from(stateCookie, 'utf8');
+    if (stateBuf.length === 0 || stateBuf.length !== cookieBuf.length || !crypto.timingSafeEqual(stateBuf, cookieBuf)) {
       return res.status(400).json({
         error: 'Bad Request',
         message: 'Invalid state parameter'
@@ -138,7 +147,7 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/?error=token_exchange_failed`);
     }
 
-    const tokens = await tokenResponse.json();
+    const tokens = (await tokenResponse.json()) as { access_token: string; [key: string]: any };
 
     // Get user info from Auth0
     const userInfoResponse = await fetch(`https://${auth0Domain}/userinfo`, {
@@ -152,37 +161,47 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/?error=user_info_failed`);
     }
 
-    const userInfo = await userInfoResponse.json();
+    const userInfo = (await userInfoResponse.json()) as {
+      sub: string;
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+      [key: string]: unknown;
+    };
 
-    // Map Auth0 user to our user model
-    // In production, you would:
-    // 1. Look up or create user in your database
-    // 2. Assign roles based on Auth0 app metadata or your own logic
-    // 3. Store session in database
-    const role = userInfo['https://ares.app/roles']?.[0] || 'analyst'; // Custom claim from Auth0
-    const organizationId = userInfo['https://ares.app/org_id']; // Custom claim from Auth0
+    const organizationId = userInfo['https://ares.app/org_id'] as string | undefined;
 
-    // Generate our own JWT tokens with scoped claims
-    const ourTokens = generateTokens({
-      userId: userInfo.sub,
+    // Resolve internal database user by immutable auth0Sub (never auto-links by email)
+    const dbUser = await UserRepository.resolveAuth0User({
+      sub: userInfo.sub,
       email: userInfo.email,
-      role: role,
-      organizationId: organizationId,
-      permissions: userInfo['https://ares.app/permissions'] || []
+      emailVerified: Boolean(userInfo.email_verified),
+      name: userInfo.name,
+      orgId: organizationId
     });
 
-    // Set tokens as secure HttpOnly cookies
-    const cookieOptions = 'HttpOnly; Secure; SameSite=Strict; Path=/';
+    // Generate session token bound to authoritative DB userId and role
+    const ourTokens = generateTokens({
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+      organizationId: dbUser.orgId,
+      authProvider: 'auth0'
+    });
+
+    const csrfToken = createCsrfToken(ourTokens.jti);
+    const isProd = isProductionEnvironment();
+    const accessCookieName = isProd ? '__Host-access_token' : 'access_token';
+    const csrfCookieName = isProd ? '__Host-csrf_token' : 'csrf_token';
+    const secureFlag = isProd ? '; Secure' : '';
     const accessTokenExpiry = new Date(Date.now() + ONE_HOUR * 1000).toUTCString();
-    const refreshTokenExpiry = new Date(Date.now() + SEVEN_DAYS * 1000).toUTCString();
-    
+
     res.setHeader('Set-Cookie', [
-      `access_token=${ourTokens.accessToken}; ${cookieOptions}; Max-Age=${ONE_HOUR}; Expires=${accessTokenExpiry}`,
-      `refresh_token=${ourTokens.refreshToken}; ${cookieOptions}; Max-Age=${SEVEN_DAYS}; Expires=${refreshTokenExpiry}`,
-      'auth0_state=; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Path=/' // Clear state cookie
+      `${accessCookieName}=${ourTokens.accessToken}; HttpOnly${secureFlag}; SameSite=Lax; Path=/; Max-Age=${ONE_HOUR}; Expires=${accessTokenExpiry}`,
+      `${csrfCookieName}=${csrfToken}${secureFlag}; SameSite=Lax; Path=/; Max-Age=${ONE_HOUR}; Expires=${accessTokenExpiry}`,
+      `auth0_state=; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0; Path=/`
     ]);
 
-    // Redirect to app (tokens are now in secure cookies)
     res.redirect(302, '/?auth=success');
   } catch (error: unknown) {
     logger.error('Auth0 callback error', error instanceof Error ? error : new Error(String(error)));
@@ -191,58 +210,20 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
 }
 
 /**
- * Handle SAML callback
+ * Handle SAML callback (disabled until signed XML assertion verification is implemented)
  */
-async function handleSAMLCallback(req: VercelRequest, res: VercelResponse) {
-  try {
-    const { SAMLResponse, RelayState } = req.body;
-
-    if (!SAMLResponse) {
-      return res.status(400).json({ error: 'Missing SAML response' });
-    }
-
-    // Parse and validate SAML response
-    const user = parseSAMLResponse(SAMLResponse);
-
-    // Map SAML user to token payload
-    const role = user.role || mapGroupsToRole(user.groups || []);
-    
-    // Generate JWT tokens using the same service as Auth0
-    const tokens = generateTokens({
-      userId: user.nameID,
-      email: user.email,
-      role: role,
-      permissions: []
-    });
-
-    // Set secure cookies (matching Auth0 callback format for consistency)
-    const cookieOptions = 'HttpOnly; Secure; SameSite=Strict; Path=/';
-    const accessTokenExpiry = new Date(Date.now() + ONE_HOUR * 1000).toUTCString();
-    const refreshTokenExpiry = new Date(Date.now() + SEVEN_DAYS * 1000).toUTCString();
-    
-    res.setHeader('Set-Cookie', [
-      `access_token=${tokens.accessToken}; ${cookieOptions}; Max-Age=${ONE_HOUR}; Expires=${accessTokenExpiry}`,
-      `refresh_token=${tokens.refreshToken}; ${cookieOptions}; Max-Age=${SEVEN_DAYS}; Expires=${refreshTokenExpiry}`,
-      `ares_user=${encodeURIComponent(JSON.stringify({ email: user.email, role: role }))}; Path=/; Max-Age=${ONE_DAY}`
-    ]);
-
-    // Redirect to application or RelayState URL
-    const redirectUrl = RelayState || '/';
-    res.redirect(302, redirectUrl);
-
-  } catch (error) {
-    logger.error('SAML callback error', error instanceof Error ? error : new Error(String(error)));
-    return res.status(500).json({ 
-      error: 'Authentication failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
+async function handleSAMLCallback(_req: VercelRequest, res: VercelResponse) {
+  return res.status(501).json({
+    error: 'Not Implemented',
+    message: 'SAML SSO is disabled in this release. Configure Auth0 (provider=auth0) or local development auth.'
+  });
 }
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  securityHeaders(req, res, () => {});
   // Get provider from query parameter
   const provider = (req.query.provider as string)?.toLowerCase();
 

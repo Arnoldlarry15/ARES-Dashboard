@@ -6,6 +6,43 @@ import type { Campaign } from './campaigns';
 // API base URL - works for both local dev and production
 const API_BASE = typeof window !== 'undefined' ? '/api' : '';
 
+type AuthTokenProvider = () => Promise<string | null>;
+let authTokenProvider: AuthTokenProvider | null = null;
+
+export function setAuthTokenProvider(provider: AuthTokenProvider | null): void {
+  authTokenProvider = provider;
+}
+
+export function getCsrfTokenFromCookie(): string | null {
+  if (typeof document === 'undefined' || !document.cookie) return null;
+  const match =
+    document.cookie.match(/(?:^|;\s*)__Host-csrf_token=([^;]+)/) ||
+    document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+export async function buildAuthHeaders(method = 'GET'): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  if (authTokenProvider) {
+    try {
+      const token = await authTokenProvider();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch {
+      // Leave Authorization unset so cookie-based session can still be evaluated
+    }
+  }
+  const upperMethod = method.toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(upperMethod)) {
+    const csrf = getCsrfTokenFromCookie();
+    if (csrf) {
+      headers['X-CSRF-Token'] = csrf;
+    }
+  }
+  return headers;
+}
+
 // Generic API error class
 export class ApiError extends Error {
   constructor(
@@ -24,12 +61,15 @@ async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const authHeaders = await buildAuthHeaders(options.method || 'GET');
   
   try {
     const response = await fetch(url, {
       ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
     });
@@ -275,3 +315,117 @@ export async function isDatabaseAvailable(): Promise<boolean> {
     return false;
   }
 }
+
+export interface GenerationJobSummary {
+  id: string;
+  status: string;
+  requestedCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  remainingCount: number;
+  retryCount?: number;
+  maxRetries?: number;
+  selectedFramework?: string;
+  frameworkVersion?: string;
+  selectedTacticId?: string;
+  selectedTacticName?: string;
+  failureMessage?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+  deliveredPrompts?: Array<{
+    vaultId: string;
+    registryPromptId: string;
+    framework: string;
+    frameworkVersion: string;
+    attackVector: string;
+    attackName: string;
+    payload: unknown;
+    acquiredAt: string;
+  }>;
+}
+
+export interface UserCreditsSummary {
+  availableTokens: number;
+  reservedTokens: number;
+  updatedAt: string | null;
+}
+
+export interface VaultPromptItem {
+  vaultId: string;
+  jobId: string;
+  registryPromptId: string;
+  isDuplicateReported: boolean;
+  replacedByVaultId: string | null;
+  acquiredAt: string;
+  framework: string;
+  frameworkVersion: string;
+  attackVector: string;
+  attackName: string;
+  payload: {
+    description?: string;
+    payload?: string;
+    format?: string;
+    attack_family?: string;
+    technique?: string;
+    expected_outcome?: string;
+  };
+}
+
+export const GenerationJobsAPI = {
+  async getCredits(): Promise<UserCreditsSummary> {
+    const { credits } = await fetchApi<{ credits: UserCreditsSummary }>('/generation-jobs?action=credits');
+    return credits;
+  },
+
+  async list(): Promise<GenerationJobSummary[]> {
+    const { jobs } = await fetchApi<{ jobs: GenerationJobSummary[] }>('/generation-jobs');
+    return jobs;
+  },
+
+  async create(data: {
+    requestedCount: 4 | 12 | 28 | 40;
+    selectedFramework: string;
+    frameworkVersion?: string;
+    selectedTacticId: string;
+    selectedTacticName: string;
+    selectedVectors: string[];
+    selectedAttacks: string[];
+    objectives?: string;
+    idempotencyKey?: string;
+  }): Promise<GenerationJobSummary> {
+    const { job } = await fetchApi<{ job: GenerationJobSummary }>('/generation-jobs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return job;
+  },
+
+  async getStatus(jobId: string): Promise<GenerationJobSummary> {
+    const { job } = await fetchApi<{ job: GenerationJobSummary }>(`/generation-jobs?id=${encodeURIComponent(jobId)}`);
+    return job;
+  },
+
+  async stepWorker(jobId: string): Promise<{ status: string; acceptedCount: number; requestedCount: number; hasMoreWork: boolean }> {
+    return await fetchApi(`/generation-jobs?id=${encodeURIComponent(jobId)}&action=worker`, { method: 'POST' });
+  },
+
+  async cancel(jobId: string): Promise<{ success: boolean; status: string }> {
+    return await fetchApi(`/generation-jobs?id=${encodeURIComponent(jobId)}`, { method: 'DELETE' });
+  },
+};
+
+export const PromptVaultAPI = {
+  async list() {
+    return await fetchApi<{ prompts: VaultPromptItem[] }>('/prompt-vault');
+  },
+
+  async reportDuplicate(vaultItemId: string, reason: string) {
+    return await fetchApi<{ confirmed: boolean; reportId: string; replacementJobId: string | null }>(
+      `/prompt-vault?id=${encodeURIComponent(vaultItemId)}&action=report-duplicate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }
+    );
+  },
+};

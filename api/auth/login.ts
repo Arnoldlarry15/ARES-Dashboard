@@ -6,6 +6,14 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
+import {
+  createCsrfToken,
+  generateTokens,
+  isLocalAuthAllowed,
+  isProductionEnvironment
+} from '../../services/auth/jwt';
+import { UserRepository } from '../../repositories/userRepository';
+import { csrfProtection, securityHeaders } from '../../lib/middleware/security';
 
 interface SAMLConfig {
   entryPoint: string;
@@ -75,11 +83,8 @@ function handleAuth0Login(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Generate state parameter for CSRF protection
-  const state = Buffer.from(JSON.stringify({
-    timestamp: Date.now(),
-    nonce: Math.random().toString(36).substring(7)
-  })).toString('base64');
+  // Generate state parameter for CSRF protection using CSPRNG
+  const state = crypto.randomBytes(32).toString('hex');
 
   // Build Auth0 authorization URL
   const authUrl = new URL(`https://${auth0Domain}/authorize`);
@@ -90,56 +95,113 @@ function handleAuth0Login(req: VercelRequest, res: VercelResponse) {
   authUrl.searchParams.set('state', state);
 
   // Set state cookie for validation in callback
-  res.setHeader('Set-Cookie', `auth0_state=${state}; HttpOnly; Secure; SameSite=Lax; Max-Age=600; Path=/`);
+  const secureFlag = isProductionEnvironment() ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `auth0_state=${state}; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600; Path=/`);
 
   // Redirect to Auth0
   res.redirect(302, authUrl.toString());
 }
 
 /**
- * Handle SAML login
+ * Handle SAML login (disabled until signed XML assertion verification is configured)
  */
-async function handleSAMLLogin(req: VercelRequest, res: VercelResponse) {
-  try {
-    // Get SAML configuration
-    const config = getSAMLConfig();
+async function handleSAMLLogin(_req: VercelRequest, res: VercelResponse) {
+  return res.status(501).json({
+    error: 'Not Implemented',
+    message: 'SAML SSO is disabled in this release. Configure Auth0 (provider=auth0) or local development auth.'
+  });
+}
 
-    // Get relay state from query params (for post-auth redirect)
-    const relayState = (req.query.returnTo as string) || '/';
+async function handleLocalDevLogin(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-    // Generate SAML request
-    const samlRequest = generateSAMLRequest(config);
-
-    // Build redirect URL
-    const params = new URLSearchParams({
-      SAMLRequest: samlRequest,
-      RelayState: relayState
-    });
-
-    const redirectUrl = `${config.entryPoint}?${params.toString()}`;
-
-    // Redirect to IdP
-    res.redirect(302, redirectUrl);
-
-  } catch (error) {
-    console.error('SAML login error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to initiate SAML login',
-      message: error instanceof Error ? error.message : 'Unknown error'
+  if (!isLocalAuthAllowed()) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Local development authentication is disabled'
     });
   }
+
+  // Never trust client-submitted role, userId, or orgId. Always authenticate fixed least-privilege dev user.
+  let userId = 'local_dev_analyst';
+  const email = 'dev-analyst@local.ares.app';
+  let role = 'analyst';
+  let organizationId = 'local_dev_org';
+
+  if (process.env.DATABASE_URL) {
+    const dbUser = await UserRepository.findOrCreateLocalDevUser();
+    userId = dbUser.id;
+    role = dbUser.role;
+    organizationId = dbUser.orgId;
+  }
+
+  const tokens = generateTokens({
+    userId,
+    email,
+    role,
+    organizationId,
+    authProvider: 'local'
+  });
+
+  const csrfToken = createCsrfToken(tokens.jti);
+  const secureFlag = isProductionEnvironment() ? '; Secure' : '';
+
+  res.setHeader('Set-Cookie', [
+    `access_token=${tokens.accessToken}; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=3600; Path=/`,
+    `csrf_token=${csrfToken}${secureFlag}; SameSite=Lax; Max-Age=3600; Path=/`
+  ]);
+
+  return res.status(200).json({
+    user: {
+      id: userId,
+      email,
+      name: 'Local Dev Analyst',
+      role
+    },
+    expiresIn: 3600
+  });
 }
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  securityHeaders(req, res, () => {});
 
   // Get provider from query parameter
   const provider = (req.query.provider as string)?.toLowerCase();
+
+  if (provider === 'logout') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    const csrfOk = await new Promise<boolean>((resolve) => {
+      csrfProtection(req, res, () => resolve(true));
+      if (res.writableEnded) resolve(false);
+    });
+    if (!csrfOk || res.writableEnded) return;
+    const secureFlag = isProductionEnvironment() ? '; Secure' : '';
+    const expired = 'Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/';
+    res.setHeader('Set-Cookie', [
+      `access_token=; HttpOnly${secureFlag}; SameSite=Lax; ${expired}`,
+      `__Host-access_token=; HttpOnly; Secure; SameSite=Lax; ${expired}`,
+      `refresh_token=; HttpOnly${secureFlag}; SameSite=Lax; ${expired}`,
+      `__Host-refresh_token=; HttpOnly; Secure; SameSite=Lax; ${expired}`,
+      `csrf_token=; SameSite=Lax${secureFlag}; ${expired}`,
+      `__Host-csrf_token=; Secure; SameSite=Lax; ${expired}`
+    ]);
+    return res.status(200).json({ success: true });
+  }
+
+  if (provider === 'local') {
+    return handleLocalDevLogin(req, res);
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   // Route to appropriate provider handler
   switch (provider) {

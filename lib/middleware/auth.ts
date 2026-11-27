@@ -2,11 +2,21 @@
 // Enforces server-side RBAC for enterprise security
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifyAccessToken, extractTokenFromHeader, TokenPayload } from '../../services/auth/jwt';
+import { decodeProtectedHeader } from 'jose';
+import {
+  verifyAccessToken,
+  verifyAuth0AccessToken,
+  extractTokenFromHeader,
+  isProductionEnvironment,
+  isLocalAuthAllowed,
+  TokenPayload
+} from '../../services/auth/jwt';
+import { UserRepository } from '../../repositories/userRepository';
 
 // Extend VercelRequest to include authenticated user
 export interface AuthenticatedRequest extends VercelRequest {
   user?: TokenPayload;
+  authMethod?: 'bearer' | 'cookie';
 }
 
 /**
@@ -16,44 +26,135 @@ function extractTokenFromCookie(cookieHeader?: string, cookieName = 'access_toke
   if (!cookieHeader) {
     return null;
   }
-  
-  const match = cookieHeader.match(new RegExp(`${cookieName}=([^;]+)`));
+
+  const hostMatch = cookieHeader.match(new RegExp(`(?:^|;\\s*)__Host-${cookieName}=([^;]+)`));
+  if (hostMatch) {
+    return hostMatch[1];
+  }
+
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`));
   return match ? match[1] : null;
 }
 
 /**
  * Middleware to require authentication
- * Validates JWT token and attaches user to request
- * Supports both Authorization header and HttpOnly cookies
+ * Validates JWT token (RS256 Auth0 JWKS or non-prod HS256) and attaches DB-authoritative user to request.
+ * Never falls back from an invalid Authorization header to cookies or anonymous access.
  */
-export function requireAuth(req: AuthenticatedRequest, res: VercelResponse, next: () => void) {
-  // Try Authorization header first
-  let token = extractTokenFromHeader(req.headers.authorization as string | undefined);
-  
-  // Fall back to cookie if no header
-  if (!token) {
+export async function requireAuth(req: AuthenticatedRequest, res: VercelResponse, next: () => void | Promise<void>) {
+  const authHeader = req.headers.authorization as string | undefined;
+  let token: string | null = null;
+  let authMethod: 'bearer' | 'cookie' | undefined;
+
+  if (authHeader !== undefined) {
+    token = extractTokenFromHeader(authHeader);
+    if (!token) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid authorization header format'
+      });
+    }
+    authMethod = 'bearer';
+  } else {
     token = extractTokenFromCookie(req.headers.cookie as string | undefined);
+    if (token) {
+      authMethod = 'cookie';
+    }
   }
-  
-  if (!token) {
-    return res.status(401).json({ 
+
+  if (!token || !authMethod) {
+    return res.status(401).json({
       error: 'Unauthorized',
       message: 'No authentication token provided'
     });
   }
 
-  const decoded = verifyAccessToken(token);
-  
-  if (!decoded) {
-    return res.status(401).json({ 
+  let headerAlg: string | undefined;
+  try {
+    headerAlg = decodeProtectedHeader(token).alg;
+  } catch {
+    return res.status(401).json({
       error: 'Unauthorized',
       message: 'Authentication failed'
     });
   }
 
-  // Attach user to request
-  req.user = decoded;
-  next();
+  if (headerAlg === 'RS256') {
+    const auth0Identity = await verifyAuth0AccessToken(token);
+    if (!auth0Identity) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication failed'
+      });
+    }
+
+    try {
+      const dbUser = await UserRepository.resolveAuth0User(auth0Identity);
+      req.user = {
+        userId: dbUser.id,
+        email: dbUser.email,
+        role: dbUser.role,
+        organizationId: dbUser.orgId,
+        authProvider: 'auth0'
+      };
+      req.authMethod = authMethod;
+      return await next();
+    } catch {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Account provisioning or linking required'
+      });
+    }
+  }
+
+  if (headerAlg === 'HS256') {
+    const decoded = verifyAccessToken(token);
+    if (!decoded) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication failed'
+      });
+    }
+
+    if (isProductionEnvironment() && (decoded.authProvider === 'local' || !isLocalAuthAllowed() && decoded.authProvider !== 'auth0')) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Local authentication tokens are not permitted in production'
+      });
+    }
+
+    // Resolve authoritative DB role when DATABASE_URL is configured
+    if (process.env.DATABASE_URL) {
+      try {
+        const dbUser = await UserRepository.findById(decoded.userId);
+        if (!dbUser) {
+          return res.status(401).json({
+            error: 'Unauthorized',
+            message: 'User account not found or deactivated'
+          });
+        }
+        decoded.role = dbUser.role;
+        decoded.organizationId = dbUser.orgId;
+      } catch {
+        // Fail closed only if DB lookup fails in production; in unit tests without live DB, keep decoded
+        if (isProductionEnvironment()) {
+          return res.status(401).json({ error: 'Unauthorized', message: 'Authentication failed' });
+        }
+      }
+    }
+
+    req.user = {
+      ...decoded,
+      authProvider: decoded.authProvider === 'auth0' ? 'auth0' : 'local'
+    };
+    req.authMethod = authMethod;
+    return await next();
+  }
+
+  return res.status(401).json({
+    error: 'Unauthorized',
+    message: 'Unsupported token algorithm'
+  });
 }
 
 /**

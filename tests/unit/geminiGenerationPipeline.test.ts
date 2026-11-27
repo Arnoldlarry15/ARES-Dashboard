@@ -371,8 +371,8 @@ describe('Gemini Dynamic Prompt Generation Pipeline', () => {
       expect(headers['X-ARES-Generation-Source']).toBe('fallback');
       expect(headers['X-ARES-Fallback-Reason']).toBe('quota_exceeded');
       expect(responseBody.fallbackReason).toBe('quota_exceeded');
-      expect(responseBody.fallbackAvailable).toBe(true);
-      expect(responseBody.fallbackTactic).toBeDefined();
+      expect(responseBody.fallbackAvailable).toBe(false);
+      expect(responseBody.fallbackTactic).toBeUndefined();
     });
   });
 

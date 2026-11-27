@@ -1,7 +1,17 @@
 
 import React, { useState, useMemo, useEffect, useTransition } from 'react';
-import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload } from './types';
-import { OWASP_TACTICS, MITRE_ATLAS_TACTICS, MITRE_ATTACK_TACTICS } from './constants';
+import { Framework, TacticMetadata, RedTeamTactic, ExecutablePayload, AttackPayload, AttackEvaluationResult } from './types';
+import { evaluateInSandbox } from './services/attackEvaluationService';
+import {
+  OWASP_TACTICS,
+  OWASP_2026_TACTICS,
+  OWASP_2025_TACTICS,
+  OWASP_2023_TACTICS,
+  MITRE_ATLAS_TACTICS,
+  MITRE_ATTACK_TACTICS,
+  ALL_REGISTERED_TACTICS,
+  findTacticById
+} from './constants';
 import { GeminiService, GeminiGenerationError } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { AiModelSettings } from './utils/storage';
@@ -12,6 +22,8 @@ import { AuthLogin } from './components/AuthLogin';
 import { TeamManagement } from './components/TeamManagement';
 import { AISettingsModal } from './components/AISettingsModal';
 import { PayloadEditor } from './components/PayloadEditor';
+import { GenerationJobsPanel } from './components/GenerationJobsPanel';
+import { PromptVaultPanel } from './components/PromptVaultPanel';
 import { ThemeManager, Theme } from './utils/themeManager';
 import { useAuthManager } from './hooks/useAuthManager';
 import { 
@@ -41,7 +53,11 @@ import {
   Sun,
   Moon,
   Edit3,
-  Sparkles
+  Sparkles,
+  ChevronUp,
+  ChevronDown,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 
 const gemini = new GeminiService();
@@ -61,6 +77,7 @@ export default function App() {
   } = useAuthManager();
 
   const [activeTab, setActiveTab] = useState<Framework>(Framework.OWASP);
+  const [owaspEdition, setOwaspEdition] = useState<'2026' | '2025' | '2023'>('2026');
   const [selectedTactic, setSelectedTactic] = useState<TacticMetadata | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<RedTeamTactic | null>(null);
@@ -87,6 +104,8 @@ export default function App() {
   const [campaignDescription, setCampaignDescription] = useState('');
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [showAiSettings, setShowAiSettings] = useState(false);
+  const [showJobsModal, setShowJobsModal] = useState(false);
+  const [showVaultModal, setShowVaultModal] = useState(false);
   
   // Team Management State
   const [showTeamManagement, setShowTeamManagement] = useState(false);
@@ -108,6 +127,23 @@ export default function App() {
   // Performance: useTransition for non-urgent updates
   const [, startTransition] = useTransition();
 
+  // Attack Spec Expansion & Live Sandbox Evaluation State
+  const [expandedPayloadIdx, setExpandedPayloadIdx] = useState<number | null>(null);
+  const [evaluationResults, setEvaluationResults] = useState<Record<number, AttackEvaluationResult>>({});
+  const [evaluatingIdx, setEvaluatingIdx] = useState<number | null>(null);
+
+  const handleRunEvaluation = async (idx: number, payload: AttackPayload, mode: 'guarded' | 'vulnerable') => {
+    setEvaluatingIdx(idx);
+    try {
+      const res = await evaluateInSandbox(payload, mode);
+      setEvaluationResults(prev => ({ ...prev, [idx]: res }));
+    } catch (err) {
+      console.error('Failed to run sandbox evaluation:', err);
+    } finally {
+      setEvaluatingIdx(null);
+    }
+  };
+
   // Debounce search input for better performance
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -119,12 +155,20 @@ export default function App() {
   // Computed values (must be before early return)
   const tactics = useMemo(() => {
     switch (activeTab) {
-      case Framework.OWASP: return OWASP_TACTICS;
-      case Framework.MITRE_ATLAS: return MITRE_ATLAS_TACTICS;
-      case Framework.MITRE_ATTACK: return MITRE_ATTACK_TACTICS;
-      default: return OWASP_TACTICS;
+      case Framework.OWASP:
+        return owaspEdition === '2026'
+          ? OWASP_2026_TACTICS
+          : owaspEdition === '2025'
+            ? OWASP_2025_TACTICS
+            : OWASP_2023_TACTICS;
+      case Framework.MITRE_ATLAS:
+        return MITRE_ATLAS_TACTICS;
+      case Framework.MITRE_ATTACK:
+        return MITRE_ATTACK_TACTICS;
+      default:
+        return OWASP_2026_TACTICS;
     }
-  }, [activeTab]);
+  }, [activeTab, owaspEdition]);
 
   // Filtered tactics based on search query
   const filteredTactics = useMemo(() => {
@@ -166,8 +210,7 @@ export default function App() {
 
         // Restore selected tactic (wrapped in startTransition to avoid blocking)
         if (savedState.selectedTacticId) {
-          const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
-          const tactic = allTactics.find(t => t.id === savedState.selectedTacticId);
+          const tactic = findTacticById(savedState.selectedTacticId) || ALL_REGISTERED_TACTICS.find(t => t.id === savedState.selectedTacticId);
           if (tactic) {
             // Use startTransition to avoid blocking the initial render
             startTransition(() => {
@@ -312,10 +355,7 @@ export default function App() {
   };
 
     const handleTacticSelect = async (tactic: TacticMetadata) => {
-    // 1. Immediate UI feedback (urgent)
-    setIsGenerating(true);
-    
-    // 2. Defer non-critical state updates using startTransition
+    // Non-charging selection: browsing tactics never reserves or consumes credits.
     startTransition(() => {
       setSelectedTactic(tactic);
       setCurrentStep('vectors');
@@ -325,41 +365,6 @@ export default function App() {
       setError(null);
       setGenerationFailure(null);
     });
-
-    // 3. Start dynamic generation of Payloads in background (non-blocking)
-    try {
-      const details = await gemini.generateTacticDetails(tactic, { aiSettings });
-      startTransition(() => {
-        setResult(details);
-        setGenerationFailure(null);
-      });
-    } catch (err: unknown) {
-      if (err instanceof GeminiGenerationError) {
-        startTransition(() => {
-          setError(err.message);
-          setGenerationFailure({
-            reason: err.fallbackReason,
-            message: err.message,
-            statusCode: err.statusCode,
-            fallbackTactic: err.fallbackTactic
-          });
-        });
-      } else {
-        const msg = err instanceof Error ? err.message : 'Content generation failed.';
-        startTransition(() => {
-          setError(msg);
-          setGenerationFailure({
-            reason: 'unknown',
-            message: msg,
-            statusCode: 0,
-            fallbackTactic: gemini.getStaticTacticDetails(tactic, 'unknown', msg)
-          });
-        });
-      }
-    } finally {
-      // Immediate feedback when operation completes
-      setIsGenerating(false);
-    }
   };
 
     const handleRegeneratePayloads = async () => {
@@ -553,8 +558,7 @@ export default function App() {
   };
 
   const loadCampaign = async (campaign: Campaign) => {
-    const allTactics = [...OWASP_TACTICS, ...MITRE_ATLAS_TACTICS, ...MITRE_ATTACK_TACTICS];
-    const tactic = allTactics.find(t => t.id === campaign.tactic_id);
+    const tactic = findTacticById(campaign.tactic_id) || ALL_REGISTERED_TACTICS.find(t => t.id === campaign.tactic_id);
     
     if (!tactic) {
       setNotification("Tactic not found");
@@ -715,6 +719,26 @@ export default function App() {
                <span className="hidden sm:inline font-bold relative z-10">AI SETTINGS</span>
              </button>
              <button 
+               onClick={() => setShowJobsModal(true)}
+               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
+                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-cyan-300 hover:text-white'
+               }`}
+               title="Persistent generation jobs"
+             >
+               <Sparkles className="w-3.5 h-3.5 relative z-10" />
+               <span className="hidden sm:inline font-bold relative z-10">JOBS</span>
+             </button>
+             <button 
+               onClick={() => setShowVaultModal(true)}
+               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
+                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-emerald-300 hover:text-white'
+               }`}
+               title="Delivered Prompt Vault"
+             >
+               <ShieldCheck className="w-3.5 h-3.5 relative z-10" />
+               <span className="hidden sm:inline font-bold relative z-10">VAULT</span>
+             </button>
+             <button 
                onClick={() => setShowTeamManagement(true)}
                className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
                  theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-300 hover:text-white'
@@ -804,6 +828,53 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {/* OWASP Edition Selector */}
+          {activeTab === Framework.OWASP && (
+            <div className={`p-1.5 glass rounded-xl flex gap-1 shadow-md border ${
+              theme === 'light' ? 'bg-white/80 border-slate-200' : 'border-white/10'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setOwaspEdition('2026')}
+                className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  owaspEdition === '2026'
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                2026 (Canonical)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOwaspEdition('2025')}
+                className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  owaspEdition === '2025'
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                2025 (Draft)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOwaspEdition('2023')}
+                className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  owaspEdition === '2023'
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                2023 (v1.0)
+              </button>
+            </div>
+          )}
 
           <div className={`flex-1 glass rounded-2xl flex flex-col overflow-hidden shadow-xl ${
             theme === 'light' ? 'bg-white/60 border-slate-200' : ''
@@ -1243,6 +1314,28 @@ export default function App() {
                       <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                         {result?.example_payloads.map((p, idx) => {
                           const isSelected = selectedPayloadIndices.includes(idx);
+                          const isExpanded = expandedPayloadIdx === idx;
+                          const evalResult = evaluationResults[idx];
+                          const isEvaluating = evaluatingIdx === idx;
+                          const family = p.attack_family || 'Prompt Injection';
+                          const getFamilyBadgeStyle = (fam: string) => {
+                            switch (fam) {
+                              case 'Jailbreaking': return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+                              case 'Payload Delivery': return 'bg-orange-500/10 text-orange-400 border-orange-500/30';
+                              case 'Insecure Output Handling': return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                              case 'Sensitive Info Disclosure': return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+                              case 'Model Denial of Service': return 'bg-red-500/10 text-red-400 border-red-500/30';
+                              case 'Excessive Agency': return 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30';
+                              case 'Insecure Plugin Design': return 'bg-teal-500/10 text-teal-400 border-teal-500/30';
+                              case 'Model Theft': return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+                              case 'Training Data Poisoning': return 'bg-lime-500/10 text-lime-400 border-lime-500/30';
+                              case 'Supply Chain Vulnerabilities': return 'bg-sky-500/10 text-sky-400 border-sky-500/30';
+                              case 'Reconnaissance':
+                              case 'Discovery': return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+                              default: return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+                            }
+                          };
+
                           return (
                             <div key={idx} className={`rounded-2xl border transition-all overflow-hidden ${
                               isSelected 
@@ -1253,15 +1346,15 @@ export default function App() {
                                   ? 'border-slate-200 bg-white'
                                   : 'border-slate-800 bg-slate-900/40'
                             }`}>
-                               <div className={`px-5 py-3 border-b flex items-center justify-between ${
+                               <div className={`px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${
                                  theme === 'light' ? 'border-slate-200 bg-slate-50/50' : 'border-slate-800 bg-slate-900/40'
                                }`}>
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
                                     <button 
                                       onClick={() => togglePayload(idx)}
                                       title={isSelected ? 'Deselect payload' : 'Select payload'}
                                       aria-label={isSelected ? 'Deselect payload' : 'Select payload'}
-                                      className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
+                                      className={`w-5 h-5 rounded border flex items-center justify-center transition-all shrink-0 ${
                                         isSelected 
                                           ? 'bg-amber-500 border-amber-400 text-white shadow-md' 
                                           : theme === 'light'
@@ -1271,18 +1364,31 @@ export default function App() {
                                     >
                                       <CheckCircle2 className="w-4 h-4" />
                                     </button>
-                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider truncate ${
                                       isSelected 
                                         ? theme === 'light' ? 'text-amber-700' : 'text-amber-400'
-                                        : theme === 'light' ? 'text-slate-600' : 'text-slate-500'
+                                        : theme === 'light' ? 'text-slate-700' : 'text-slate-300'
                                     }`}>
-                                      {p.description}
+                                      {p.attack_name || p.description}
                                     </h4>
                                   </div>
-                                  <span className={`text-[10px] font-bold mono ${
-                                    theme === 'light' ? 'text-slate-500' : 'text-slate-600'
-                                  }`}>{p.format}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getFamilyBadgeStyle(family)}`}>
+                                      {family}
+                                    </span>
+                                    {p.technique && (
+                                      <span className={`text-[9px] font-medium px-2 py-0.5 rounded border hidden sm:inline ${
+                                        theme === 'light' ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-800 text-slate-400 border-slate-700'
+                                      }`}>
+                                        {p.technique}
+                                      </span>
+                                    )}
+                                    <span className={`text-[10px] font-bold mono ${
+                                      theme === 'light' ? 'text-slate-500' : 'text-slate-600'
+                                    }`}>{p.format}</span>
+                                  </div>
                                </div>
+
                                <div className="relative group p-5">
                                   <pre className={`text-xs mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto ${
                                     isSelected 
@@ -1311,6 +1417,114 @@ export default function App() {
                                       <Copy className="w-3 h-3" />
                                     </button>
                                   </div>
+                               </div>
+
+                               {/* Security Boundary, Evaluation Criteria & Sandbox Runner */}
+                               <div className={`px-5 py-2.5 border-t text-xs flex flex-col gap-3 ${
+                                 theme === 'light' ? 'bg-slate-50/70 border-slate-200' : 'bg-slate-950/60 border-slate-800'
+                               }`}>
+                                 <div className="flex items-center justify-between">
+                                   <div className="flex items-center gap-2">
+                                     <button
+                                       onClick={() => setExpandedPayloadIdx(isExpanded ? null : idx)}
+                                       className="text-[11px] font-semibold text-teal-600 hover:text-teal-500 dark:text-cyan-400 dark:hover:text-cyan-300 flex items-center gap-1"
+                                     >
+                                       {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                       {isExpanded ? 'Hide Attack & Evaluation Spec' : 'View Attack & Evaluation Spec'}
+                                     </button>
+                                     {p.difficulty_level && (
+                                       <span className="text-[10px] opacity-70 px-1.5 py-0.5 rounded bg-slate-500/10 border border-slate-500/20">
+                                         Difficulty: {p.difficulty_level}
+                                       </span>
+                                     )}
+                                   </div>
+
+                                   <div className="flex items-center gap-2">
+                                     <button
+                                       onClick={() => handleRunEvaluation(idx, p, 'guarded')}
+                                       disabled={isEvaluating}
+                                       title="Test payload against a guarded sandbox model target"
+                                       className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 flex items-center gap-1"
+                                     >
+                                       <ShieldCheck className="w-3 h-3" />
+                                       {isEvaluating ? 'Testing...' : 'Test Guarded Target'}
+                                     </button>
+                                     <button
+                                       onClick={() => handleRunEvaluation(idx, p, 'vulnerable')}
+                                       disabled={isEvaluating}
+                                       title="Test payload against an unaligned vulnerable target"
+                                       className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20 flex items-center gap-1"
+                                     >
+                                       <ShieldAlert className="w-3 h-3" />
+                                       Test Vulnerable Target
+                                     </button>
+                                   </div>
+                                 </div>
+
+                                 {/* Expanded Details */}
+                                 {isExpanded && (
+                                   <div className="pt-2 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] leading-relaxed">
+                                     <div className="space-y-1.5">
+                                       <p><span className="font-semibold text-slate-700 dark:text-slate-300">Objective:</span> {p.attack_objective || 'Evaluate system safety boundaries against unauthorized instructions.'}</p>
+                                       <p><span className="font-semibold text-slate-700 dark:text-slate-300">Target Behavior:</span> {p.target_behavior || 'Execute adversarial payload without refusal.'}</p>
+                                       <p><span className="font-semibold text-slate-700 dark:text-slate-300">Security Boundary:</span> {p.security_boundary || 'Instruction hierarchy & safety alignment.'}</p>
+                                     </div>
+                                     <div className="space-y-1.5">
+                                       <p><span className="font-semibold text-slate-700 dark:text-slate-300">Expected Safe Behavior:</span> {p.expected_safe_behavior || 'Refuse the prompt while maintaining safe task utility.'}</p>
+                                       <p><span className="font-semibold text-slate-700 dark:text-slate-300">Framework Mappings:</span> {p.owasp_mapping || 'OWASP LLM01'} • {p.mitre_atlas_mapping || 'MITRE ATLAS AML.T0054'}</p>
+                                       <p><span className="font-semibold text-slate-700 dark:text-slate-300">Evaluation Criteria:</span> {p.evaluation_criteria || 'Check for refusal presence and absence of compliance tokens.'}</p>
+                                       {p.expected_failure_indicators && p.expected_failure_indicators.length > 0 && (
+                                         <div className="flex flex-wrap gap-1 mt-1">
+                                           <span className="font-semibold text-slate-700 dark:text-slate-300">Failure Indicators:</span>
+                                           {p.expected_failure_indicators.map((ind, i) => (
+                                             <span key={i} className="px-1.5 py-0.5 rounded text-[9px] bg-red-500/10 text-red-400 border border-red-500/20">
+                                               {ind}
+                                             </span>
+                                           ))}
+                                         </div>
+                                       )}
+                                     </div>
+                                   </div>
+                                 )}
+
+                                 {/* Live Evaluation Report */}
+                                 {evalResult && (
+                                   <div className={`p-3 rounded-xl border flex flex-col gap-2 text-[11px] ${
+                                     evalResult.verdict === 'SAFE'
+                                       ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                                       : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                                   }`}>
+                                     <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-2 font-bold">
+                                         {evalResult.verdict === 'SAFE' ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <ShieldAlert className="w-4 h-4 text-rose-400" />}
+                                         <span>Target Evaluation Verdict: {evalResult.verdict}</span>
+                                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/30 border border-current">
+                                           Risk Score: {evalResult.score} / 1.0
+                                         </span>
+                                       </div>
+                                       <span className="text-[10px] opacity-75 font-mono">
+                                         {new Date(evalResult.evaluated_at).toLocaleTimeString()}
+                                       </span>
+                                     </div>
+                                     <p className="opacity-90">{evalResult.reasoning}</p>
+                                     {evalResult.detected_indicators.length > 0 && (
+                                       <div className="flex flex-wrap gap-1 mt-1">
+                                         <span className="font-semibold">Detected Indicators:</span>
+                                         {evalResult.detected_indicators.map((ind, i) => (
+                                           <span key={i} className="px-1.5 py-0.5 rounded text-[9px] bg-rose-500/20 text-rose-200 border border-rose-500/30">
+                                             {ind}
+                                           </span>
+                                         ))}
+                                       </div>
+                                     )}
+                                     {evalResult.target_output && (
+                                       <div className="mt-1 p-2 rounded bg-black/40 border border-white/5 font-mono text-[10px] max-h-24 overflow-y-auto">
+                                         <span className="opacity-60 block mb-0.5">// Simulated Target Output:</span>
+                                         {evalResult.target_output}
+                                       </div>
+                                     )}
+                                   </div>
+                                 )}
                                </div>
                             </div>
                           );
@@ -1800,6 +2014,27 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <GenerationJobsPanel
+        isOpen={showJobsModal}
+        onClose={() => setShowJobsModal(false)}
+        onOpenVault={() => {
+          setShowJobsModal(false);
+          setShowVaultModal(true);
+        }}
+        selectedFramework={selectedTactic?.framework}
+        frameworkVersion={selectedTactic?.framework === Framework.OWASP ? owaspEdition : '2026'}
+        selectedTacticId={selectedTactic?.id}
+        selectedTacticName={selectedTactic?.name}
+        selectedVectors={selectedVectors}
+        theme={theme}
+      />
+
+      <PromptVaultPanel
+        isOpen={showVaultModal}
+        onClose={() => setShowVaultModal(false)}
+        theme={theme}
+      />
     </div>
   </div>
   );

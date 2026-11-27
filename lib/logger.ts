@@ -50,6 +50,22 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   fatal: 4,
 };
 
+const SENSITIVE_KEY_PATTERN = /(apikey|api_key|aiconfig|authorization|cookie|csrf|password|secret|token|localbaseurl|samlresponse|payload|prompt)/i;
+
+function sanitizeValue(value: unknown, depth = 0): unknown {
+  if (value === null || value === undefined) return value;
+  if (depth > 8) return '[TRUNCATED]';
+  if (Array.isArray(value)) return value.map(item => sanitizeValue(item, depth + 1));
+  if (typeof value === 'object') {
+    const clean: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      clean[key] = SENSITIVE_KEY_PATTERN.test(key) ? '[REDACTED]' : sanitizeValue(val, depth + 1);
+    }
+    return clean;
+  }
+  return value;
+}
+
 class Logger {
   private config: LoggerConfig;
   private sentryInitialized = false;
@@ -97,7 +113,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level,
       message,
-      context,
+      context: context ? (sanitizeValue(context) as LogContext) : undefined,
     };
   }
 
@@ -151,7 +167,7 @@ class Logger {
       Sentry.addBreadcrumb({
         level: 'warning',
         message,
-        data: context,
+        data: sanitizeValue(context) as Record<string, unknown> | undefined,
       });
     }
   }
@@ -175,7 +191,7 @@ class Logger {
     // Send to Sentry
     if (this.sentryInitialized) {
       if (context) {
-        Sentry.setContext('additional', context);
+        Sentry.setContext('additional', sanitizeValue(context) as Record<string, unknown>);
       }
       if (error) {
         Sentry.captureException(error);
@@ -202,7 +218,7 @@ class Logger {
     // Send to Sentry with fatal level
     if (this.sentryInitialized) {
       if (context) {
-        Sentry.setContext('additional', context);
+        Sentry.setContext('additional', sanitizeValue(context) as Record<string, unknown>);
       }
       if (error) {
         Sentry.captureException(error, { level: 'fatal' });
@@ -263,7 +279,7 @@ class Logger {
     if (this.sentryInitialized) {
       Sentry.addBreadcrumb({
         message,
-        data,
+        data: sanitizeValue(data) as Record<string, unknown> | undefined,
       });
     }
   }

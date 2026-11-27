@@ -60,8 +60,8 @@ For detailed security documentation, deployment guidelines, and threat modeling,
 ARES Dashboard includes:
 
 - ✅ **Backend API Protection**: API keys secured in backend environment
-- ✅ **Zero NPM Vulnerabilities**: All dependencies regularly audited
-- ✅ **Automated Security Scanning**: CodeQL and Dependabot enabled
+- ✅ **Automated Dependency Auditing**: Dependabot, CI dependency-review, and CodeQL enabled
+- ✅ **Automated Security Scanning**: CodeQL, secret scanning, and security tests enabled
 - ✅ **RBAC Authorization**: 4-role access control system
 - ✅ **Audit Logging**: Comprehensive activity tracking
 - ✅ **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection

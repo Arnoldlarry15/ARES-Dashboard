@@ -32,8 +32,8 @@ describe('Auth Middleware', () => {
   });
 
   describe('requireAuth', () => {
-    it('should reject request without authorization header', () => {
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+    it('should reject request without authorization header', async () => {
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -45,12 +45,12 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject request with invalid token format', () => {
+    it('should reject request with invalid token format', async () => {
       mockReq.headers = {
         authorization: 'InvalidFormat'
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -61,7 +61,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject request with expired token', () => {
+    it('should reject request with expired token', async () => {
       // Create an expired token
       const expiredToken = Buffer.from(JSON.stringify({
         userId: 'user123',
@@ -74,7 +74,7 @@ describe('Auth Middleware', () => {
         authorization: `Bearer ${expiredToken}`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -86,7 +86,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept request with valid token', () => {
+    it('should accept request with valid token', async () => {
       const tokens = generateTokens({
         userId: 'user123',
         email: 'test@example.com',
@@ -98,7 +98,7 @@ describe('Auth Middleware', () => {
         authorization: `Bearer ${tokens.accessToken}`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(nextFn).toHaveBeenCalled();
       expect(mockReq.user).toBeDefined();
@@ -107,7 +107,7 @@ describe('Auth Middleware', () => {
       expect(mockReq.user?.role).toBe('analyst');
     });
 
-    it('should attach user object to request', () => {
+    it('should attach user object to request', async () => {
       const tokens = generateTokens({
         userId: 'user456',
         email: 'admin@example.com',
@@ -120,7 +120,7 @@ describe('Auth Middleware', () => {
         authorization: `Bearer ${tokens.accessToken}`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockReq.user).toEqual(
         expect.objectContaining({
@@ -133,7 +133,7 @@ describe('Auth Middleware', () => {
       );
     });
 
-    it('should accept request with valid token in cookie', () => {
+    it('should accept request with valid token in cookie', async () => {
       const tokens = generateTokens({
         userId: 'user789',
         email: 'cookie@example.com',
@@ -145,7 +145,7 @@ describe('Auth Middleware', () => {
         cookie: `access_token=${tokens.accessToken}; other_cookie=value`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(nextFn).toHaveBeenCalled();
       expect(mockReq.user).toBeDefined();
@@ -153,12 +153,12 @@ describe('Auth Middleware', () => {
       expect(mockReq.user?.email).toBe('cookie@example.com');
     });
 
-    it('should reject request with invalid token in cookie', () => {
+    it('should reject request with invalid token in cookie', async () => {
       mockReq.headers = {
         cookie: 'access_token=invalid_token; other_cookie=value'
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -170,7 +170,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should prefer Authorization header over cookie', () => {
+    it('should prefer Authorization header over cookie', async () => {
       const headerTokens = generateTokens({
         userId: 'header-user',
         email: 'header@example.com',
@@ -190,19 +190,19 @@ describe('Auth Middleware', () => {
         cookie: `access_token=${cookieTokens.accessToken}`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(nextFn).toHaveBeenCalled();
       expect(mockReq.user?.userId).toBe('header-user');
       expect(mockReq.user?.email).toBe('header@example.com');
     });
 
-    it('should reject when cookie exists but no token present', () => {
+    it('should reject when cookie exists but no token present', async () => {
       mockReq.headers = {
         cookie: 'other_cookie=value; session_id=123'
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(
@@ -226,7 +226,7 @@ describe('Auth Middleware', () => {
       };
     });
 
-    it('should reject unauthenticated request', () => {
+    it('should reject unauthenticated request', async () => {
       mockReq.user = undefined;
       const middleware = requireRole(['admin']);
 
@@ -241,7 +241,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user without required role', () => {
+    it('should reject user without required role', async () => {
       const middleware = requireRole(['admin', 'red_team_lead']);
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -256,7 +256,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept user with required role', () => {
+    it('should accept user with required role', async () => {
       const middleware = requireRole(['analyst', 'admin']);
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -265,7 +265,7 @@ describe('Auth Middleware', () => {
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should accept admin for admin-only endpoint', () => {
+    it('should accept admin for admin-only endpoint', async () => {
       mockReq.user!.role = 'admin';
       const middleware = requireRole(['admin']);
 
@@ -286,7 +286,7 @@ describe('Auth Middleware', () => {
       };
     });
 
-    it('should reject unauthenticated request', () => {
+    it('should reject unauthenticated request', async () => {
       mockReq.user = undefined;
       const middleware = requirePermission('campaign:write');
 
@@ -296,7 +296,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user without required permission', () => {
+    it('should reject user without required permission', async () => {
       const middleware = requirePermission('campaign:write');
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -311,7 +311,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept user with required permission', () => {
+    it('should accept user with required permission', async () => {
       const middleware = requirePermission('campaign:read');
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -332,7 +332,7 @@ describe('Auth Middleware', () => {
   });
 
   describe('Integration: Full authentication flow', () => {
-    it('should successfully authenticate and authorize valid request', () => {
+    it('should successfully authenticate and authorize valid request', async () => {
       // Generate valid token
       const tokens = generateTokens({
         userId: 'admin123',
@@ -347,7 +347,7 @@ describe('Auth Middleware', () => {
       };
 
       // First apply requireAuth
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, () => {
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, () => {
         // Then apply requireRole
         const roleMiddleware = requireRole(['admin', 'red_team_lead']);
         roleMiddleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, () => {
@@ -361,7 +361,7 @@ describe('Auth Middleware', () => {
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should fail at role check even with valid token', () => {
+    it('should fail at role check even with valid token', async () => {
       const tokens = generateTokens({
         userId: 'viewer123',
         email: 'viewer@example.com',
@@ -373,7 +373,7 @@ describe('Auth Middleware', () => {
         authorization: `Bearer ${tokens.accessToken}`
       };
 
-      requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, () => {
+      await requireAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, () => {
         const roleMiddleware = requireRole(['admin']);
         roleMiddleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
       });
@@ -394,7 +394,7 @@ describe('Auth Middleware', () => {
       };
     });
 
-    it('should reject unauthenticated request', () => {
+    it('should reject unauthenticated request', async () => {
       mockReq.user = undefined;
       const middleware = requireAllPermissions(['campaign:read', 'campaign:write']);
 
@@ -404,7 +404,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user missing one of the required permissions', () => {
+    it('should reject user missing one of the required permissions', async () => {
       const middleware = requireAllPermissions(['campaign:read', 'campaign:delete']);
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -413,7 +413,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept user with all required permissions', () => {
+    it('should accept user with all required permissions', async () => {
       const middleware = requireAllPermissions(['campaign:read', 'campaign:write']);
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -433,7 +433,7 @@ describe('Auth Middleware', () => {
       };
     });
 
-    it('should reject unauthenticated request', () => {
+    it('should reject unauthenticated request', async () => {
       mockReq.user = undefined;
       const middleware = requireAnyPermission(['campaign:write', 'campaign:delete']);
 
@@ -443,7 +443,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user without any of the required permissions', () => {
+    it('should reject user without any of the required permissions', async () => {
       const middleware = requireAnyPermission(['campaign:write', 'campaign:delete']);
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -452,7 +452,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept user with at least one required permission', () => {
+    it('should accept user with at least one required permission', async () => {
       const middleware = requireAnyPermission(['campaign:read', 'campaign:write']);
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -469,7 +469,7 @@ describe('Auth Middleware', () => {
       expect(mockReq.user).toBeUndefined();
     });
 
-    it('should attach user if token is valid', () => {
+    it('should attach user if token is valid', async () => {
       const tokens = generateTokens({
         userId: 'user123',
         email: 'test@example.com',
@@ -499,7 +499,7 @@ describe('Auth Middleware', () => {
       };
     });
 
-    it('should reject unauthenticated request', () => {
+    it('should reject unauthenticated request', async () => {
       mockReq.user = undefined;
       const middleware = requireOrganization();
 
@@ -509,7 +509,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should reject user without organization when none specified', () => {
+    it('should reject user without organization when none specified', async () => {
       mockReq.user!.organizationId = undefined;
       const middleware = requireOrganization();
 
@@ -519,7 +519,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept user with organization when none specified', () => {
+    it('should accept user with organization when none specified', async () => {
       const middleware = requireOrganization();
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -527,7 +527,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).toHaveBeenCalled();
     });
 
-    it('should reject user from different organization', () => {
+    it('should reject user from different organization', async () => {
       const middleware = requireOrganization('org456');
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
@@ -536,7 +536,7 @@ describe('Auth Middleware', () => {
       expect(nextFn).not.toHaveBeenCalled();
     });
 
-    it('should accept user from correct organization', () => {
+    it('should accept user from correct organization', async () => {
       const middleware = requireOrganization('org123');
 
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);

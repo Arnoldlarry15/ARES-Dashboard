@@ -96,7 +96,7 @@ describe('Consolidated Auth Endpoints', () => {
       expect(redirectUrl).toBeTruthy();
     });
 
-    it('should handle saml provider', async () => {
+    it('should fail closed with 501 for disabled saml provider', async () => {
       const handler = (await import('../../api/auth/login')).default;
       
       const req = {
@@ -105,18 +105,21 @@ describe('Consolidated Auth Endpoints', () => {
         headers: {},
       } as unknown as VercelRequest;
 
-      let redirectUrl = '';
+      let statusCode = 0;
       const res = {
-        redirect: (code: number, url: string) => {
-          expect(code).toBe(302);
-          redirectUrl = url;
-          expect(url).toContain('idp.example.com');
+        status: (code: number) => {
+          statusCode = code;
+          return {
+            json: (data: unknown) => {
+              expect(data).toHaveProperty('error', 'Not Implemented');
+            },
+          };
         },
         setHeader: () => {},
       } as unknown as VercelResponse;
 
       await handler(req, res);
-      expect(redirectUrl).toBeTruthy();
+      expect(statusCode).toBe(501);
     });
   });
 

@@ -40,9 +40,10 @@ export function errorHandler(
   // Determine appropriate status code
   const statusCode = (error as { statusCode?: number }).statusCode || 500;
 
-  // Send error response
+  // Send error response (never expose internal error details in production)
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   res.status(statusCode).json({
-    error: statusCode === 500 ? 'Internal server error' : error.message,
+    error: statusCode >= 500 || isProd ? (statusCode === 500 ? 'Internal server error' : 'Request failed') : error.message,
     message: process.env.NODE_ENV === 'development' ? error.message : undefined,
     stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
   });

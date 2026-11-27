@@ -15,19 +15,27 @@ datasource db {
 // Supports multi-user, durable data, and audit trails
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  role      String   // admin, red_team_lead, analyst, viewer
-  orgId     String
+  id            String   @id @default(cuid())
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  auth0Sub      String?  @unique
+  name          String?
+  role          String   // admin, red_team_lead, analyst, viewer
+  orgId         String
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   lastLogin DateTime?
   
   // Relations
-  campaigns      Campaign[]
-  auditLogs      AuditLog[]
+  campaigns         Campaign[]
+  auditLogs         AuditLog[]
+  creditBalance     UserCreditBalance?
+  creditLedger      CreditTransaction[]
+  generationJobs    GenerationJob[]
+  candidateAttempts CandidateAttempt[]
+  promptVault       CustomerPromptVault[]
+  duplicateReports  DuplicateReport[]
   
   @@index([email])
   @@index([orgId])
@@ -83,4 +91,173 @@ model AuditLog {
   @@index([timestamp])
   @@index([action])
   @@map("audit_logs")
+}
+
+model UserCreditBalance {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  availableTokens Int      @default(0)
+  reservedTokens  Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@map("user_credit_balances")
+}
+
+model CreditTransaction {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  amount         Int
+  type           String   // PURCHASE, RESERVE, COMMIT, RELEASE, REFUND, REPLACEMENT_GRANT, ADJUSTMENT
+  jobId          String?
+  idempotencyKey String   @unique
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([jobId])
+  @@index([createdAt])
+  @@map("credit_transactions")
+}
+
+model GenerationJob {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  purchaseOrderId   String?
+  status            String    // PENDING, RUNNING, PAUSED, INCOMPLETE, COMPLETED, FAILED, CANCELLED
+  requestedCount    Int
+  acceptedCount     Int       @default(0)
+  rejectedCount     Int       @default(0)
+  retryCount        Int       @default(0)
+  maxRetries        Int       @default(25)
+  reservedCredits   Int       @default(0)
+  isReplacement     Boolean   @default(false)
+  selectedFramework String
+  frameworkVersion  String
+  selectedTacticId  String
+  selectedTacticName String
+  selectedVectors   String[]  @default([])
+  selectedAttacks   String[]  @default([])
+  objectives        String?
+  provider          String    @default("gemini")
+  credentialMode    String    @default("server_managed")
+  workerLeaseId     String?
+  leaseExpiresAt    DateTime?
+  lastCheckpointAt  DateTime?
+  nextRetryAt       DateTime?
+  totalCostUsd      Float     @default(0)
+  errorCode         String?
+  errorMessage      String?
+  idempotencyKey    String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+
+  candidates CandidateAttempt[]
+  vaultItems CustomerPromptVault[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, leaseExpiresAt])
+  @@index([userId, createdAt])
+  @@map("generation_jobs")
+}
+
+model CandidateAttempt {
+  id                    String   @id @default(cuid())
+  jobId                 String
+  job                   GenerationJob @relation(fields: [jobId], references: [id])
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id])
+  attemptNumber         Int
+  status                String   // GENERATED, REJECTED, ACCEPTED_INTERNAL, DELIVERED
+  rejectionStage        String?  // SCHEMA, EXACT_DUPLICATE, LEXICAL, SEMANTIC, EVALUATOR, CONCURRENCY_RECHECK
+  rejectionReason       String?
+  selectedFramework     String
+  selectedVector        String
+  selectedAttack        String
+  generatorModel        String
+  evaluatorModel        String?
+  generatorInputTokens  Int      @default(0)
+  generatorOutputTokens Int      @default(0)
+  evaluatorInputTokens  Int      @default(0)
+  evaluatorOutputTokens Int      @default(0)
+  embeddingTokens       Int      @default(0)
+  estimatedCostUsd      Float    @default(0)
+  sha256Fingerprint     String
+  similaritySummary     Json?
+  evaluatorDecision     String?  // ACCEPT, REJECT, RETRY
+  evaluatorResult       Json?
+  candidatePayload      Json
+  createdAt             DateTime @default(now())
+
+  @@index([jobId, status])
+  @@index([userId, createdAt])
+  @@index([sha256Fingerprint])
+  @@map("candidate_attempts")
+}
+
+model GlobalPromptRegistry {
+  id                  String   @id @default(cuid())
+  sha256Fingerprint   String   @unique
+  normalizedTextHash  String
+  structuralSignature String
+  framework           String
+  frameworkVersion    String
+  attackVector        String
+  attackName          String
+  promptVersion       String   @default("1.0")
+  payload             Json
+  embeddingModel      String
+  embeddingDimensions Int
+  embeddingJson       Float[]
+  embeddingVector     Unsupported("vector(768)")?
+  originalityMetadata Json?
+  acceptanceStatus    String   @default("ACCEPTED") // ACCEPTED, ACCEPTED_UNDELIVERED, SUPERSEDED
+  createdAt           DateTime @default(now())
+
+  vaultEntries CustomerPromptVault[]
+
+  @@index([normalizedTextHash])
+  @@index([framework, attackVector])
+  @@index([embeddingModel, embeddingDimensions])
+  @@map("global_prompt_registry")
+}
+
+model CustomerPromptVault {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
+  jobId               String
+  job                 GenerationJob @relation(fields: [jobId], references: [id])
+  registryPromptId    String
+  registryPrompt      GlobalPromptRegistry @relation(fields: [registryPromptId], references: [id])
+  isDuplicateReported Boolean  @default(false)
+  replacedByVaultId   String?
+  acquiredAt          DateTime @default(now())
+
+  duplicateReports DuplicateReport[]
+
+  @@unique([userId, registryPromptId])
+  @@index([userId, acquiredAt])
+  @@map("customer_prompt_vault")
+}
+
+model DuplicateReport {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id])
+  vaultItemId         String
+  vaultItem           CustomerPromptVault @relation(fields: [vaultItemId], references: [id])
+  reason              String
+  status              String    @default("INVESTIGATING") // INVESTIGATING, CONFIRMED, REJECTED
+  investigationResult Json?
+  replacementJobId    String?
+  createdAt           DateTime  @default(now())
+  resolvedAt          DateTime?
+
+  @@index([userId])
+  @@index([vaultItemId])
+  @@map("duplicate_reports")
 }

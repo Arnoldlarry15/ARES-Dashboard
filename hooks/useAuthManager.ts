@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { User, UserRole } from '../types/auth';
 import { AuthService } from '../services/authService';
 import { isAuth0Configured } from '../config/auth0Config';
+import { setAuthTokenProvider } from '../utils/apiClient';
 
 interface UseAuthResult {
   isAuthenticated: boolean;
@@ -80,15 +81,39 @@ export function useAuthManager(): UseAuthResult {
     }
   };
 
-  const loginLocal = (role: UserRole = UserRole.ANALYST) => {
+  const loginLocal = async (_role: UserRole = UserRole.ANALYST) => {
     if (!auth0Configured) {
-      const session = AuthService.initLocalSession(role);
+      try {
+        const res = await fetch('/api/auth/login?provider=local', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { user: { id: string; email: string; name: string; role: UserRole } };
+          const serverUser: User = {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.name,
+            role: data.user.role,
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+          };
+          setLocalUser(serverUser);
+          setIsLocalAuth(true);
+          return;
+        }
+      } catch {
+        // Fallback to client-only state only if local dev server endpoint is not running
+      }
+      const session = AuthService.initLocalSession(UserRole.ANALYST);
       setLocalUser(session.user);
       setIsLocalAuth(true);
     }
   };
 
   const logout = () => {
+    fetch('/api/auth/login?provider=logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     if (auth0Configured && auth0Authenticated) {
       auth0Logout({ logoutParams: { returnTo: window.location.origin } });
     } else if (isLocalAuth) {
@@ -105,20 +130,19 @@ export function useAuthManager(): UseAuthResult {
   const getAccessToken = async (): Promise<string | null> => {
     if (auth0Configured && auth0Authenticated) {
       try {
-        // Auth0 SDK manages tokens in memory
-        // This fetches them securely without exposing to localStorage
         return await getAccessTokenSilently();
       } catch (error) {
         console.error('Failed to get access token:', error);
         return null;
       }
-    } else if (isLocalAuth) {
-      // For local auth, return the token from session
-      const session = AuthService.getSession();
-      return session?.token || null;
     }
     return null;
   };
+
+  useEffect(() => {
+    setAuthTokenProvider(getAccessToken);
+    return () => setAuthTokenProvider(null);
+  }, [auth0Configured, auth0Authenticated]);
 
   // Determine final auth state
   const isAuthenticated = auth0Configured ? auth0Authenticated : isLocalAuth;

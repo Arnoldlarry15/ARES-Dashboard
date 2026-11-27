@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { logger } from '../logger';
+import { verifyCsrfToken } from '../../services/auth/jwt';
+import type { AuthenticatedRequest } from './auth';
 
 // Security headers middleware
 export function securityHeaders(req: VercelRequest, res: VercelResponse, next: () => void) {
@@ -20,6 +22,10 @@ export function securityHeaders(req: VercelRequest, res: VercelResponse, next: (
   
   // Permissions Policy
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   
   next();
 }
@@ -37,16 +43,16 @@ export function cors(config: CorsConfig = {}) {
   const {
     origin = '*',
     methods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders = ['Content-Type', 'Authorization'],
+    allowedHeaders = ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     credentials = false,
     maxAge = 86400 // 24 hours
   } = config;
 
   return (req: VercelRequest, res: VercelResponse, next: () => void) => {
-    const requestOrigin = req.headers.origin as string;
+    const requestOrigin = req.headers.origin as string | undefined;
 
-    // Determine allowed origin
-    let allowedOrigin = '*';
+    // Determine allowed origin (never fall back to '*' when an allowlist/function is configured)
+    let allowedOrigin: string | null = null;
     if (typeof origin === 'string') {
       allowedOrigin = origin;
     } else if (Array.isArray(origin)) {
@@ -59,15 +65,19 @@ export function cors(config: CorsConfig = {}) {
       }
     }
 
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    // Never pair wildcard '*' with Access-Control-Allow-Credentials: true
+    if (allowedOrigin && !(credentials && allowedOrigin === '*')) {
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+      if (allowedOrigin !== '*') {
+        res.setHeader('Vary', 'Origin');
+      }
+      if (credentials) {
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
+    }
+
     res.setHeader('Access-Control-Allow-Methods', methods.join(', '));
     res.setHeader('Access-Control-Allow-Headers', allowedHeaders.join(', '));
-    
-    if (credentials) {
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
-    
     res.setHeader('Access-Control-Max-Age', maxAge.toString());
 
     // Handle preflight requests
@@ -79,21 +89,33 @@ export function cors(config: CorsConfig = {}) {
   };
 }
 
-// CSRF Protection (simple token-based)
-export function csrfProtection(req: VercelRequest, res: VercelResponse, next: () => void) {
-  // Skip CSRF for GET, HEAD, OPTIONS
+// Session-bound CSRF Protection for cookie-authenticated mutations
+export function csrfProtection(req: AuthenticatedRequest, res: VercelResponse, next: () => void) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method || '')) {
     return next();
   }
 
-  const csrfToken = req.headers['x-csrf-token'] as string;
+  // Bearer token requests are immune to CSRF
+  if (req.authMethod === 'bearer') {
+    return next();
+  }
 
-  // In production, validate against stored token
-  // For demo purposes, we'll skip strict validation
-  if (!csrfToken && req.method !== 'OPTIONS') {
-    logger.warn('CSRF token missing', {
+  const cookieHeader = req.headers.cookie as string | undefined;
+  const csrfCookieMatch =
+    cookieHeader?.match(/(?:^|;\s*)__Host-csrf_token=([^;]+)/) ||
+    cookieHeader?.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  const csrfCookie = csrfCookieMatch?.[1] || '';
+  const csrfHeader = (req.headers['x-csrf-token'] as string | undefined) || '';
+  const sessionJti = req.user?.jti || '';
+
+  if (!verifyCsrfToken(csrfCookie, csrfHeader, sessionJti)) {
+    logger.warn('CSRF validation failed', {
       method: req.method,
       url: req.url,
+    });
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Invalid or missing CSRF token',
     });
   }
 
@@ -139,20 +161,30 @@ export function requestLogger(req: VercelRequest, res: VercelResponse, next: () 
   next();
 }
 
-// Compose multiple middleware functions
-export function compose(...middlewares: Array<(req: VercelRequest, res: VercelResponse, next: () => void) => void>) {
-  return (req: VercelRequest, res: VercelResponse, handler: () => void | Promise<void>) => {
+// Compose multiple middleware functions (supports sync and async middlewares)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function compose(...middlewares: Array<(req: any, res: VercelResponse, next: () => void | Promise<void>) => unknown>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return async (req: any, res: VercelResponse, handler: () => void | Promise<void>) => {
     let index = 0;
 
-    const next = () => {
+    const run = async (): Promise<void> => {
       if (index < middlewares.length) {
         const middleware = middlewares[index++];
-        middleware(req, res, next);
+        let downstreamPromise: Promise<void> | undefined;
+        const next = () => {
+          downstreamPromise = run();
+          return downstreamPromise;
+        };
+        await middleware(req, res, next);
+        if (downstreamPromise) {
+          await downstreamPromise;
+        }
       } else {
-        handler();
+        await handler();
       }
     };
 
-    next();
+    await run();
   };
 }

@@ -10,7 +10,10 @@
  * - API key usage
  */
 
+import crypto from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { isProductionEnvironment } from '../services/auth/jwt';
+import { securityHeaders } from '../lib/middleware/security';
 
 interface Metric {
   name: string;
@@ -145,18 +148,28 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  securityHeaders(req, res, () => {});
+
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Check for basic auth (protect metrics endpoint in production)
+  // Protect metrics endpoint with constant-time auth (fail closed in production if METRICS_AUTH is unset)
   const authHeader = req.headers.authorization;
-  const expectedAuth = process.env.METRICS_AUTH; // Format: "Basic base64(user:pass)"
-  
-  if (expectedAuth && authHeader !== expectedAuth) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Metrics"');
-    return res.status(401).json({ error: 'Unauthorized' });
+  const expectedAuth = process.env.METRICS_AUTH;
+
+  if (!expectedAuth && isProductionEnvironment()) {
+    return res.status(503).json({ error: 'Metrics endpoint disabled: METRICS_AUTH not configured' });
+  }
+
+  if (expectedAuth) {
+    const a = Buffer.from(expectedAuth);
+    const b = Buffer.from(authHeader || '');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Metrics"');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
 
   try {
@@ -179,9 +192,8 @@ export default async function handler(
 
   } catch (error) {
     console.error('Metrics endpoint error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to generate metrics',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    return res.status(500).json({
+      error: 'Failed to generate metrics'
     });
   }
 }

@@ -17,7 +17,11 @@ export const auth0Config = {
   useRefreshTokensFallback: false,
 };
 
-// Helper to check if Auth0 is configured
+// Helper to check if Auth0 is configured (requires domain, clientId, and API audience)
 export const isAuth0Configured = (): boolean => {
-  return !!(auth0Config.domain && auth0Config.clientId);
+  return !!(
+    auth0Config.domain &&
+    auth0Config.clientId &&
+    auth0Config.authorizationParams.audience
+  );
 };

@@ -11,6 +11,9 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getProviderAvailabilityReport } from '../lib/ai/tacticGeneration';
+import prisma from '../utils/db';
+import { securityHeaders } from '../lib/middleware/security';
+import { isProductionEnvironment } from '../services/auth/jwt';
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -66,24 +69,30 @@ interface HealthCheck {
 /**
  * Check database connectivity
  */
-async function checkDatabase(): Promise<HealthCheck['checks']['database']> {
+async function checkDatabase(): Promise<HealthCheck['checks']['database'] & { pgvector?: boolean }> {
   try {
-    // In production, test actual database connection
     const start = Date.now();
-    
-    // Simulate database check
-    // In real implementation: await prisma.$queryRaw`SELECT 1`
-    
+    await prisma.$queryRaw`SELECT 1`;
+    let pgvector = false;
+    try {
+      const extRows = await prisma.$queryRaw<Array<{ installed: boolean }>>`
+        SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') AS installed
+      `;
+      pgvector = Boolean(extRows[0]?.installed);
+    } catch {
+      pgvector = false;
+    }
     const latency = Date.now() - start;
 
     return {
       status: 'healthy',
-      latency
+      latency,
+      pgvector
     };
-  } catch (error) {
+  } catch {
     return {
       status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Database check failed'
     };
   }
 }
@@ -104,10 +113,10 @@ async function checkCache(): Promise<HealthCheck['checks']['cache']> {
       status: 'healthy',
       latency
     };
-  } catch (error) {
+  } catch {
     return {
       status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Database check failed'
     };
   }
 }
@@ -213,6 +222,8 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  securityHeaders(req, res, () => {});
+
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -226,9 +237,20 @@ export default async function handler(
       checkExternalServices()
     ]);
 
-    // Build health check response
+    const status = calculateOverallStatus({ database, cache, externalServices });
+    const statusCode = status === 'healthy' ? 200 : status === 'degraded' ? 200 : 503;
+
+    if (isProductionEnvironment()) {
+      return res.status(statusCode).json({
+        status,
+        timestamp: new Date().toISOString(),
+        database: database.status
+      });
+    }
+
+    // Build detailed health check response for non-production diagnostics
     const healthCheck: HealthCheck = {
-      status: 'healthy',
+      status,
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       uptime: (Date.now() - startTime) / 1000,
@@ -239,15 +261,6 @@ export default async function handler(
       },
       metrics: getSystemMetrics()
     };
-
-    // Calculate overall status
-    healthCheck.status = calculateOverallStatus(healthCheck.checks);
-
-    // Set appropriate HTTP status code
-    const statusCode = 
-      healthCheck.status === 'healthy' ? 200 :
-      healthCheck.status === 'degraded' ? 200 :
-      503;
 
     res.status(statusCode).json(healthCheck);
 

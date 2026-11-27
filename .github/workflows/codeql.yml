@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze:
@@ -14,9 +23,11 @@ jobs:
       security-events: write
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@74c1aea9df7c0f02e9b7bfe4a8935abf2e5e3aa6 # v3
         with:
           languages: typescript
-      - uses: github/codeql-action/autobuild@v3
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/autobuild@74c1aea9df7c0f02e9b7bfe4a8935abf2e5e3aa6 # v3
+      - uses: github/codeql-action/analyze@74c1aea9df7c0f02e9b7bfe4a8935abf2e5e3aa6 # v3

@@ -4,11 +4,12 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "@vercel/node@5.5.16"
+  "crons": [
+    {
+      "path": "/api/generation-jobs?action=recover",
+      "schedule": "0 0 * * *"
     }
-  },
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",

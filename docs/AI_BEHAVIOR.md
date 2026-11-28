@@ -138,7 +138,7 @@ const owaspTactics = getOWASPTactics();
 
 **Reproducibility:** Same user role produces same access decisions.
 
-**Source:** api/middleware/auth.ts and services/authService.ts
+**Source:** lib/middleware/auth.ts and services/authService.ts
 
 **Example:**
 ```typescript

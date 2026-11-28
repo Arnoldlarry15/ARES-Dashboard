@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { VercelResponse } from '@vercel/node';
-import { securityHeaders, cors, requestLogger, csrfProtection, compose } from '../lib/middleware/security';
+import { securityHeaders, cors, requestLogger, csrfProtection, compose, getClientIp } from '../lib/middleware/security';
 import { requireAuth, type AuthenticatedRequest } from '../lib/middleware/auth';
 import { catchAsync } from '../lib/middleware/errorHandler';
 import { rateLimit } from '../lib/middleware/rateLimit';
@@ -17,25 +17,63 @@ import {
 export const maxDuration = 60;
 
 function timingSafeMatch(expected?: string, provided?: string): boolean {
-  if (!expected || !provided) return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(provided);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  if (typeof expected !== 'string' || typeof provided !== 'string') return false;
+  if (expected.length === 0 || provided.length === 0) return false;
+  const a = crypto.createHash('sha256').update(expected).digest();
+  const b = crypto.createHash('sha256').update(provided).digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function hasValidWorkerSecret(req: AuthenticatedRequest): boolean {
-  const provided = req.headers['x-worker-secret'] as string | undefined;
-  return timingSafeMatch(process.env.WORKER_SECRET, provided);
+  const provided = req.headers['x-worker-secret'];
+  if (typeof provided !== 'string' || !provided) {
+    return false;
+  }
+
+  const primary = process.env.WORKER_SECRET?.trim() || '';
+  const previous = process.env.WORKER_SECRET_PREVIOUS?.trim() || '';
+
+  const matchesPrimary = timingSafeMatch(primary, provided);
+  const matchesPrevious = timingSafeMatch(previous, provided);
+  return matchesPrimary || matchesPrevious;
 }
 
 export function hasValidCronSecret(req: AuthenticatedRequest): boolean {
-  const bearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : undefined;
-  return timingSafeMatch(process.env.CRON_SECRET, bearer);
+  const authHeader = req.headers.authorization;
+  const bearer = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  return timingSafeMatch(process.env.CRON_SECRET?.trim(), bearer);
 }
 
+const workerRateLimit = rateLimit({
+  windowMs: 60_000,
+  maxRequests: 120,
+  keyPrefix: 'generation-jobs-worker',
+});
+
+const cronRecoverRateLimit = rateLimit({
+  windowMs: 60_000,
+  maxRequests: 30,
+  keyPrefix: 'generation-jobs-recover',
+});
+
+const generationJobsRateLimit = rateLimit({
+  windowMs: 60_000,
+  maxRequests: 60,
+  keyPrefix: 'generation-jobs',
+});
+
 async function handler(req: AuthenticatedRequest, res: VercelResponse) {
-  const action = (req.query.action as string | undefined)?.toLowerCase();
-  const jobId = (req.query.id as string | undefined)?.trim();
+  const rawAction = req.query?.action;
+  if (rawAction !== undefined && typeof rawAction !== 'string') {
+    return res.status(400).json({ error: 'Invalid action query parameter' });
+  }
+  const action = typeof rawAction === 'string' ? rawAction.toLowerCase() : undefined;
+
+  const rawId = req.query?.id;
+  if (rawId !== undefined && typeof rawId !== 'string') {
+    return res.status(400).json({ error: 'Invalid id query parameter' });
+  }
+  const jobId = typeof rawId === 'string' ? rawId.trim() : undefined;
 
   if (action === 'recover') {
     if (req.method !== 'POST' && req.method !== 'GET') {
@@ -52,23 +90,11 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
+    if (!hasValidWorkerSecret(req)) {
+      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid or missing worker secret' });
+    }
     if (!jobId) {
       return res.status(400).json({ error: 'Job ID is required' });
-    }
-
-    const workerHeader = req.headers['x-worker-secret'] as string | undefined;
-    if (workerHeader !== undefined) {
-      if (!hasValidWorkerSecret(req)) {
-        return res.status(401).json({ error: 'Unauthorized', message: 'Invalid worker secret' });
-      }
-    } else {
-      const userId = req.user?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-      const job = await prisma.generationJob.findUnique({ where: { id: jobId }, select: { userId: true } });
-      if (!job) return res.status(404).json({ error: 'Job not found' });
-      if (job.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
     }
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -91,6 +117,10 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const orgId = req.user?.organizationId;
+  if (!orgId || !orgId.trim()) {
+    return res.status(403).json({ error: 'Forbidden', message: 'Organization context required' });
   }
 
   try {
@@ -117,7 +147,11 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
       if (req.user?.role === 'viewer') {
         return res.status(403).json({ error: 'Forbidden', message: 'Viewers cannot cancel jobs' });
       }
-      await cancelGenerationJob(jobId, userId);
+      await cancelGenerationJob(jobId, userId, {
+        orgId,
+        ipAddress: getClientIp(req),
+        userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined
+      });
       return res.status(200).json({ success: true, status: 'CANCELLED' });
     }
 
@@ -201,7 +235,12 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
         selectedVectors,
         selectedAttacks,
         objectives: body.objectives,
-        idempotencyKey
+        idempotencyKey,
+        auditContext: {
+          orgId,
+          ipAddress: getClientIp(req),
+          userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined
+        }
       });
 
       // Decoupled job creation: return job ID and initial PENDING status promptly
@@ -229,18 +268,26 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
 }
 
 export default async function (req: AuthenticatedRequest, res: VercelResponse) {
-  const action = (req.query.action as string | undefined)?.toLowerCase();
+  const rawAction = req.query?.action;
+  if (rawAction !== undefined && typeof rawAction !== 'string') {
+    const middleware = compose(securityHeaders, requestLogger);
+    await middleware(req, res, async () => {
+      res.status(400).json({ error: 'Invalid action query parameter' });
+    });
+    return;
+  }
+  const action = typeof rawAction === 'string' ? rawAction.toLowerCase() : undefined;
 
   if (action === 'recover') {
-    const middleware = compose(securityHeaders, requestLogger);
+    const middleware = compose(securityHeaders, requestLogger, cronRecoverRateLimit);
     await middleware(req, res, async () => {
       await catchAsync(handler)(req, res);
     });
     return;
   }
 
-  if (action === 'worker' && req.headers['x-worker-secret'] !== undefined) {
-    const middleware = compose(securityHeaders, requestLogger);
+  if (action === 'worker') {
+    const middleware = compose(securityHeaders, requestLogger, workerRateLimit);
     await middleware(req, res, async () => {
       await catchAsync(handler)(req, res);
     });
@@ -249,9 +296,9 @@ export default async function (req: AuthenticatedRequest, res: VercelResponse) {
 
   const middleware = compose(
     securityHeaders,
-    cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || [], credentials: true }),
+    cors({ origin: (process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()).filter(Boolean), credentials: true }),
     requestLogger,
-    rateLimit({ maxRequests: 60, windowMs: 60000 }),
+    generationJobsRateLimit,
     requireAuth,
     csrfProtection
   );

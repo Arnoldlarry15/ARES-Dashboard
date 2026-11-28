@@ -4,12 +4,19 @@
 
 ### STEP 1: Create Auth0 Application
 
+ARES supports two Auth0 integration patterns depending on how you deploy and authenticate:
+
+1. **Single Page Web Application (SPA RS256 Bearer Flow)** — used by the React frontend (`@auth0/auth0-react` with `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and optional `VITE_AUTH0_AUDIENCE`). The SPA obtains an RS256 access token in memory and sends `Authorization: Bearer <token>` to `/api/*` endpoints.
+2. **Regular Web Application (Backend OAuth2 Callback Flow)** — used when authenticating via `/api/auth/login?provider=auth0` and `/api/auth/callback?provider=auth0` (configured with `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, and `AUTH0_CALLBACK_URL`). The backend exchanges the authorization code and issues `HttpOnly`, `SameSite=Lax` session cookies.
+
+To set up the **Single Page Web Application** flow (recommended for React SPA):
+
 1. Go to [Auth0 Dashboard](https://manage.auth0.com)
 2. Navigate to **Applications** → **Create Application**
 3. Name it: `ARES Dashboard`
-4. **IMPORTANT**: Choose **Single Page Web Application**
+4. Choose **Single Page Web Application**
 5. Select **React** as the technology
-6. **DO NOT** choose "Regular Web App" - this breaks SPA token flow
+6. **Note**: Do not use a Regular Web App client ID for the SPA PKCE flow (Regular Web Apps require a client secret and are only used for the server-side `/api/auth/login?provider=auth0` + `/api/auth/callback?provider=auth0` flow). See [AUTHENTICATION.md](./AUTHENTICATION.md) for backend OAuth2 callback configuration and the required `https://ares.app/org_id` Post-Login Action.
 
 ### STEP 2: Configure Application Settings (Critical)
 
@@ -253,9 +260,9 @@ const domain = "dev-xyz123.us.auth0.com";
 - Use one or the other
 - ARES supports both via fallback mechanism
 
-❌ **Don't use "Regular Web App" type**
-- Breaks SPA token flow
-- Must be "Single Page Application"
+❌ **Don't use a Regular Web App client for the SPA flow**
+- Breaks SPA PKCE token flow (no client secret in browser)
+- Use "Single Page Application" for `VITE_AUTH0_*` SPA auth, or "Regular Web Application" only for the server-side `/api/auth/login?provider=auth0` & `/api/auth/callback?provider=auth0` flow
 
 ## Security Best Practices
 

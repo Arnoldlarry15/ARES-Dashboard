@@ -383,4 +383,74 @@ describe.skipIf(!isLocalDb)('Real PostgreSQL Concurrency & Lifecycle Validation'
     });
     expect(releaseTxs).toHaveLength(1);
   }, 30000);
+
+  it('13. prevents stale worker reaching maxRetries from clobbering replacement worker or releasing credits after lease expiration', async () => {
+    await prisma.userCreditBalance.create({
+      data: { userId: userAId, availableTokens: 1, reservedTokens: 0 }
+    });
+
+    const job = await createGenerationJob({
+      userId: userAId,
+      requestedCount: 4,
+      selectedFramework: 'OWASP LLM Top 10',
+      frameworkVersion: '2026',
+      selectedTacticId: 'LLM01:2026',
+      selectedTacticName: 'Prompt Injection',
+      selectedVectors: ['Direct Instruction Override'],
+      selectedAttacks: [`pgtest_${testRunId}_lease_race`],
+      idempotencyKey: `lease-race-${testRunId}`
+    });
+
+    // Put job at retryCount = maxRetries - 1 so next catch in stale worker hits maxRetries
+    await prisma.generationJob.update({
+      where: { id: job.id },
+      data: { retryCount: job.maxRetries - 1 }
+    });
+
+    const replacementLeaseId = `replacement-worker-${testRunId}`;
+
+    // Stale worker generates a candidate (accruing billable cost), then its lease expires and replacement worker claims the job
+    // before the stale worker's embedding step fails and reaches maxRetries.
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        description: 'Stale worker candidate',
+        payload: `Stale worker payload ${testRunId} ${crypto.randomUUID()}`,
+        format: 'Prompt',
+        attack_name: `pgtest_${testRunId}_lease_race`,
+        attack_objective: 'Test'
+      }),
+      usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 500 }
+    });
+
+    mockEmbedContent.mockImplementationOnce(async () => {
+      await connB.client.generationJob.update({
+        where: { id: job.id },
+        data: {
+          workerLeaseId: replacementLeaseId,
+          leaseExpiresAt: new Date(Date.now() + 60_000),
+          status: 'RUNNING'
+        }
+      });
+      throw new Error('Stale worker embedding timeout');
+    });
+
+    const staleRes = await processGenerationJobStep({ jobId: job.id, geminiApiKey: 'mock-key' });
+
+    // Stale worker must NOT report FAILED or clobber replacement worker's lease or release credits
+    expect(staleRes.status).toBe('RUNNING');
+
+    const dbJob = await prisma.generationJob.findUnique({ where: { id: job.id } });
+    expect(dbJob?.status).toBe('RUNNING');
+    expect(dbJob?.workerLeaseId).toBe(replacementLeaseId);
+    expect(Number(dbJob?.totalCostUsd)).toBeGreaterThan(0);
+
+    const bal = await prisma.userCreditBalance.findUnique({ where: { userId: userAId } });
+    expect(bal?.availableTokens).toBe(0);
+    expect(bal?.reservedTokens).toBe(1);
+
+    const releaseTxs = await prisma.creditTransaction.findMany({
+      where: { jobId: job.id, type: 'RELEASE' }
+    });
+    expect(releaseTxs).toHaveLength(0);
+  }, 30000);
 });

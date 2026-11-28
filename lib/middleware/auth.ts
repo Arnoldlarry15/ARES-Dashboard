@@ -90,6 +90,20 @@ export async function requireAuth(req: AuthenticatedRequest, res: VercelResponse
 
     try {
       const dbUser = await UserRepository.resolveAuth0User(auth0Identity);
+      if (dbUser.disabledAt) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          code: 'USER_DEACTIVATED',
+          message: 'Account has been deactivated'
+        });
+      }
+      if (dbUser.orgId === 'default_org') {
+        return res.status(403).json({
+          error: 'Forbidden',
+          code: 'LEGACY_ORG_MIGRATION_REQUIRED',
+          message: 'Legacy default_org membership must be migrated'
+        });
+      }
       req.user = {
         userId: dbUser.id,
         email: dbUser.email,
@@ -99,7 +113,29 @@ export async function requireAuth(req: AuthenticatedRequest, res: VercelResponse
       };
       req.authMethod = authMethod;
       return await next();
-    } catch {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      if (message.startsWith('USER_DEACTIVATED')) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          code: 'USER_DEACTIVATED',
+          message: 'Account has been deactivated'
+        });
+      }
+      if (message.startsWith('ONBOARDING_REQUIRED')) {
+        return res.status(403).json({
+          error: 'onboarding_required',
+          code: 'ONBOARDING_REQUIRED',
+          message
+        });
+      }
+      if (message.startsWith('LEGACY_ORG_MIGRATION_REQUIRED')) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          code: 'LEGACY_ORG_MIGRATION_REQUIRED',
+          message
+        });
+      }
       return res.status(403).json({
         error: 'Forbidden',
         message: 'Account provisioning or linking required'
@@ -125,22 +161,48 @@ export async function requireAuth(req: AuthenticatedRequest, res: VercelResponse
 
     // Resolve authoritative DB role when DATABASE_URL is configured
     if (process.env.DATABASE_URL) {
+      let dbUser;
       try {
-        const dbUser = await UserRepository.findById(decoded.userId);
-        if (!dbUser) {
-          return res.status(401).json({
-            error: 'Unauthorized',
-            message: 'User account not found or deactivated'
-          });
-        }
-        decoded.role = dbUser.role;
-        decoded.organizationId = dbUser.orgId;
+        dbUser = await UserRepository.findById(decoded.userId);
       } catch {
-        // Fail closed only if DB lookup fails in production; in unit tests without live DB, keep decoded
-        if (isProductionEnvironment()) {
-          return res.status(401).json({ error: 'Unauthorized', message: 'Authentication failed' });
-        }
+        return res.status(503).json({
+          error: 'Service Unavailable',
+          message: 'Authentication service unavailable'
+        });
       }
+      if (!dbUser) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'User account not found or deactivated'
+        });
+      }
+      if (dbUser.disabledAt) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          code: 'USER_DEACTIVATED',
+          message: 'Account has been deactivated'
+        });
+      }
+      if (dbUser.orgId === 'default_org') {
+        return res.status(403).json({
+          error: 'Forbidden',
+          code: 'LEGACY_ORG_MIGRATION_REQUIRED',
+          message: 'Legacy default_org membership must be migrated'
+        });
+      }
+      decoded.role = dbUser.role;
+      decoded.organizationId = dbUser.orgId;
+    } else if (isProductionEnvironment()) {
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'Authentication database is not configured'
+      });
+    } else if (decoded.organizationId === 'default_org') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        code: 'LEGACY_ORG_MIGRATION_REQUIRED',
+        message: 'Legacy default_org membership must be migrated'
+      });
     }
 
     req.user = {
@@ -273,30 +335,6 @@ export function requireAnyPermission(permissions: string[]) {
 }
 
 /**
- * Optional authentication - attaches user if token is present and valid
- * Does not reject request if token is missing or invalid
- * Supports both Authorization header and HttpOnly cookies
- */
-export function optionalAuth(req: AuthenticatedRequest, res: VercelResponse, next: () => void) {
-  // Try Authorization header first
-  let token = extractTokenFromHeader(req.headers.authorization as string | undefined);
-  
-  // Fall back to cookie if no header
-  if (!token) {
-    token = extractTokenFromCookie(req.headers.cookie as string | undefined);
-  }
-  
-  if (token) {
-    const decoded = verifyAccessToken(token);
-    if (decoded) {
-      req.user = decoded;
-    }
-  }
-  
-  next();
-}
-
-/**
  * Middleware to ensure user belongs to specified organization
  * Useful for multi-tenant isolation
  */
@@ -306,6 +344,14 @@ export function requireOrganization(organizationId?: string) {
       return res.status(401).json({ 
         error: 'Unauthorized',
         message: 'Authentication required'
+      });
+    }
+
+    if (req.user.organizationId === 'default_org') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        code: 'LEGACY_ORG_MIGRATION_REQUIRED',
+        message: 'Legacy default_org membership must be migrated'
       });
     }
 

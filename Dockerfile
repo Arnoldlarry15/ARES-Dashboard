@@ -1,14 +1,20 @@
-# Multi-stage Dockerfile for ARES Dashboard
-# Optimized for production deployment with minimal image size
+# Multi-stage Dockerfile for ARES Dashboard (Static Frontend Container)
+# Serves the compiled Vite SPA (dist/) on port 3000.
+# Note: Backend api/*.ts serverless endpoints are deployed on Vercel,
+# and background job workers (scripts/runWorker.ts) run separately.
 
 # Stage 1: Build the application
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+
+# Copy Prisma schema and config for postinstall (prisma generate)
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 
 # Install dependencies
 RUN npm ci
@@ -19,8 +25,8 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Stage 2: Production image
-FROM node:20-alpine AS production
+# Stage 2: Production static frontend image
+FROM node:24-alpine AS production
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
@@ -32,20 +38,12 @@ RUN addgroup -g 1001 -S nodejs && \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm ci --omit=dev && \
+# Install only serve for static SPA hosting
+RUN npm install --no-save --ignore-scripts serve@14.2.1 && \
     npm cache clean --force
 
-# Copy built application from builder
+# Copy built static SPA from builder
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/api ./api
-COPY --chown=nodejs:nodejs vercel.json ./
-
-# Install a specific version of serve for static file serving
-RUN npm install serve@14.2.1
 
 # Switch to non-root user
 USER nodejs

@@ -44,16 +44,16 @@ Manual approaches to AI security testing are inconsistent, difficult to audit, a
 
 ARES provides a governance-ready AI red-teaming and audit platform that:
 - ✅ **Enforces structured methodology** through campaign-based workflows
-- ✅ **Generates comprehensive audit trails** with immutable logging for compliance
+- ✅ **Generates comprehensive audit trails** with append-only logging (`audit_logs` triggers enforced when using a non-owner DB role; see [SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md))
 - ✅ **Aligns with industry frameworks** (OWASP, MITRE) built into the core platform
 - ✅ **Enables team collaboration** with enterprise RBAC and workspace management
-- ✅ **Produces risk documentation** that satisfies auditors and compliance officers
+- ✅ **Produces risk documentation** to support audit and compliance reviews
 - ✅ **Supports both modes**: Static fallback for evaluation + optional AI-generation for enhanced scenarios
 
 ### Why It Matters
 
 **For Security Teams:** Move from ad-hoc testing to structured, documented security operations  
-**For Compliance Officers:** Get the audit trail and framework alignment required for certification  
+**For Compliance Officers:** Get the audit trail and framework alignment to support compliance programs  
 **For AI Product Owners:** Validate security controls before production deployment  
 **For Auditors:** Access comprehensive, timestamped evidence of security testing activities
 
@@ -77,7 +77,7 @@ ARES provides a governance-ready AI red-teaming and audit platform that:
 - Generate compliance reports showing framework coverage
 - Provide auditor-ready evidence of structured security practices
 
-**Outcome:** Pass compliance audit with comprehensive security testing documentation
+**Outcome:** Support compliance audits with structured security testing documentation
 
 ### 3. Team Collaboration & Knowledge Sharing
 **Scenario:** Distributed red team conducting quarterly AI security assessment  
@@ -149,14 +149,14 @@ ARES provides a governance-ready AI red-teaming and audit platform that:
 - 🔍 **Search & Filter**: Real-time search across all tactics and frameworks
 
 ### Enterprise & Governance Features
-- 🔐 **Enterprise Authentication**: OAuth2/OIDC ready (Auth0, Azure AD, Clerk, Okta)
+- 🔐 **Enterprise Authentication**: OAuth2/OIDC via **Auth0** (SAML 2.0 is disabled in this release and returns `501 Not Implemented`)
 - 🛡️ **Server-Side RBAC**: Backend enforcement of roles and permissions with multi-level access control
-- 🔑 **JWT with Scoped Claims**: Secure token-based authentication with automatic refresh
+- 🔑 **JWT with Scoped Claims**: 1-hour `HttpOnly` cookie sessions (plus SPA RS256 Bearer tokens with in-memory Auth0 renewal)
 - 🏢 **SSO Ready**: Enterprise identity provider integration for seamless authentication
 - 👥 **Team Workspaces**: Collaborative red team operations with member management and activity tracking
 - 🤝 **Campaign Sharing**: Granular permissions (view, edit, delete, reshare) for controlled collaboration
-- 📊 **Audit Logging**: Comprehensive, immutable activity tracking for compliance (SOC 2, ISO 27001, GDPR)
-- 🔒 **Session Management**: Secure JWT tokens with automatic refresh and device tracking
+- 📊 **Audit Logging**: Append-only activity tracking supporting compliance programs (see [SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md); requires a non-owner DB role)
+- 🔒 **Session Management**: 1-hour `HttpOnly` cookie sessions (plus SPA in-memory renewal via `@auth0/auth0-react`)
 - 📝 **Activity Feed**: Real-time monitoring of all team actions with full attribution
 - 🔐 **Multi-Tenant Support**: Organization-based data isolation and access control
 - 📋 **Compliance-Ready**: Built-in audit trail generation for regulatory requirements
@@ -216,7 +216,7 @@ For detailed deployment instructions, see [DEPLOY.md](docs/DEPLOY.md) or [QUICK_
 
 ### Local Development (Complete Setup)
 
-1. **Required software**: Node.js `>=20 <23` (tested on Node 20/24), npm, Git, and Docker Desktop (for local PostgreSQL + `pgvector`).
+1. **Required software**: Node.js `^24.15.0` (Node 24 LTS), npm, Git, and Docker Desktop (for local PostgreSQL + `pgvector`).
 2. **Install dependencies**:
    ```bash
    npm install
@@ -272,77 +272,6 @@ For detailed deployment instructions, see [DEPLOY.md](docs/DEPLOY.md) or [QUICK_
     npm run build
     ```
     *Note:* `tests/integration/liveGeminiGeneration.test.ts` skips automatically when `GEMINI_API_KEY` is unset; `realPostgresValidation.test.ts` and `p1OriginalityPg.test.ts` require a `localhost`/`127.0.0.1` PostgreSQL + `pgvector` `DATABASE_URL`.
-- (Optional) Gemini, OpenAI, Anthropic, or local LLM access for AI-generated payloads
-
-**Installation:**
-
-1. Clone the repository:
-```bash
-git clone https://github.com/Arnoldlarry15/ARES-Dashboard.git
-cd ARES-Dashboard
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. (Optional) Set up environment variables for local development:
-   - Copy `.env.example` to `.env.local`
-   - Add configuration:
-   ```bash
-   # Database (for persistent storage - optional for dev)
-   DATABASE_URL="postgresql://user:password@host:5432/ares_dashboard"
-   # Use Neon (https://neon.tech), Supabase (https://supabase.com), or local PostgreSQL
-   
-   # AI-powered payloads (optional)
-   GEMINI_API_KEY=your_actual_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
-   ANTHROPIC_API_KEY=your_anthropic_api_key_here
-   LOCAL_LLM_BASE_URL=http://localhost:11434/v1
-   
-   # Enterprise authentication (optional, for production)
-   AUTH0_DOMAIN=your-tenant.auth0.com
-   AUTH0_CLIENT_ID=your_client_id
-   AUTH0_CLIENT_SECRET=your_client_secret
-   AUTH0_CALLBACK_URL=http://localhost:3000/api/auth/callback?provider=auth0
-   
-   # JWT secrets (required for auth)
-   JWT_SECRET=your_secure_random_secret
-   JWT_REFRESH_SECRET=your_secure_refresh_secret
-   ```
-   - Get Gemini API key from: https://aistudio.google.com/apikey
-   - Get Auth0 credentials from: https://auth0.com (see [Auth0 Setup Guide](docs/AUTH0_SETUP_GUIDE.md))
-   - For database setup, see [Database Migration Guide](docs/DATABASE_MIGRATION.md)
-   - **Note**: For local development with backend APIs, use `vercel dev` instead of `npm run dev`
-
-3a. (Optional) Set up persistent database:
-   ```bash
-   # Generate Prisma client
-   npm run db:generate
-   
-   # Push schema to database
-   npm run db:push
-   
-   # Open Prisma Studio to view data
-   npm run db:studio
-   ```
-   - See [Database Migration Guide](docs/DATABASE_MIGRATION.md) for detailed setup instructions
-   - Works with Neon, Supabase, AWS RDS, or local PostgreSQL
-
-4. Start the development server:
-```bash
-# Without API key (uses static fallback data)
-npm run dev
-
-# With API key (requires Vercel CLI)
-npm install -g vercel
-vercel dev
-```
-
-5. Open your browser to:
-   - `http://localhost:5173` (npm run dev)
-   - `http://localhost:3000` (vercel dev)
 
 ## 📖 Usage
 
@@ -441,16 +370,14 @@ ARES now supports **durable data persistence** using PostgreSQL with Prisma ORM,
 
 3. **Initialize the schema:**
    ```bash
-   npm run db:generate  # Generate Prisma client
-   npm run db:push      # Push schema to database
-   npm run db:studio    # Open database GUI (optional)
+   npm run db:generate       # Generate Prisma client
+   npx prisma migrate deploy # Apply committed Prisma migrations
+   npm run db:studio         # Open database GUI (optional)
    ```
 
-4. **Migrate existing data (if upgrading):**
-   - Open your browser console on the dashboard
-   - Run: `exportLocalStorageData()` to backup
-   - Run: `migrateInBrowser()` to migrate to database
-   - See [Database Migration Guide](docs/DATABASE_MIGRATION.md) for details
+4. **Migrate existing offline/demo data (if upgrading from localStorage):**
+   - Export your campaigns as JSON from the dashboard UI
+   - Sign in with PostgreSQL persistence enabled and import them via `/api/campaigns`
 
 ### Database Schema
 
@@ -487,7 +414,7 @@ model AuditLog {
 
 The frontend automatically uses database APIs when available:
 - `CampaignManager` → `/api/campaigns`
-- `AuthService` → `/api/users` and `/api/audit-logs`
+- `AuthService` → `/api/users` and `/api/audit-logs` (`POST /api/users` is deprecated and returns `410 Gone`; use `POST /api/users?resource=invitations` for team invitations)
 - Falls back to localStorage if API is unavailable
 
 For detailed setup instructions, see:
@@ -504,7 +431,7 @@ For detailed setup instructions, see:
 │   ├── generate-tactic.ts       # Synchronous tactic generation API
 │   ├── generation-jobs.ts       # Persistent generation jobs, worker step, recovery & credits
 │   ├── prompt-vault.ts          # Customer Prompt Vault & duplicate reporting API
-│   ├── users.ts                 # User management API (tenant-scoped admin)
+│   ├── users.ts                 # User management API (tenant-scoped admin; POST deprecated -> 410 Gone, use ?resource=invitations)
 │   ├── campaigns.ts             # Campaign persistence API
 │   ├── audit-logs.ts            # Audit trail API
 │   ├── health.ts                # Health check endpoint
@@ -665,7 +592,7 @@ npm run preview
 ```
 
 **Build Verification:**
-- ✅ Application builds successfully (0 vulnerabilities)
+- ✅ Application builds successfully
 - ✅ All frameworks accessible
 - ✅ Complete workflow tested end-to-end
 - ✅ Authentication & RBAC functional
@@ -720,23 +647,23 @@ All PRs must pass:
 
 ## 🔒 Security
 
-- **Zero Vulnerabilities**: Passed npm audit with 0 vulnerabilities
+- **Dependency Auditing**: Automated security scanning via CodeQL and Dependabot
 - **Automated Security Scanning**: CodeQL analysis runs on all PRs and pushes to main
 - **Dependency Management**: Dependabot weekly updates for npm packages
-- **Enterprise Authentication**: OAuth2/OIDC ready with Auth0, Azure AD, or Clerk
+- **Enterprise Authentication**: OAuth2/OIDC via Auth0 (SAML 2.0 disabled in this release; returns `501 Not Implemented`)
 - **Server-Side RBAC**: Backend enforcement of roles and permissions
-- **JWT Security**: Signed tokens with automatic expiration and refresh
+- **JWT Security**: 1-hour `HttpOnly` cookie sessions (plus SPA RS256 Bearer tokens with in-memory renewal)
 - **Secure API Keys**: All secrets protected on backend, never exposed to client
 - **Serverless Architecture**: API calls routed through secure backend functions
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
 - **Authentication**: Enterprise RBAC system (integrate with your auth provider in production)
-- **Audit Logging**: Comprehensive activity tracking for compliance
-- **Session Management**: 24-hour JWT-style tokens with device tracking
+- **Audit Logging**: Comprehensive activity tracking for compliance (see [SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md))
+- **Session Management**: 1-hour `HttpOnly` cookie sessions (plus SPA in-memory renewal)
 - **Threat Model**: Comprehensive threat analysis and mitigation strategies
 - **Security Policy**: Documented vulnerability reporting and response procedures
 
 **Enterprise Security Features:**
-- **Rate Limiting**: 100 requests/minute per IP address (configurable)
+- **Rate Limiting**: Per-endpoint in-memory limits per IP (1-minute window): `60/min` default (`users`, `campaigns`, `audit-logs`, `generation-jobs`), `100/min` (`generate-tactic`), `30/min` (`prompt-vault`, `generation-jobs` recover), and `20/min` (`onboarding`, `auth/login`, `auth/callback`)
 - **Input Validation**: Type checking, length limits, pattern matching
 - **Sanitization**: XSS prevention and output encoding
 - **CORS Protection**: Configurable cross-origin policies
@@ -794,7 +721,7 @@ All secrets (API keys, JWT secrets, OAuth credentials) are stored in Vercel envi
 **Key Features:**
 - 🔐 OAuth2/OIDC authentication flow
 - 🛡️ Server-side role and permission enforcement
-- 🔑 JWT tokens with automatic refresh
+- 🔑 1-hour `HttpOnly` cookie sessions (plus SPA in-memory renewal)
 - 🏢 Multi-tenant organization isolation
 - 📊 Complete audit trail for compliance
 
@@ -865,16 +792,16 @@ Contributions are welcome! Please read our [Contributing Guidelines](docs/CONTRI
 
 ## 📋 Compliance & Governance
 
-ARES supports enterprise compliance requirements:
+ARES provides technical controls designed to support enterprise compliance programs (not formal certification on their own; see [SOC2_COMPLIANCE.md](docs/SOC2_COMPLIANCE.md) and run PostgreSQL with a non-owner, non-superuser role so `audit_logs` triggers cannot be bypassed):
 
-- **SOC 2 Type II**: Comprehensive audit logging and access controls
-- **ISO 27001**: Information security management alignment
-- **GDPR**: Data privacy and user rights (with proper configuration)
+- **SOC 2 Type II Alignment**: Append-only audit logging (`audit_logs` triggers) and server-side RBAC
+- **ISO 27001 Alignment**: Role-based and organization-scoped (`orgId`) access controls
+- **GDPR Support**: Data privacy controls, export, and `users.disabledAt` soft-delete offboarding (with proper configuration)
 - **OWASP**: Aligned with OWASP Top 10 and OWASP LLM Top 10
 - **MITRE**: Full ATLAS and ATT&CK framework coverage
 
 **Enterprise Features:**
-- ✅ **Production Hardening**: SAML 2.0 auth, Prometheus metrics, health checks
+- ✅ **Production Hardening**: OAuth2/OIDC auth (SAML 2.0 disabled in this release, `501 Not Implemented`), Prometheus metrics, health checks
 - ✅ **Observability**: Metrics, logs, traces, and SLO definitions
 - ✅ **Secrets Management**: Lifecycle management and automated rotation
 - ✅ **Database Migrations**: Zero-downtime strategies and backup procedures
@@ -885,7 +812,7 @@ ARES supports enterprise compliance requirements:
 - ✅ **Automated Testing**: 35+ unit, integration, security, and E2E tests
 - ✅ **API Hardening**: Rate limiting, validation, sanitization, CORS, CSRF
 - ✅ **Database Ready**: PostgreSQL schema with multi-tenant support
-- ✅ **OAuth & SAML**: Auth0, Azure AD, Okta ready for production
+- ✅ **OAuth2/OIDC**: Auth0 ready for production (SAML 2.0 disabled in this release, `501 Not Implemented`)
 - ✅ **Audit Trail**: Complete compliance logging
 - ✅ **Incident Response**: Documented security procedures
 - ✅ **Release Management**: Semantic versioning with CI/CD
@@ -913,7 +840,7 @@ ARES supports enterprise compliance requirements:
 *ARES Dashboard v1.0.0 - Production Hardening & Enterprise Release*
 
 **Production-Ready Features:**
-- 🔐 SAML 2.0 authentication for enterprise SSO
+- 🔐 OAuth2/OIDC authentication via Auth0 (SAML 2.0 disabled in this release; returns `501 Not Implemented`)
 - 📊 Prometheus metrics and health check endpoints
 - 🔍 Comprehensive observability with OpenTelemetry support
 - 🔑 Secrets management with automated rotation procedures
@@ -925,6 +852,6 @@ ARES supports enterprise compliance requirements:
 - 📋 Comprehensive security and compliance documentation
 - 🔒 Threat modeling and security controls
 - 📊 Audit logging for SOC 2 / ISO 27001 compliance  
-- 🛡️ OAuth & SAML integration for production deployments
+- 🛡️ OAuth2/OIDC integration for production deployments (SAML 2.0 disabled in this release)
 - 📦 Docker and self-hosted deployment support
 - 🔍 Extensive testing framework and guidelines

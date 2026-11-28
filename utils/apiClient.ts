@@ -74,13 +74,42 @@ async function fetchApi<T>(
       },
     });
 
-    const data = await response.json();
+    if (response.ok && response.status === 204) {
+      return undefined as T;
+    }
+
+    let data: unknown = null;
+    let parseError: unknown = null;
+    try {
+      data = await response.json();
+    } catch (err) {
+      parseError = err;
+      data = null;
+    }
 
     if (!response.ok) {
+      const errorPayload =
+        data && typeof data === 'object'
+          ? (data as { error?: unknown; message?: unknown })
+          : null;
+      const errorMessage =
+        (typeof errorPayload?.error === 'string' && errorPayload.error) ||
+        (typeof errorPayload?.message === 'string' && errorPayload.message) ||
+        response.statusText ||
+        'API request failed';
+
       throw new ApiError(
-        data.error || 'API request failed',
+        errorMessage,
         response.status,
         data
+      );
+    }
+
+    if (parseError !== null) {
+      throw new ApiError(
+        'Invalid JSON response from server',
+        typeof response.status === 'number' ? response.status : 200,
+        parseError
       );
     }
 
@@ -120,6 +149,29 @@ export interface UpdateUserInput {
   name?: string;
   role?: string;
   lastLogin?: Date;
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  orgId: string;
+  invitedEmail?: string | null;
+  role: string;
+  createdBy: string;
+  expiresAt: string;
+  usedAt?: string | null;
+  usedBy?: string | null;
+  createdAt: string;
+}
+
+export interface CreateInvitationInput {
+  invitedEmail?: string;
+  role: string;
+  expiresInHours?: number;
+}
+
+export interface CreateInvitationResponse {
+  invitation: OrganizationInvitation;
+  token: string;
 }
 
 // Campaign API types
@@ -191,14 +243,6 @@ export const UserAPI = {
     return users;
   },
 
-  async create(data: CreateUserInput): Promise<User> {
-    const { user } = await fetchApi<{ user: User }>('/users', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return user;
-  },
-
   async update(id: string, data: UpdateUserInput): Promise<User> {
     const { user } = await fetchApi<{ user: User }>('/users', {
       method: 'PUT',
@@ -211,6 +255,29 @@ export const UserAPI = {
     await fetchApi<{ message: string }>(`/users?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
+  },
+
+  async listInvitations(): Promise<OrganizationInvitation[]> {
+    const { invitations } = await fetchApi<{ invitations: OrganizationInvitation[] }>(
+      '/users?resource=invitations'
+    );
+    return invitations;
+  },
+
+  async createInvitation(data: CreateInvitationInput): Promise<CreateInvitationResponse> {
+    return await fetchApi<CreateInvitationResponse>('/users?resource=invitations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async revokeInvitation(id: string): Promise<void> {
+    await fetchApi<{ success: boolean }>(
+      `/users?resource=invitations&id=${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+      }
+    );
   },
 };
 
@@ -403,10 +470,6 @@ export const GenerationJobsAPI = {
   async getStatus(jobId: string): Promise<GenerationJobSummary> {
     const { job } = await fetchApi<{ job: GenerationJobSummary }>(`/generation-jobs?id=${encodeURIComponent(jobId)}`);
     return job;
-  },
-
-  async stepWorker(jobId: string): Promise<{ status: string; acceptedCount: number; requestedCount: number; hasMoreWork: boolean }> {
-    return await fetchApi(`/generation-jobs?id=${encodeURIComponent(jobId)}&action=worker`, { method: 'POST' });
   },
 
   async cancel(jobId: string): Promise<{ success: boolean; status: string }> {

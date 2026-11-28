@@ -26,6 +26,19 @@ export interface VerifiedAuth0Identity {
 const DEFAULT_JWT_ISSUER = 'ares-api';
 const DEFAULT_JWT_AUDIENCE = 'ares-dashboard';
 const REFRESH_TOKEN_AUDIENCE = 'ares-refresh';
+const ONBOARDING_TOKEN_AUDIENCE = 'ares-onboarding';
+
+export interface OnboardingTokenPayload {
+  sub: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+  purpose: 'onboarding';
+  iat?: number;
+  exp?: number;
+  iss?: string;
+  aud?: string;
+}
 
 let cachedJwksDomain: string | null = null;
 let cachedJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
@@ -111,7 +124,7 @@ function verifyHs256Jwt(
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (typeof claims.exp === 'number' && claims.exp <= now) {
+  if (typeof claims.exp !== 'number' || !Number.isFinite(claims.exp) || claims.exp <= now) {
     return null;
   }
   if (typeof claims.nbf === 'number' && claims.nbf > now) {
@@ -209,6 +222,69 @@ export function verifyRefreshToken(token: string): TokenPayload | null {
     }
 
     return claims as unknown as TokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Generate a short-lived (15 min) HS256 onboarding token bound to a verified Auth0 identity.
+ */
+export function generateOnboardingToken(params: {
+  sub: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+}): string {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET environment variable must be configured for onboarding tokens');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const issuer = process.env.JWT_ISSUER || DEFAULT_JWT_ISSUER;
+
+  return signHs256Jwt(
+    {
+      sub: params.sub,
+      email: params.email,
+      emailVerified: params.emailVerified,
+      name: params.name,
+      purpose: 'onboarding',
+      iss: issuer,
+      aud: ONBOARDING_TOKEN_AUDIENCE,
+      iat: now,
+      exp: now + 900,
+    },
+    jwtSecret
+  );
+}
+
+/**
+ * Verify and decode a 15-min HS256 onboarding token.
+ */
+export function verifyOnboardingToken(token: string): OnboardingTokenPayload | null {
+  try {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return null;
+    }
+
+    const issuer = process.env.JWT_ISSUER || DEFAULT_JWT_ISSUER;
+    const claims = verifyHs256Jwt(token, jwtSecret, issuer, ONBOARDING_TOKEN_AUDIENCE);
+    if (
+      !claims ||
+      claims.purpose !== 'onboarding' ||
+      typeof claims.sub !== 'string' ||
+      !claims.sub ||
+      typeof claims.email !== 'string' ||
+      !claims.email ||
+      claims.emailVerified !== true
+    ) {
+      return null;
+    }
+
+    return claims as unknown as OnboardingTokenPayload;
   } catch {
     return null;
   }

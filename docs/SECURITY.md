@@ -10,8 +10,8 @@ We provide security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.9.x   | :white_check_mark: |
-| < 0.9   | :x:                |
+| 1.0.x   | :white_check_mark: |
+| < 1.0   | :x:                |
 
 ## Security Architecture
 
@@ -28,15 +28,15 @@ We provide security updates for the following versions:
 - **Rate Limiting**: Configurable rate limits on API endpoints (recommended for production)
 
 ### Data Security
-- **Local Storage**: Demo mode stores data in browser localStorage (non-sensitive only)
-- **No Default Persistence**: No server-side data storage in default configuration
-- **Encryption in Transit**: HTTPS enforced for all deployments
-- **Secure Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection configured
+- **Local Storage Fallback (Demo Mode)**: When no backend database is configured, demo/local-only mode stores state in browser `localStorage`. `localStorage` is unencrypted, accessible to JavaScript (XSS-sensitive), and not suitable for sensitive data or compliance-grade audit trails.
+- **No Default Server Persistence**: No server-side data storage unless PostgreSQL (`DATABASE_URL`) is configured
+- **Encryption in Transit**: HTTPS enforced for all production deployments
+- **Secure Headers**: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy` configured
 
 ### Audit & Compliance
-- **Comprehensive Logging**: All user actions logged with timestamps and user context
-- **Immutable Audit Trail**: Logs designed to be tamper-evident
-- **Compliance Support**: Activity tracking aligned with SOC2, ISO 27001, GDPR requirements
+- **Comprehensive Logging**: User and API actions logged with timestamps, `orgId`, and `actorId` context
+- **Append-Only Audit Trail (PostgreSQL)**: When backed by PostgreSQL, `audit_logs` is protected by `BEFORE UPDATE OR DELETE` (`audit_logs_immutable`) and `BEFORE TRUNCATE` (`audit_logs_no_truncate`) triggers. Effective runtime immutability requires connecting the application with a **separate non-owner, non-superuser PostgreSQL role** (table owners and superusers can disable triggers).
+- **Compliance Support**: Technical controls are designed to support organizational SOC 2, ISO 27001, and GDPR programs (ARES itself does not certify or guarantee compliance)
 - **Export Capabilities**: Audit logs exportable in JSON, CSV, and PDF formats
 
 ## Reporting a Vulnerability
@@ -49,11 +49,13 @@ We take security vulnerabilities seriously and appreciate responsible disclosure
 
 Instead, please report security vulnerabilities via one of these methods:
 
-1. **Email**: Send details to security@ares-dashboard.example.com (replace with actual contact)
-2. **GitHub Security Advisories**: Use the private vulnerability reporting feature
-   - Navigate to the Security tab
-   - Click "Report a vulnerability"
-   - Fill out the advisory form
+1. **GitHub Security Advisories** (Preferred): Use the private vulnerability reporting feature
+   - Go to: https://github.com/Arnoldlarry15/ARES-Dashboard/security/advisories/new
+   - Create a new security advisory
+   - We will respond within 48 hours
+2. **Email** (Optional - if configured for your deployment):
+   - Subject: "ARES Security Vulnerability Report"
+   - Include: Detailed description, reproduction steps, impact assessment
 
 ### What to Include
 
@@ -69,13 +71,13 @@ Please provide as much information as possible:
 
 ### Response Timeline
 
-- **Initial Response**: Within 72 hours of report
-- **Triage & Assessment**: Within 1 week
-- **Fix Development**: Depends on severity
-  - Critical: 7 days
-  - High: 14 days
+- **Initial Response**: Within 48 hours of report
+- **Status Update / Triage**: Within 7 days
+- **Fix Timeline**: Depends on severity
+  - Critical: 24-48 hours
+  - High: 7 days
   - Medium: 30 days
-  - Low: 90 days
+  - Low: Next regular release
 - **Public Disclosure**: After fix is deployed and users have time to update (typically 30 days)
 
 ### Scope
@@ -157,7 +159,7 @@ For production use, integrate with:
 
 - **CodeQL**: Automated security analysis on all PRs and pushes to main
 - **Dependabot**: Weekly automated dependency updates
-- **npm audit**: Zero vulnerabilities in production dependencies
+- **npm audit**: Run `npm audit` regularly in CI and local development to detect known dependency vulnerabilities
 - **GitHub Advanced Security**: Enabled for vulnerability scanning
 
 ### Manual Security Reviews
@@ -180,8 +182,8 @@ ARES is designed to support compliance with:
 
 ### Audit Capabilities
 
-- Immutable audit logs with timestamps
-- User action tracking
+- Append-only PostgreSQL audit logs with timestamps (enforced via `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` triggers when using a non-owner runtime DB role; demo `localStorage` fallback is not tamper-evident)
+- User action tracking (`actorId`, `orgId`)
 - Campaign and payload versioning
 - Export capabilities (JSON, CSV, PDF)
 - Configurable retention policies

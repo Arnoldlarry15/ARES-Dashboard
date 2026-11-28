@@ -4,7 +4,7 @@ import {
   type GenerationJobSummary,
   type UserCreditsSummary
 } from '../utils/apiClient';
-import { Play, RefreshCw, XCircle, CheckCircle2, AlertTriangle, Clock, Coins, X } from 'lucide-react';
+import { RefreshCw, XCircle, CheckCircle2, AlertTriangle, Clock, Coins, X } from 'lucide-react';
 
 interface GenerationJobsPanelProps {
   isOpen: boolean;
@@ -43,7 +43,6 @@ export const GenerationJobsPanel: React.FC<GenerationJobsPanelProps> = ({
   const [packageSize, setPackageSize] = useState<4 | 12 | 28 | 40>(4);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [steppingJobId, setSteppingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
@@ -111,20 +110,6 @@ export const GenerationJobsPanel: React.FC<GenerationJobsPanelProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to create generation job');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleStepWorker = async (jobId: string) => {
-    setSteppingJobId(jobId);
-    setError(null);
-    try {
-      const res = await GenerationJobsAPI.stepWorker(jobId);
-      setStatusMessage(`Job ${jobId}: ${res.acceptedCount}/${res.requestedCount} accepted (${res.status}).`);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Worker step failed');
-    } finally {
-      setSteppingJobId(null);
     }
   };
 
@@ -225,7 +210,7 @@ export const GenerationJobsPanel: React.FC<GenerationJobsPanelProps> = ({
               </div>
             </div>
             <p className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-              Jobs run independently of your browser session via the background worker (<code>npm run worker</code> locally or scheduled recovery in production). You can also trigger individual steps below.
+              Active jobs are processed asynchronously by the background worker (<code>npm run worker</code>) or scheduled recovery (<code>action=recover</code>). Progress updates automatically while this panel is open.
             </p>
           </div>
 
@@ -272,23 +257,13 @@ export const GenerationJobsPanel: React.FC<GenerationJobsPanelProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         {isActive && (
-                          <>
-                            <button
-                              onClick={() => handleStepWorker(job.id)}
-                              disabled={steppingJobId === job.id}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white flex items-center gap-1"
-                            >
-                              <Play className="w-3 h-3" />
-                              {steppingJobId === job.id ? 'Stepping...' : 'Run Step'}
-                            </button>
-                            <button
-                              onClick={() => handleCancelJob(job.id)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-400 flex items-center gap-1"
-                            >
-                              <XCircle className="w-3 h-3" />
-                              Cancel
-                            </button>
-                          </>
+                          <button
+                            onClick={() => handleCancelJob(job.id)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-400 flex items-center gap-1"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            Cancel
+                          </button>
                         )}
                         {job.status === 'COMPLETED' && (
                           <button

@@ -138,6 +138,9 @@ const { mockJobs, mockBalances, mockTransactions, mockCandidates, mockRegistry, 
         return { count: 1 };
       })
     },
+    auditLog: {
+      create: vi.fn(async ({ data }: any) => ({ id: 'audit-1', ...data }))
+    },
     setOnFindManyHook(fn: () => void) {
       onFindManyHook = fn;
     }
@@ -216,7 +219,7 @@ describe('Worker Execution Reliability (Mocked DB)', () => {
 
   it('POST /api/generation-jobs creates job and returns 201 promptly without waiting for Gemini', async () => {
     mockBalances.set('user_1', { availableTokens: 10, reservedTokens: 0 });
-    const { accessToken } = generateTokens({ userId: 'user_1', email: 'u1@ares.app', role: 'analyst' });
+    const { accessToken } = generateTokens({ userId: 'user_1', email: 'u1@ares.app', role: 'analyst', organizationId: 'org-test' });
 
     const req: any = {
       method: 'POST',

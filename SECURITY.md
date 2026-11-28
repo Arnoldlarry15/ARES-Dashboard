@@ -63,7 +63,7 @@ ARES Dashboard includes:
 - ✅ **Automated Dependency Auditing**: Dependabot, CI dependency-review, and CodeQL enabled
 - ✅ **Automated Security Scanning**: CodeQL, secret scanning, and security tests enabled
 - ✅ **RBAC Authorization**: 4-role access control system
-- ✅ **Audit Logging**: Comprehensive activity tracking
+- ✅ **Audit Logging**: Append-only PostgreSQL audit logging (`BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` triggers with a non-owner runtime DB role; demo `localStorage` fallback is for local evaluation only)
 - ✅ **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
 - ✅ **OAuth 2.0/OIDC Ready**: Enterprise identity provider integration
 

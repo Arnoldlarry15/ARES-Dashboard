@@ -23,9 +23,10 @@ model User {
   role          String   // admin, red_team_lead, analyst, viewer
   orgId         String
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  lastLogin DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastLogin  DateTime?
+  disabledAt DateTime?
   
   // Relations
   campaigns         Campaign[]
@@ -71,6 +72,7 @@ model Campaign {
 
 model AuditLog {
   id        String   @id @default(cuid())
+  orgId     String
   
   // Actor information
   actorId   String
@@ -88,6 +90,7 @@ model AuditLog {
   timestamp DateTime @default(now())
   
   @@index([actorId])
+  @@index([orgId, timestamp])
   @@index([timestamp])
   @@index([action])
   @@map("audit_logs")
@@ -260,4 +263,33 @@ model DuplicateReport {
   @@index([userId])
   @@index([vaultItemId])
   @@map("duplicate_reports")
+}
+
+model Organization {
+  id          String   @id
+  name        String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  invitations OrganizationInvitation[]
+
+  @@map("organizations")
+}
+
+model OrganizationInvitation {
+  id           String       @id @default(cuid())
+  tokenHash    String       @unique
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedEmail String?
+  role         String       // admin, red_team_lead, analyst, viewer
+  createdBy    String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  usedBy       String?
+  createdAt    DateTime     @default(now())
+
+  @@index([orgId])
+  @@index([expiresAt])
+  @@map("organization_invitations")
 }

@@ -313,7 +313,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 ### Middleware for Authorization
 
 ```typescript
-// api/middleware/auth.ts
+// lib/middleware/auth.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verify } from 'jsonwebtoken';
 
@@ -368,8 +368,8 @@ export function requirePermission(resource: string, action: string) {
 
 ```typescript
 // api/campaigns/create.ts
-import { compose } from '../middleware/security';
-import { requireAuth, requirePermission } from '../middleware/auth';
+import { compose, securityHeaders, cors } from '../../lib/middleware/security';
+import { requireAuth, requirePermission } from '../../lib/middleware/auth';
 
 async function handleRequest(req: AuthenticatedRequest, res: VercelResponse) {
   // User is authenticated and has permission
@@ -481,7 +481,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 ### Organization Context
 
 ```typescript
-// api/middleware/organization.ts
+// lib/middleware/auth.ts (application-level orgId scoping via requireOrganization)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export function setOrganizationContext(req: AuthenticatedRequest, res: VercelResponse, next: () => void) {
@@ -489,8 +489,8 @@ export function setOrganizationContext(req: AuthenticatedRequest, res: VercelRes
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  // Set organization context for database queries
-  // This can be used with PostgreSQL row-level security
+  // Set organization context for application-level orgId scoping
+  // (all repository and Prisma queries filter explicitly by orgId)
   req.organizationId = req.user.organizationId;
   
   next();

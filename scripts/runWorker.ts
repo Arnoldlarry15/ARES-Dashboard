@@ -19,6 +19,7 @@ async function runTick(geminiApiKey: string) {
   const activeJobs = await prisma.generationJob.findMany({
     where: {
       status: { in: ['PENDING', 'RUNNING'] },
+      user: { disabledAt: null },
       OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lt: new Date() } }],
       AND: [{ OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }] }]
     },

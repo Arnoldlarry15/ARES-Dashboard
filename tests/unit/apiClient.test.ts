@@ -98,24 +98,35 @@ describe('ApiClient', () => {
       });
     });
 
-    describe('create', () => {
-      it('should create a new user', async () => {
-        const newUser = { email: 'new@example.com', role: 'analyst', orgId: 'org1' };
-        const createdUser = { id: '456', ...newUser, createdAt: '2024-01-01', updatedAt: '2024-01-01' };
-        
+    describe('createInvitation', () => {
+      it('should create an organization invitation', async () => {
+        const input = { invitedEmail: 'new@example.com', role: 'analyst' };
+        const createdResponse = {
+          invitation: {
+            id: 'inv_456',
+            orgId: 'org1',
+            invitedEmail: 'new@example.com',
+            role: 'analyst',
+            createdBy: 'admin_1',
+            expiresAt: '2026-01-02T00:00:00.000Z',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+          token: 'inv-token-123',
+        };
+
         (global.fetch as any).mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ user: createdUser }),
+          json: async () => createdResponse,
         });
 
-        const result = await UserAPI.create(newUser);
-        
-        expect(result).toEqual(createdUser);
+        const result = await UserAPI.createInvitation(input);
+
+        expect(result).toEqual(createdResponse);
         expect(global.fetch).toHaveBeenCalledWith(
-          '/api/users',
+          '/api/users?resource=invitations',
           expect.objectContaining({
             method: 'POST',
-            body: JSON.stringify(newUser),
+            body: JSON.stringify(input),
           })
         );
       });
@@ -448,6 +459,113 @@ describe('ApiClient', () => {
 
       await expect(UserAPI.findById('123')).rejects.toThrow(ApiError);
       await expect(UserAPI.findById('123')).rejects.toThrow('Network error or server unavailable');
+    });
+
+    it('should handle 204 No Content explicitly by returning undefined', async () => {
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        json: async () => {
+          throw new SyntaxError('Unexpected end of JSON input');
+        },
+      });
+
+      const result = await CampaignAPI.delete('1', 'user123');
+      expect(result).toBeUndefined();
+    });
+
+    it('should return parsed data on valid JSON 200', async () => {
+      const mockCampaigns = [{ id: '1', name: 'Valid Campaign' }];
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ campaigns: mockCampaigns }),
+      });
+
+      const result = await CampaignAPI.getAll();
+      expect(result).toEqual(mockCampaigns);
+    });
+
+    it('should throw ApiError on HTML 200 response instead of returning null', async () => {
+      const parseError = new SyntaxError('Unexpected token < in JSON at position 0');
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw parseError;
+        },
+      });
+
+      await expect(CampaignAPI.getAll()).rejects.toMatchObject({
+        name: 'ApiError',
+        status: 200,
+        message: 'Invalid JSON response from server',
+        data: parseError,
+      });
+    });
+
+    it('should throw ApiError on malformed JSON 200 response instead of returning null', async () => {
+      const parseError = new SyntaxError('Unexpected end of JSON input');
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw parseError;
+        },
+      });
+
+      await expect(CampaignAPI.getAll()).rejects.toMatchObject({
+        name: 'ApiError',
+        status: 200,
+        message: 'Invalid JSON response from server',
+        data: parseError,
+      });
+    });
+
+    it('should preserve status and payload on 500 JSON response', async () => {
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => ({ error: 'Database query failed' }),
+      });
+
+      await expect(CampaignAPI.getAll()).rejects.toMatchObject({
+        name: 'ApiError',
+        status: 500,
+        message: 'Database query failed',
+        data: { error: 'Database query failed' },
+      });
+    });
+
+    it('should preserve status on 500 non-JSON response', async () => {
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      });
+
+      await expect(CampaignAPI.getAll()).rejects.toMatchObject({
+        name: 'ApiError',
+        status: 500,
+        message: 'Internal Server Error',
+        data: null,
+      });
+    });
+
+    it('should throw ApiError with status 0 on actual fetch TypeError rejection', async () => {
+      const networkError = new TypeError('Failed to fetch');
+      (global.fetch as any).mockRejectedValueOnce(networkError);
+
+      await expect(CampaignAPI.getAll()).rejects.toMatchObject({
+        name: 'ApiError',
+        status: 0,
+        message: 'Network error or server unavailable',
+        data: networkError,
+      });
     });
   });
 });

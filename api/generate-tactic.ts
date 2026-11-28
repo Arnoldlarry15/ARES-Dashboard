@@ -19,12 +19,14 @@ import {
 import {
   AiProvider,
   AiProviderConfig,
+  ProviderConfigurationError,
   buildTacticGenerationPrompt,
   extractJsonObject,
   getAvailableProviders,
   normalizeTacticDetails,
   resolveProviderSelection,
-  validateLocalEndpointUrl,
+  validateOutboundEndpointUrl,
+  pinnedOutboundFetch,
   selectProvider
 } from '../lib/ai/tacticGeneration';
 import {
@@ -1056,19 +1058,24 @@ async function generateWithOpenAI(apiKey: string, prompt: string): Promise<unkno
 async function generateWithLocalModel(
   config: AiProviderConfig,
   prompt: string,
-  clientSuppliedBaseUrl: boolean
+  clientSuppliedBaseUrl: boolean,
+  resolvedSelection?: ReturnType<typeof resolveProviderSelection>
 ): Promise<unknown> {
-  const baseUrl = config.localBaseUrl || '';
+  const baseUrl = resolvedSelection?.localBaseUrl ?? config.localBaseUrl ?? '';
   if (!baseUrl) {
     throw new Error('LOCAL_LLM_BASE_URL is required for local model generation');
   }
-  const validatedUrl = validateLocalEndpointUrl(baseUrl);
+  const validatedUrl = await validateOutboundEndpointUrl(baseUrl);
+
+  const disallowServerKey = clientSuppliedBaseUrl || resolvedSelection?.credentialMode === 'byok';
+  const resolvedApiKey = resolvedSelection ? resolvedSelection.apiKey : (config.localApiKey || '');
+  const resolvedModel = resolvedSelection?.localModel || config.localModel || process.env.LOCAL_LLM_MODEL || 'llama3.1:8b-instruct';
 
   return generateWithOpenAICompatible({
     baseUrl: validatedUrl,
     // Never forward server-side LOCAL_LLM_API_KEY to a client-supplied URL
-    apiKey: clientSuppliedBaseUrl ? (config.localApiKey || '') : (config.localApiKey || process.env.LOCAL_LLM_API_KEY || ''),
-    model: config.localModel || process.env.LOCAL_LLM_MODEL || 'llama3.1:8b-instruct',
+    apiKey: disallowServerKey ? (resolvedApiKey || '') : (resolvedApiKey || process.env.LOCAL_LLM_API_KEY || ''),
+    model: resolvedModel,
     prompt,
     provider: 'local',
     enforceJsonResponse: false
@@ -1076,8 +1083,9 @@ async function generateWithLocalModel(
 }
 
 async function generateWithAnthropic(apiKey: string, prompt: string): Promise<unknown> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await pinnedOutboundFetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    redirect: 'manual',
     signal: AbortSignal.timeout(25_000),
     headers: {
       'Content-Type': 'application/json',
@@ -1096,6 +1104,10 @@ async function generateWithAnthropic(apiKey: string, prompt: string): Promise<un
       ]
     })
   });
+
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error(`Anthropic API redirect rejected: ${response.status}`);
+  }
 
   if (!response.ok) {
     throw new Error(`Anthropic API request failed: ${response.status}`);
@@ -1116,8 +1128,9 @@ async function generateWithOpenAICompatible(params: {
   enforceJsonResponse?: boolean;
 }): Promise<unknown> {
   const shouldEnforceJson = params.enforceJsonResponse !== false;
-  const response = await fetch(`${params.baseUrl}/chat/completions`, {
+  const response = await pinnedOutboundFetch(`${params.baseUrl}/chat/completions`, {
     method: 'POST',
+    redirect: 'manual',
     signal: AbortSignal.timeout(25_000),
     headers: {
       'Content-Type': 'application/json',
@@ -1139,6 +1152,10 @@ async function generateWithOpenAICompatible(params: {
       ]
     })
   });
+
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error(`${params.provider} API redirect rejected: ${response.status}`);
+  }
 
   if (!response.ok) {
     throw new Error(`${params.provider} API request failed: ${response.status}`);
@@ -1186,10 +1203,10 @@ export async function handleRequest(
     }
 
     // Determine provider configuration safely
-    const clientSuppliedBaseUrl = Boolean(tactic.aiConfig?.localBaseUrl);
+    const clientSuppliedBaseUrl = Boolean(tactic.aiConfig?.localBaseUrl && tactic.aiConfig.localBaseUrl.trim());
     if (clientSuppliedBaseUrl) {
       try {
-        validateLocalEndpointUrl(tactic.aiConfig!.localBaseUrl!);
+        await validateOutboundEndpointUrl(tactic.aiConfig!.localBaseUrl!);
       } catch (err) {
         return res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid localBaseUrl' });
       }
@@ -1207,8 +1224,9 @@ export async function handleRequest(
     };
 
     let activeProvider: AiProvider;
+    let resolvedSelection: ReturnType<typeof resolveProviderSelection> | undefined;
     try {
-      const resolved = resolveProviderSelection({
+      resolvedSelection = resolveProviderSelection({
         preferredProvider: providerConfig.preferredProvider,
         credentialMode: providerConfig.credentialMode,
         byokKeys: tactic.aiConfig,
@@ -1221,13 +1239,37 @@ export async function handleRequest(
           localModel: process.env.LOCAL_LLM_MODEL || ''
         }
       });
-      activeProvider = resolved.provider;
-    } catch {
-      activeProvider = selectProvider(providerConfig) || 'gemini';
+      activeProvider = resolvedSelection.provider;
+    } catch (err: unknown) {
+      if (err instanceof ProviderConfigurationError) {
+        const preferred = providerConfig.preferredProvider?.toLowerCase().trim() || 'auto';
+        const isAutomaticServerFallback =
+          err.code === 'NO_PROVIDER_CONFIGURED' &&
+          preferred === 'auto' &&
+          providerConfig.credentialMode !== 'byok' &&
+          providerConfig.credentialMode !== 'local';
+
+        if (!isAutomaticServerFallback) {
+          logger.warn('Provider selection failed closed due to configuration error', {
+            tacticId: tactic.id,
+            code: err.code,
+            preferredProvider: preferred,
+            credentialMode: providerConfig.credentialMode
+          });
+          return res.status(err.statusCode).json({
+            error: err.message,
+            code: err.code
+          });
+        }
+
+        activeProvider = selectProvider(providerConfig) || 'gemini';
+      } else {
+        throw err;
+      }
     }
 
     if (activeProvider === 'gemini') {
-      const apiKey = providerConfig.geminiApiKey;
+      const apiKey = resolvedSelection?.apiKey ?? providerConfig.geminiApiKey;
       if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
         logger.warn('Gemini API key is not configured in environment', { tacticId: tactic.id });
         res.setHeader('X-ARES-Generation-Source', 'fallback');
@@ -1285,17 +1327,24 @@ export async function handleRequest(
         const prompt = buildTacticGenerationPrompt(tactic as TacticMetadata);
 
         if (activeProvider === 'anthropic') {
-          rawGenerated = await generateWithAnthropic(providerConfig.anthropicApiKey || '', prompt);
+          rawGenerated = await generateWithAnthropic(
+            resolvedSelection?.apiKey ?? providerConfig.anthropicApiKey ?? '',
+            prompt
+          );
         } else if (activeProvider === 'openai') {
-          rawGenerated = await generateWithOpenAI(providerConfig.openaiApiKey || '', prompt);
+          rawGenerated = await generateWithOpenAI(
+            resolvedSelection?.apiKey ?? providerConfig.openaiApiKey ?? '',
+            prompt
+          );
         } else if (activeProvider === 'local') {
-          rawGenerated = await generateWithLocalModel(providerConfig, prompt, clientSuppliedBaseUrl);
+          rawGenerated = await generateWithLocalModel(providerConfig, prompt, clientSuppliedBaseUrl, resolvedSelection);
         }
 
         const validation = validateRedTeamTactic(rawGenerated, tactic);
-        const validatedTactic = validation.valid && validation.tactic
-          ? validation.tactic
-          : normalizeTacticDetails(rawGenerated, tactic as TacticMetadata);
+        if (!validation.valid || !validation.tactic) {
+          throw new Error(`Model response failed schema validation: ${validation.error || 'Unknown validation error'}`);
+        }
+        const validatedTactic = validation.tactic;
 
         validatedTactic.generation_metadata = {
           source: 'dynamic',
@@ -1346,12 +1395,18 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Apply middleware and handle request
+const generateTacticRateLimit = rateLimit({
+  keyPrefix: 'generate-tactic',
+  maxRequests: 100,
+  windowMs: 60000,
+});
+
+// Apply middleware and handle request
   const middleware = compose(
     securityHeaders,
     cors({ origin: (process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()).filter(Boolean), credentials: true }),
     requestLogger,
-    rateLimit({ maxRequests: 100, windowMs: 60000 }), // 100 requests per minute
+    generateTacticRateLimit, // 100 requests per minute
     requireAuth,
     requireRole(['admin', 'red_team_lead', 'analyst']),
     csrfProtection,

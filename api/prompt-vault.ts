@@ -1,16 +1,62 @@
 import type { VercelResponse } from '@vercel/node';
-import { securityHeaders, cors, requestLogger, csrfProtection, compose } from '../lib/middleware/security';
+import type { Prisma } from '@prisma/client';
+import { securityHeaders, cors, requestLogger, csrfProtection, compose, getClientIp } from '../lib/middleware/security';
 import { requireAuth, type AuthenticatedRequest } from '../lib/middleware/auth';
 import { catchAsync } from '../lib/middleware/errorHandler';
 import { rateLimit } from '../lib/middleware/rateLimit';
 import prisma from '../utils/db';
 import { JobDomainError, reportDeliveredDuplicate } from '../lib/jobs/generationJobService';
+import { AuditLogRepository } from '../repositories/auditLogRepository';
+import { logger } from '../lib/logger';
+
+const promptVaultRateLimit = rateLimit({
+  windowMs: 60_000,
+  maxRequests: 30,
+  keyPrefix: 'prompt-vault',
+});
+
+async function emitPromptVaultAuditLog(
+  req: AuthenticatedRequest,
+  orgId: string,
+  actorId: string,
+  action: string,
+  target: string,
+  details: Prisma.InputJsonValue
+): Promise<void> {
+  try {
+    const userAgent =
+      typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'].slice(0, 500) : undefined;
+    await AuditLogRepository.create({
+      orgId,
+      actorId,
+      action,
+      target,
+      details,
+      ipAddress: getClientIp(req),
+      userAgent,
+    });
+  } catch (err) {
+    if (process.env.DATABASE_URL) {
+      throw err;
+    }
+    logger.warn('Failed to emit prompt vault audit log', {
+      action,
+      target,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 async function handler(req: AuthenticatedRequest, res: VercelResponse) {
-  const userId = req.user?.userId;
-  if (!userId) {
+  const authUser = req.user;
+  const userId = authUser?.userId;
+  if (!authUser || !userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  if (!authUser.organizationId || !authUser.organizationId.trim()) {
+    return res.status(403).json({ error: 'Forbidden', message: 'Organization context required' });
+  }
+  const orgId = authUser.organizationId;
 
   if (req.method === 'GET') {
     const rawLimit = Number(req.query.limit ?? 100);
@@ -34,6 +80,11 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
       }
     });
 
+    await emitPromptVaultAuditLog(req, orgId, userId, 'prompt_vault_read', userId, {
+      count: items.length,
+      take,
+    });
+
     return res.status(200).json({
       prompts: items.map(item => ({
         vaultId: item.id,
@@ -52,7 +103,7 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
   }
 
   if (req.method === 'POST' && req.query.action === 'report-duplicate') {
-    if (req.user?.role === 'viewer') {
+    if (authUser.role === 'viewer') {
       return res.status(403).json({ error: 'Forbidden', message: 'Viewers cannot report duplicates' });
     }
     const vaultItemId = typeof req.query.id === 'string' ? req.query.id.trim() : '';
@@ -67,12 +118,20 @@ async function handler(req: AuthenticatedRequest, res: VercelResponse) {
     }
 
     try {
+      const userAgent =
+        typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'].slice(0, 500) : undefined;
       const result = await reportDeliveredDuplicate({
         userId,
         vaultItemId,
         reason,
-        geminiApiKey
+        geminiApiKey,
+        auditContext: {
+          orgId,
+          ipAddress: getClientIp(req),
+          userAgent,
+        },
       });
+
       return res.status(200).json(result);
     } catch (err) {
       if (err instanceof JobDomainError) {
@@ -90,7 +149,7 @@ export default async function (req: AuthenticatedRequest, res: VercelResponse) {
     securityHeaders,
     cors({ origin: (process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()).filter(Boolean), credentials: true }),
     requestLogger,
-    rateLimit({ maxRequests: 30, windowMs: 60000 }),
+    promptVaultRateLimit,
     requireAuth,
     csrfProtection
   );

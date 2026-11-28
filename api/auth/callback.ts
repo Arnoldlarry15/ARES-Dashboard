@@ -8,12 +8,25 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import {
   createCsrfToken,
+  generateOnboardingToken,
   generateTokens,
-  isProductionEnvironment
+  isProductionEnvironment,
+  verifyOnboardingToken,
+  type OnboardingTokenPayload
 } from '../../services/auth/jwt';
 import { UserRepository } from '../../repositories/userRepository';
+import { AuditLogRepository } from '../../repositories/auditLogRepository';
+import prisma from '../../utils/db';
 import { logger } from '../../lib/logger';
-import { securityHeaders } from '../../lib/middleware/security';
+import { getClientIp, securityHeaders } from '../../lib/middleware/security';
+import { rateLimit } from '../../lib/middleware/rateLimit';
+
+const callbackRateLimit = rateLimit({
+  windowMs: 60_000,
+  maxRequests: 20,
+  keyPrefix: 'auth-callback',
+  message: 'Too many authentication callback attempts, please try again later.',
+});
 
 // Cookie expiry constants (in seconds)
 const ONE_HOUR = 3600;
@@ -170,15 +183,109 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
     };
 
     const organizationId = userInfo['https://ares.app/org_id'] as string | undefined;
+    const isProd = isProductionEnvironment();
+    const secureFlag = isProd ? '; Secure' : '';
+    const userAgent =
+      typeof req.headers['user-agent'] === 'string'
+        ? req.headers['user-agent'].slice(0, 500)
+        : undefined;
+    const ipAddress = getClientIp(req);
 
     // Resolve internal database user by immutable auth0Sub (never auto-links by email)
-    const dbUser = await UserRepository.resolveAuth0User({
-      sub: userInfo.sub,
-      email: userInfo.email,
-      emailVerified: Boolean(userInfo.email_verified),
-      name: userInfo.name,
-      orgId: organizationId
-    });
+    // and record user_login audit log atomically when DATABASE_URL is configured.
+    // External Auth0 network calls remain strictly outside the DB transaction.
+    let dbUser;
+    try {
+      if (process.env.DATABASE_URL) {
+        dbUser = await prisma.$transaction(async (tx) => {
+          const resolvedUser = await UserRepository.resolveAuth0User(
+            {
+              sub: userInfo.sub,
+              email: userInfo.email,
+              emailVerified: Boolean(userInfo.email_verified),
+              name: userInfo.name,
+              orgId: organizationId
+            },
+            tx
+          );
+          if (resolvedUser.disabledAt) {
+            throw new Error('USER_DEACTIVATED: Account has been deactivated');
+          }
+          await AuditLogRepository.create(
+            {
+              orgId: resolvedUser.orgId,
+              actorId: resolvedUser.id,
+              action: 'user_login',
+              target: resolvedUser.id,
+              details: { provider: 'auth0' },
+              ipAddress,
+              userAgent
+            },
+            tx
+          );
+          return resolvedUser;
+        });
+      } else {
+        dbUser = await UserRepository.resolveAuth0User({
+          sub: userInfo.sub,
+          email: userInfo.email,
+          emailVerified: Boolean(userInfo.email_verified),
+          name: userInfo.name,
+          orgId: organizationId
+        });
+        if (dbUser.disabledAt) {
+          throw new Error('USER_DEACTIVATED: Account has been deactivated');
+        }
+        try {
+          await AuditLogRepository.create({
+            orgId: dbUser.orgId,
+            actorId: dbUser.id,
+            action: 'user_login',
+            target: dbUser.id,
+            details: { provider: 'auth0' },
+            ipAddress,
+            userAgent
+          });
+        } catch (auditErr) {
+          logger.warn('Failed to write user_login audit log for Auth0 callback', {
+            error: auditErr instanceof Error ? auditErr.message : String(auditErr)
+          });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.startsWith('ONBOARDING_REQUIRED') && userInfo.email && userInfo.email_verified) {
+        const onboardingToken = generateOnboardingToken({
+          sub: userInfo.sub,
+          email: userInfo.email,
+          emailVerified: true,
+          name: userInfo.name
+        });
+        const decodedOnboarding = verifyOnboardingToken(onboardingToken) as
+          | (OnboardingTokenPayload & { jti?: string })
+          | null;
+        const onboardingJti =
+          decodedOnboarding?.jti ||
+          crypto.createHash('sha256').update(onboardingToken).digest('hex');
+        const onboardingCsrfToken = createCsrfToken(onboardingJti);
+        const onboardingCookieName = isProd ? '__Host-onboarding_token' : 'onboarding_token';
+        const csrfCookieName = isProd ? '__Host-csrf_token' : 'csrf_token';
+
+        res.setHeader('Set-Cookie', [
+          `${onboardingCookieName}=${onboardingToken}; HttpOnly${secureFlag}; SameSite=Lax; Path=/; Max-Age=900`,
+          `${csrfCookieName}=${onboardingCsrfToken}${secureFlag}; SameSite=Lax; Path=/; Max-Age=900`,
+          `auth0_state=; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0; Path=/`
+        ]);
+        return res.redirect(302, '/?onboarding=required');
+      }
+      if (msg.startsWith('LEGACY_ORG_MIGRATION_REQUIRED')) {
+        return res.redirect(302, '/?error=legacy_org_migration_required');
+      }
+      if (msg.startsWith('USER_DEACTIVATED')) {
+        return res.redirect(302, '/?error=user_deactivated');
+      }
+      throw err;
+    }
 
     // Generate session token bound to authoritative DB userId and role
     const ourTokens = generateTokens({
@@ -190,10 +297,8 @@ async function handleAuth0Callback(req: VercelRequest, res: VercelResponse) {
     });
 
     const csrfToken = createCsrfToken(ourTokens.jti);
-    const isProd = isProductionEnvironment();
     const accessCookieName = isProd ? '__Host-access_token' : 'access_token';
     const csrfCookieName = isProd ? '__Host-csrf_token' : 'csrf_token';
-    const secureFlag = isProd ? '; Secure' : '';
     const accessTokenExpiry = new Date(Date.now() + ONE_HOUR * 1000).toUTCString();
 
     res.setHeader('Set-Cookie', [
@@ -224,6 +329,14 @@ export default async function handler(
   res: VercelResponse
 ) {
   securityHeaders(req, res, () => {});
+
+  let rateLimitPassed = false;
+  callbackRateLimit(req, res, () => {
+    rateLimitPassed = true;
+  });
+  if (!rateLimitPassed) {
+    return;
+  }
   // Get provider from query parameter
   const provider = (req.query.provider as string)?.toLowerCase();
 

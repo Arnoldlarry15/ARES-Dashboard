@@ -13,7 +13,7 @@ echo ""
 echo "📦 Checking Node.js version..."
 NODE_VERSION=$(node --version)
 echo "   Current: $NODE_VERSION"
-REQUIRED_MAJOR=20
+REQUIRED_MAJOR=24
 CURRENT_MAJOR=$(echo $NODE_VERSION | cut -d'.' -f1 | sed 's/v//')
 if [ "$CURRENT_MAJOR" -ne "$REQUIRED_MAJOR" ]; then
     echo "   ⚠️  WARNING: Expected Node.js v$REQUIRED_MAJOR.x, found v$CURRENT_MAJOR"

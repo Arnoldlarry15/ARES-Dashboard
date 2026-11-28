@@ -19,7 +19,7 @@ This release transforms ARES Dashboard into a production-ready, enterprise-grade
 #### Production Hardening
 
 **Identity Providers & Authentication**
-- Added SAML 2.0 support for enterprise SSO (Azure AD, Okta, OneLogin, ADFS)
+- Added SAML 2.0 route stubs (currently **disabled in this release**, returning `501 Not Implemented`)
 - Enhanced OAuth2/OIDC integration with Auth0 examples
 - Multi-factor authentication (MFA) support documentation
 - Comprehensive secrets management guide with rotation procedures
@@ -104,8 +104,8 @@ This release transforms ARES Dashboard into a production-ready, enterprise-grade
 **API Endpoints**
 - `/api/health` - System health and component status
 - `/api/metrics` - Prometheus metrics in exposition format
-- `/api/auth/login/saml` - SAML authentication initiation
-- `/api/auth/callback/saml` - SAML authentication callback
+- `/api/auth/login?provider=saml` - SAML authentication initiation (disabled in this release; returns `501 Not Implemented`)
+- `/api/auth/callback?provider=saml` - SAML authentication callback (disabled in this release; returns `501 Not Implemented`)
 
 **Monitoring Metrics**
 - HTTP request counters and latencies
@@ -130,7 +130,7 @@ This release transforms ARES Dashboard into a production-ready, enterprise-grade
 - See [SECRETS_MANAGEMENT.md](docs/SECRETS_MANAGEMENT.md) for secret rotation
 
 #### Known Issues
-- SAML authentication requires additional configuration for production use
+- SAML 2.0 authentication is disabled in this release (returns `501 Not Implemented`)
 - Metrics endpoint should be protected with authentication in production
 - See [GitHub Issues](https://github.com/Arnoldlarry15/ARES-Dashboard/issues) for current issues
 
@@ -146,14 +146,14 @@ This release transforms ARES Dashboard into a production-ready, enterprise-grade
 - **Audit Logging**: Comprehensive activity tracking for compliance (SOC2, ISO 27001, GDPR)
 - **Team Workspaces**: Collaborative red team operations with member management
 - **Campaign Sharing**: Granular permissions (view, edit, delete, reshare)
-- **Session Management**: JWT-style tokens with automatic refresh and 24-hour expiration
+- **Session Management**: 1-hour `HttpOnly` cookie sessions (plus SPA in-memory renewal via `@auth0/auth0-react`)
 - **Activity Feed**: Real-time monitoring of all team actions
 - **Persistence Backend**: PostgreSQL/Prisma integration for production deployments
 
 #### Security & Compliance
 - **Backend API Protection**: Gemini API key secured in backend environment variables
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection configured
-- **Zero Dependencies Vulnerabilities**: All dependencies audited and secure
+- **Dependency Security**: Automated dependency monitoring via Dependabot and CodeQL
 - **OAuth 2.0/OIDC Ready**: Enterprise identity provider integration support
 - **Automated Security Scanning**: CodeQL and Dependabot integration
 
@@ -192,7 +192,7 @@ This release transforms ARES Dashboard into a production-ready, enterprise-grade
 - ✅ **Enterprise Evaluatable**: Yes
 - ✅ **Pilot Deployment Ready**: Yes
 - ✅ **Enterprise Production Ready**: Yes
-- ✅ **SOC2 Prep Ready**: Yes
+- ✅ **SOC2 Prep Ready**: Technical controls aligned (see [SOC2_COMPLIANCE.md](SOC2_COMPLIANCE.md); requires non-owner DB role and organizational controls)
 - ✅ **Grant and Accelerator Ready**: Yes
 
 ### Changed
@@ -202,7 +202,6 @@ This release transforms ARES Dashboard into a production-ready, enterprise-grade
 
 ### Security
 - All known security considerations documented and mitigated
-- Zero npm vulnerabilities maintained
 - Security scanning and monitoring practices established
 - Comprehensive security documentation for production deployments
 
@@ -277,7 +276,7 @@ This release is fully backward compatible with 0.9.x deployments.
 - Team workspaces with collaborative features
 - Campaign sharing with granular permissions
 - Comprehensive audit logging for compliance
-- Session management with 24-hour expiration
+- Session management with 1-hour `HttpOnly` cookie sessions (plus SPA in-memory renewal)
 - Activity feed for real-time monitoring
 
 ### Enhanced
@@ -292,7 +291,6 @@ This release is fully backward compatible with 0.9.x deployments.
 - Backend API for secure Gemini integration
 - API key protection (never exposed to frontend)
 - Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection)
-- Zero npm vulnerabilities
 
 ## [0.7.0] - 2024-11
 
@@ -450,7 +448,6 @@ SESSION_TIMEOUT_HOURS=24
 ### v0.9.0
 - No known vulnerabilities
 - Local authentication limitations documented (frontend-only auth not suitable for production)
-- All dependencies audited with zero vulnerabilities
 
 ## Previous Security Advisories
 - No previous security advisories

@@ -15,13 +15,21 @@ services:
     environment:
       - NODE_ENV=production
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      # Uncomment and configure for production backend
-      # - DATABASE_URL=postgresql://ares:${DB_PASSWORD}@postgres:5432/ares
-      # - REDIS_URL=redis://redis:6379
-      # - SESSION_SECRET=${SESSION_SECRET}
+      # Uncomment and configure for production backend (see .env.docker.example)
+      # Use a non-owner, non-superuser PostgreSQL role so audit_logs triggers cannot be bypassed
+      # - DATABASE_URL=${DATABASE_URL}
+      # - REDIS_URL=${REDIS_URL}
+      # - REDIS_TOKEN=${REDIS_TOKEN}
       # - JWT_SECRET=${JWT_SECRET}
-      # - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
-      # - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      # - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      # - CSRF_SECRET=${CSRF_SECRET}
+      # - WORKER_SECRET=${WORKER_SECRET}
+      # - CRON_SECRET=${CRON_SECRET}
+      # - AUTH0_DOMAIN=${AUTH0_DOMAIN}
+      # - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID}
+      # - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
+      # - AUTH0_CALLBACK_URL=${AUTH0_CALLBACK_URL}
+      # - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
     # Uncomment for production with database
     # depends_on:
     #   postgres:

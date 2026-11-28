@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { GoogleGenAI, Type } from '@google/genai';
 import prisma from '../../utils/db';
+import { AuditLogRepository } from '../../repositories/auditLogRepository';
 import type { AttackPayload } from '../../types';
 import { buildSingleCandidatePrompt } from '../ai/tacticGeneration';
 import { evaluateCandidateIndependently } from '../ai/candidateEvaluator';
@@ -80,6 +82,12 @@ export class JobDomainError extends Error {
   }
 }
 
+export interface JobAuditContext {
+  orgId: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 export async function createGenerationJob(params: {
   userId: string;
   requestedCount: number;
@@ -95,6 +103,7 @@ export async function createGenerationJob(params: {
   idempotencyKey: string;
   purchaseOrderId?: string;
   isReplacement?: boolean;
+  auditContext?: JobAuditContext;
 }) {
   const isReplacement = Boolean(params.isReplacement);
   const requiredCredits = isReplacement ? 0 : PACKAGE_CREDIT_MAP[params.requestedCount];
@@ -108,6 +117,16 @@ export async function createGenerationJob(params: {
   }
 
   return prisma.$transaction(async (tx) => {
+    if (tx.user?.findFirst) {
+      const activeUser = await tx.user.findFirst({
+        where: { id: params.userId, disabledAt: null },
+        select: { id: true }
+      });
+      if (!activeUser) {
+        throw new JobDomainError('Account has been deactivated', 'USER_DEACTIVATED', 403);
+      }
+    }
+
     const existing = await tx.generationJob.findUnique({
       where: {
         userId_idempotencyKey: {
@@ -174,6 +193,25 @@ export async function createGenerationJob(params: {
           idempotencyKey: `reserve:${params.userId}:${params.idempotencyKey}`
         }
       });
+    }
+
+    if (params.auditContext) {
+      await AuditLogRepository.create(
+        {
+          actorId: params.userId,
+          orgId: params.auditContext.orgId,
+          action: 'generation_job_created',
+          target: job.id,
+          details: {
+            requestedCount: job.requestedCount,
+            selectedFramework: params.selectedFramework,
+            selectedTacticId: params.selectedTacticId
+          },
+          ipAddress: params.auditContext.ipAddress,
+          userAgent: params.auditContext.userAgent
+        },
+        tx
+      );
     }
 
     return job;
@@ -361,54 +399,217 @@ async function releaseJobReservation(
   jobId: string,
   terminalStatus: 'FAILED' | 'INCOMPLETE' | 'CANCELLED',
   errorCode?: string,
-  errorMessage?: string
-): Promise<void> {
+  errorMessage?: string,
+  auditContext?: JobAuditContext,
+  stepUpdates?: {
+    acceptedCount?: number;
+    rejectedCount?: number;
+    retryCount?: number;
+    stepCostUsd?: number;
+  },
+  expectedLeaseId?: string
+): Promise<boolean> {
+  let didTransition = false;
   await prisma.$transaction(async (tx) => {
     // Row-level atomic state transition prevents concurrent duplicate RELEASE attempts
     const transitioned = await tx.generationJob.updateMany({
       where: {
         id: jobId,
-        status: { notIn: ['COMPLETED', 'FAILED', 'INCOMPLETE', 'CANCELLED'] }
+        status: { notIn: ['COMPLETED', 'FAILED', 'INCOMPLETE', 'CANCELLED'] },
+        ...(expectedLeaseId ? { workerLeaseId: expectedLeaseId } : {})
       },
       data: {
         status: terminalStatus,
         errorCode,
         errorMessage,
         workerLeaseId: null,
-        leaseExpiresAt: null
+        leaseExpiresAt: null,
+        ...(stepUpdates?.acceptedCount !== undefined ? { acceptedCount: stepUpdates.acceptedCount } : {}),
+        ...(stepUpdates?.rejectedCount !== undefined ? { rejectedCount: stepUpdates.rejectedCount } : {}),
+        ...(stepUpdates?.retryCount !== undefined ? { retryCount: stepUpdates.retryCount } : {}),
+        ...(stepUpdates?.stepCostUsd && stepUpdates.stepCostUsd > 0
+          ? { totalCostUsd: { increment: stepUpdates.stepCostUsd } }
+          : {})
       }
     });
 
     if (transitioned.count === 0) {
       return;
     }
+    didTransition = true;
 
     const job = await tx.generationJob.findUnique({ where: { id: jobId } });
-    if (!job || job.reservedCredits <= 0) {
-      return;
+    if (job && job.reservedCredits > 0) {
+      await tx.userCreditBalance.updateMany({
+        where: {
+          userId: job.userId,
+          reservedTokens: { gte: job.reservedCredits }
+        },
+        data: {
+          reservedTokens: { decrement: job.reservedCredits },
+          availableTokens: { increment: job.reservedCredits }
+        }
+      });
+
+      await tx.creditTransaction.create({
+        data: {
+          userId: job.userId,
+          amount: job.reservedCredits,
+          type: 'RELEASE',
+          jobId: job.id,
+          idempotencyKey: `release:${job.id}`
+        }
+      });
     }
 
-    await tx.userCreditBalance.updateMany({
+    if (auditContext && terminalStatus === 'CANCELLED' && job) {
+      await AuditLogRepository.create(
+        {
+          actorId: job.userId,
+          orgId: auditContext.orgId,
+          action: 'generation_job_cancelled',
+          target: job.id,
+          ipAddress: auditContext.ipAddress,
+          userAgent: auditContext.userAgent
+        },
+        tx
+      );
+    }
+  });
+  return didTransition;
+}
+
+async function persistDroppedStepCost(jobId: string, stepCostUsd: number): Promise<void> {
+  if (stepCostUsd > 0) {
+    await prisma.generationJob.updateMany({
+      where: { id: jobId },
+      data: { totalCostUsd: { increment: stepCostUsd } }
+    });
+  }
+}
+
+async function resolveCurrentJobStepResult(
+  jobId: string,
+  fallbackStatus: string,
+  fallbackAcceptedCount: number,
+  requestedCount: number
+): Promise<{ status: string; acceptedCount: number; requestedCount: number; hasMoreWork: boolean }> {
+  const current = await prisma.generationJob.findUnique({
+    where: { id: jobId },
+    select: { status: true, acceptedCount: true }
+  });
+  const status = current?.status ?? fallbackStatus;
+  const acceptedCount = current?.acceptedCount ?? fallbackAcceptedCount;
+  return {
+    status,
+    acceptedCount,
+    requestedCount,
+    hasMoreWork: status === 'PENDING' || status === 'RUNNING'
+  };
+}
+
+/**
+ * Cancels all non-terminal (PENDING / RUNNING) generation jobs for a deactivated user
+ * inside an existing Prisma transaction, releasing reserved credits idempotently and
+ * preserving any already-accepted work and accrued totalCostUsd.
+ */
+export async function cancelActiveJobsForUserInTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    userId: string;
+    orgId: string;
+    actorId: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }
+): Promise<{ cancelledJobIds: string[]; releasedCredits: number }> {
+  if (!tx.generationJob?.findMany) {
+    return { cancelledJobIds: [], releasedCredits: 0 };
+  }
+  const activeJobs = await tx.generationJob.findMany({
+    where: {
+      userId: params.userId,
+      status: { in: ['PENDING', 'RUNNING'] }
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  const cancelledJobIds: string[] = [];
+  let releasedCredits = 0;
+
+  for (const job of activeJobs) {
+    const transitioned = await tx.generationJob.updateMany({
       where: {
-        userId: job.userId,
-        reservedTokens: { gte: job.reservedCredits }
+        id: job.id,
+        status: { notIn: ['COMPLETED', 'FAILED', 'INCOMPLETE', 'CANCELLED'] }
       },
       data: {
-        reservedTokens: { decrement: job.reservedCredits },
-        availableTokens: { increment: job.reservedCredits }
+        status: 'CANCELLED',
+        errorCode: 'USER_DEACTIVATED',
+        errorMessage: 'User account deactivated',
+        workerLeaseId: null,
+        leaseExpiresAt: null
       }
     });
 
-    await tx.creditTransaction.create({
-      data: {
-        userId: job.userId,
-        amount: job.reservedCredits,
-        type: 'RELEASE',
-        jobId: job.id,
-        idempotencyKey: `release:${job.id}`
+    if (transitioned.count === 0) {
+      continue;
+    }
+
+    cancelledJobIds.push(job.id);
+
+    if (job.reservedCredits > 0) {
+      const existingRelease = await tx.creditTransaction.findUnique({
+        where: { idempotencyKey: `release:${job.id}` }
+      });
+
+      if (!existingRelease) {
+        await tx.userCreditBalance.updateMany({
+          where: {
+            userId: job.userId,
+            reservedTokens: { gte: job.reservedCredits }
+          },
+          data: {
+            reservedTokens: { decrement: job.reservedCredits },
+            availableTokens: { increment: job.reservedCredits }
+          }
+        });
+
+        await tx.creditTransaction.create({
+          data: {
+            userId: job.userId,
+            amount: job.reservedCredits,
+            type: 'RELEASE',
+            jobId: job.id,
+            idempotencyKey: `release:${job.id}`
+          }
+        });
+
+        releasedCredits += job.reservedCredits;
       }
-    });
-  });
+    }
+
+    await AuditLogRepository.create(
+      {
+        actorId: params.actorId,
+        orgId: params.orgId,
+        action: 'generation_job_cancelled_user_deactivated',
+        target: job.id,
+        details: {
+          userId: params.userId,
+          previousStatus: job.status,
+          reservedCreditsReleased: job.reservedCredits,
+          acceptedCount: job.acceptedCount,
+          totalCostUsd: job.totalCostUsd
+        },
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent
+      },
+      tx
+    );
+  }
+
+  return { cancelledJobIds, releasedCredits };
 }
 
 export async function processGenerationJobStep(params: {
@@ -423,6 +624,7 @@ export async function processGenerationJobStep(params: {
     where: {
       id: params.jobId,
       status: { in: ['PENDING', 'RUNNING'] },
+      user: { disabledAt: null },
       AND: [
         { OR: [{ workerLeaseId: null }, { leaseExpiresAt: { lt: now } }] },
         { OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }] }
@@ -435,9 +637,27 @@ export async function processGenerationJobStep(params: {
     }
   });
 
-  const job = await prisma.generationJob.findUnique({ where: { id: params.jobId } });
+  const job = await prisma.generationJob.findUnique({
+    where: { id: params.jobId },
+    include: { user: { select: { disabledAt: true } } }
+  });
   if (!job) {
     throw new JobDomainError('Generation job not found', 'JOB_NOT_FOUND', 404);
+  }
+
+  if (job.user?.disabledAt != null) {
+    await releaseJobReservation(
+      job.id,
+      'CANCELLED',
+      'USER_DEACTIVATED',
+      'User account deactivated'
+    );
+    return {
+      status: 'CANCELLED',
+      acceptedCount: job.acceptedCount,
+      requestedCount: job.requestedCount,
+      hasMoreWork: false
+    };
   }
 
   if (claimed.count === 0) {
@@ -463,10 +683,40 @@ export async function processGenerationJobStep(params: {
 
       const latestJob = await prisma.generationJob.findUnique({
         where: { id: job.id },
-        select: { status: true, workerLeaseId: true }
+        select: {
+          status: true,
+          workerLeaseId: true,
+          user: { select: { disabledAt: true } }
+        }
       });
       if (!latestJob || latestJob.status === 'CANCELLED' || latestJob.workerLeaseId !== leaseId) {
         break;
+      }
+      if (latestJob.user?.disabledAt != null) {
+        const transitioned = await releaseJobReservation(
+          job.id,
+          'CANCELLED',
+          'USER_DEACTIVATED',
+          'User account deactivated',
+          undefined,
+          {
+            acceptedCount: currentAccepted,
+            rejectedCount: currentRejected,
+            retryCount: currentRetry,
+            stepCostUsd
+          },
+          leaseId
+        );
+        if (!transitioned) {
+          await persistDroppedStepCost(job.id, stepCostUsd);
+          return resolveCurrentJobStepResult(job.id, 'CANCELLED', currentAccepted, job.requestedCount);
+        }
+        return {
+          status: 'CANCELLED',
+          acceptedCount: currentAccepted,
+          requestedCount: job.requestedCount,
+          hasMoreWork: false
+        };
       }
 
       const attemptNumber = currentAccepted + currentRejected + 1;
@@ -497,6 +747,11 @@ export async function processGenerationJobStep(params: {
         remainingBudgetMs,
         'Generator candidate step'
       );
+      const generatorCostUsd = estimateAttemptCostUsd({
+        generatorInputTokens: generated.inputTokens,
+        generatorOutputTokens: generated.outputTokens
+      });
+      stepCostUsd += generatorCostUsd;
 
       const originalityBudgetMs = Math.max(1_000, WORKER_STEP_BUDGET_MS - (Date.now() - startedAt));
       const originality = await runWithAbortTimeout(
@@ -510,16 +765,15 @@ export async function processGenerationJobStep(params: {
         originalityBudgetMs,
         'Originality embedding step'
       );
+      const embeddingCostUsd = estimateAttemptCostUsd({
+        embeddingTokens: originality.embeddingTokens
+      });
+      stepCostUsd += embeddingCostUsd;
 
       if (!originality.passedDeterministic) {
         currentRejected++;
         currentRetry++;
-        const attemptCost = estimateAttemptCostUsd({
-          generatorInputTokens: generated.inputTokens,
-          generatorOutputTokens: generated.outputTokens,
-          embeddingTokens: originality.embeddingTokens
-        });
-        stepCostUsd += attemptCost;
+        const attemptCost = generatorCostUsd + embeddingCostUsd;
         await prisma.candidateAttempt.create({
           data: {
             jobId: job.id,
@@ -562,14 +816,12 @@ export async function processGenerationJobStep(params: {
         'Independent evaluator step'
       );
 
-      const attemptCost = estimateAttemptCostUsd({
-        generatorInputTokens: generated.inputTokens,
-        generatorOutputTokens: generated.outputTokens,
+      const evaluatorCostUsd = estimateAttemptCostUsd({
         evaluatorInputTokens: evaluation.inputTokens,
-        evaluatorOutputTokens: evaluation.outputTokens,
-        embeddingTokens: originality.embeddingTokens
+        evaluatorOutputTokens: evaluation.outputTokens
       });
-      stepCostUsd += attemptCost;
+      stepCostUsd += evaluatorCostUsd;
+      const attemptCost = generatorCostUsd + embeddingCostUsd + evaluatorCostUsd;
 
       if (evaluation.decision !== 'ACCEPT') {
         currentRejected++;
@@ -675,6 +927,33 @@ export async function processGenerationJobStep(params: {
       }
     }
 
+    if (currentAccepted < job.requestedCount && currentRetry >= job.maxRetries) {
+      const transitioned = await releaseJobReservation(
+        job.id,
+        'INCOMPLETE',
+        'MAX_RETRIES_EXCEEDED',
+        'Reached retry limit before fulfilling full package; credits released.',
+        undefined,
+        {
+          acceptedCount: currentAccepted,
+          rejectedCount: currentRejected,
+          retryCount: currentRetry,
+          stepCostUsd
+        },
+        leaseId
+      );
+      if (!transitioned) {
+        await persistDroppedStepCost(job.id, stepCostUsd);
+        return resolveCurrentJobStepResult(job.id, 'CONFLICT', currentAccepted, job.requestedCount);
+      }
+      return {
+        status: 'INCOMPLETE',
+        acceptedCount: currentAccepted,
+        requestedCount: job.requestedCount,
+        hasMoreWork: false
+      };
+    }
+
     const stepAccepted = currentAccepted > job.acceptedCount;
     const backoffMs = Math.min(60_000, 1000 * Math.pow(2, Math.min(currentRetry, 6)));
     const leaseRelease = await prisma.generationJob.updateMany({
@@ -692,37 +971,13 @@ export async function processGenerationJobStep(params: {
     });
 
     if (leaseRelease.count === 0) {
-      return {
-        status: 'CONFLICT',
-        acceptedCount: job.acceptedCount,
-        requestedCount: job.requestedCount,
-        hasMoreWork: false
-      };
+      await persistDroppedStepCost(job.id, stepCostUsd);
+      return resolveCurrentJobStepResult(job.id, 'CONFLICT', currentAccepted, job.requestedCount);
     }
 
     if (currentAccepted >= job.requestedCount) {
       await finalizeCompletePackage(job.id);
-      return {
-        status: 'COMPLETED',
-        acceptedCount: currentAccepted,
-        requestedCount: job.requestedCount,
-        hasMoreWork: false
-      };
-    }
-
-    if (currentRetry >= job.maxRetries) {
-      await releaseJobReservation(
-        job.id,
-        'INCOMPLETE',
-        'MAX_RETRIES_EXCEEDED',
-        'Reached retry limit before fulfilling full package; credits released.'
-      );
-      return {
-        status: 'INCOMPLETE',
-        acceptedCount: currentAccepted,
-        requestedCount: job.requestedCount,
-        hasMoreWork: false
-      };
+      return resolveCurrentJobStepResult(job.id, 'COMPLETED', currentAccepted, job.requestedCount);
     }
 
     return {
@@ -736,12 +991,24 @@ export async function processGenerationJobStep(params: {
     const backoffMs = Math.min(60_000, 1000 * Math.pow(2, Math.min(nextRetryCount, 6)));
 
     if (nextRetryCount >= job.maxRetries) {
-      await releaseJobReservation(
+      const transitioned = await releaseJobReservation(
         job.id,
         'FAILED',
         'PROVIDER_MAX_RETRIES_EXCEEDED',
-        err instanceof Error ? err.message : 'Worker step failed after exhausting retries'
+        err instanceof Error ? err.message : 'Worker step failed after exhausting retries',
+        undefined,
+        {
+          acceptedCount: currentAccepted,
+          rejectedCount: currentRejected,
+          retryCount: nextRetryCount,
+          stepCostUsd
+        },
+        leaseId
       );
+      if (!transitioned) {
+        await persistDroppedStepCost(job.id, stepCostUsd);
+        return resolveCurrentJobStepResult(job.id, 'FAILED', currentAccepted, job.requestedCount);
+      }
       return {
         status: 'FAILED',
         acceptedCount: currentAccepted,
@@ -750,18 +1017,24 @@ export async function processGenerationJobStep(params: {
       };
     }
 
-    await prisma.generationJob.updateMany({
+    const errorUpdate = await prisma.generationJob.updateMany({
       where: { id: job.id, workerLeaseId: leaseId },
       data: {
         acceptedCount: currentAccepted,
         rejectedCount: currentRejected,
         retryCount: nextRetryCount,
+        ...(stepCostUsd > 0 ? { totalCostUsd: { increment: stepCostUsd } } : {}),
         nextRetryAt: new Date(Date.now() + backoffMs),
         errorMessage: err instanceof Error ? err.message : 'Temporary worker step error',
         workerLeaseId: null,
         leaseExpiresAt: null
       }
     });
+
+    if (errorUpdate.count === 0) {
+      await persistDroppedStepCost(job.id, stepCostUsd);
+      return resolveCurrentJobStepResult(job.id, 'CONFLICT', currentAccepted, job.requestedCount);
+    }
 
     return {
       status: 'RUNNING',
@@ -772,7 +1045,11 @@ export async function processGenerationJobStep(params: {
   }
 }
 
-export async function cancelGenerationJob(jobId: string, userId: string): Promise<void> {
+export async function cancelGenerationJob(
+  jobId: string,
+  userId: string,
+  auditContext?: JobAuditContext
+): Promise<void> {
   const job = await prisma.generationJob.findUnique({ where: { id: jobId } });
   if (!job) {
     throw new JobDomainError('Generation job not found', 'JOB_NOT_FOUND', 404);
@@ -783,7 +1060,7 @@ export async function cancelGenerationJob(jobId: string, userId: string): Promis
   if (job.status === 'COMPLETED') {
     throw new JobDomainError('Completed jobs cannot be cancelled', 'JOB_ALREADY_COMPLETED', 409);
   }
-  await releaseJobReservation(job.id, 'CANCELLED', 'USER_CANCELLED', 'Cancelled by customer');
+  await releaseJobReservation(job.id, 'CANCELLED', 'USER_CANCELLED', 'Cancelled by customer', auditContext);
 }
 
 export async function getSanitizedJobStatus(jobId: string, userId: string) {
@@ -867,11 +1144,13 @@ export async function recoverStalledJobs(
   const eligible = await prisma.generationJob.findMany({
     where: {
       status: { in: ['RUNNING', 'PENDING'] },
+      user: { disabledAt: null },
       AND: [
         { OR: [{ leaseExpiresAt: { lt: now } }, { workerLeaseId: null }] },
         { OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }] }
       ]
     },
+    include: { user: { select: { disabledAt: true } } },
     orderBy: { createdAt: 'asc' },
     take: maxJobs
   });
@@ -883,6 +1162,16 @@ export async function recoverStalledJobs(
   for (const job of eligible) {
     if (Date.now() - startedAt > budgetMs) {
       break;
+    }
+
+    if (job.user?.disabledAt != null) {
+      await releaseJobReservation(
+        job.id,
+        'CANCELLED',
+        'USER_DEACTIVATED',
+        'User account deactivated'
+      );
+      continue;
     }
 
     if (job.retryCount >= job.maxRetries) {
@@ -920,6 +1209,34 @@ export async function recoverStalledJobs(
     }
   }
 
+  // Dedicated pass for deactivated users' jobs (even if nextRetryAt > now), without consuming active recovery maxJobs slots
+  if (Date.now() - startedAt <= budgetMs) {
+    const deactivatedJobs = await prisma.generationJob.findMany({
+      where: {
+        status: { in: ['RUNNING', 'PENDING'] },
+        user: { disabledAt: { not: null } }
+      },
+      include: { user: { select: { disabledAt: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: maxJobs
+    });
+
+    for (const job of deactivatedJobs ?? []) {
+      if (Date.now() - startedAt > budgetMs) {
+        break;
+      }
+      if (job.user?.disabledAt == null) {
+        continue;
+      }
+      await releaseJobReservation(
+        job.id,
+        'CANCELLED',
+        'USER_DEACTIVATED',
+        'User account deactivated'
+      );
+    }
+  }
+
   return { recovered, resumedJobIds, finalizedIncomplete };
 }
 
@@ -928,6 +1245,7 @@ export async function reportDeliveredDuplicate(params: {
   vaultItemId: string;
   reason: string;
   geminiApiKey: string;
+  auditContext?: JobAuditContext;
 }) {
   const vaultItem = await prisma.customerPromptVault.findUnique({
     where: { id: params.vaultItemId },
@@ -989,21 +1307,64 @@ export async function reportDeliveredDuplicate(params: {
   }
 
   if (!confirmed) {
-    const report = await prisma.duplicateReport.create({
-      data: {
-        userId: params.userId,
-        vaultItemId: vaultItem.id,
-        reason: params.reason,
-        status: 'REJECTED',
-        investigationResult: { matchCount: otherMatchesCount, evaluatorConfirmed },
-        resolvedAt: new Date()
+    const report = await prisma.$transaction(async (tx) => {
+      if (tx.user?.findFirst) {
+        const activeUser = await tx.user.findFirst({
+          where: { id: params.userId, disabledAt: null },
+          select: { id: true }
+        });
+        if (!activeUser) {
+          throw new JobDomainError('Account has been deactivated', 'USER_DEACTIVATED', 403);
+        }
       }
+
+      const createdReport = await tx.duplicateReport.create({
+        data: {
+          userId: params.userId,
+          vaultItemId: vaultItem.id,
+          reason: params.reason,
+          status: 'REJECTED',
+          investigationResult: { matchCount: otherMatchesCount, evaluatorConfirmed },
+          resolvedAt: new Date()
+        }
+      });
+
+      if (params.auditContext) {
+        await AuditLogRepository.create(
+          {
+            orgId: params.auditContext.orgId,
+            actorId: params.userId,
+            action: 'prompt_vault_duplicate_reported',
+            target: vaultItem.id,
+            details: {
+              reasonLength: params.reason.length,
+              confirmed: false,
+              reportId: createdReport.id
+            },
+            ipAddress: params.auditContext.ipAddress,
+            userAgent: params.auditContext.userAgent
+          },
+          tx
+        );
+      }
+
+      return createdReport;
     });
     return { confirmed: false, reportId: report.id, replacementJobId: null };
   }
 
   // Atomic idempotent claim on vaultItem so concurrent duplicate reports cannot grant 2 replacements
   return prisma.$transaction(async (tx) => {
+    if (tx.user?.findFirst) {
+      const activeUser = await tx.user.findFirst({
+        where: { id: params.userId, disabledAt: null },
+        select: { id: true }
+      });
+      if (!activeUser) {
+        throw new JobDomainError('Account has been deactivated', 'USER_DEACTIVATED', 403);
+      }
+    }
+
     const claimed = await tx.customerPromptVault.updateMany({
       where: {
         id: vaultItem.id,
@@ -1056,6 +1417,26 @@ export async function reportDeliveredDuplicate(params: {
         resolvedAt: new Date()
       }
     });
+
+    if (params.auditContext) {
+      await AuditLogRepository.create(
+        {
+          orgId: params.auditContext.orgId,
+          actorId: params.userId,
+          action: 'prompt_vault_duplicate_reported',
+          target: vaultItem.id,
+          details: {
+            reasonLength: params.reason.length,
+            confirmed: true,
+            reportId: report.id,
+            replacementJobId: replacementJob.id
+          },
+          ipAddress: params.auditContext.ipAddress,
+          userAgent: params.auditContext.userAgent
+        },
+        tx
+      );
+    }
 
     return { confirmed: true, reportId: report.id, replacementJobId: replacementJob.id };
   });

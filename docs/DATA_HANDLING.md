@@ -7,11 +7,10 @@ This document describes how ARES Dashboard handles, stores, processes, and prote
 ## Executive Summary
 
 **Key Points:**
-- ARES stores data **only in browser localStorage** for local development/testing (client-side)
-- **No server-side data persistence** in default configuration
-- API keys and secrets stored **only in secure backend** environment variables
-- Production deployments should use **backend database** with encryption
-- **Configurable data retention** policies for enterprise deployments
+- **Primary Persistence**: ARES stores campaigns, users, organizations, generation jobs, and immutable audit logs in **PostgreSQL via Prisma ORM** (`prisma/schema.prisma`)
+- **Offline / Demo Fallback**: Browser `localStorage` is used only for UI preferences and offline/demo fallback when backend persistence is unavailable
+- **Server-Side Secrets**: API keys and secrets are stored **only in backend environment variables** (never exposed to the browser)
+- **Authentication**: Production deployments use **Auth0** (OAuth2/OIDC); SAML 2.0 is disabled in this release (`501 Not Implemented`)
 - **No training on customer data** - ARES never uses your data to train models
 - **Privacy by design** - minimal data collection and strong default settings
 
@@ -22,96 +21,86 @@ ARES handles several types of data with different sensitivity levels:
 ### 1. Campaign Data
 **Sensitivity**: Confidential  
 **Contains**: Attack manifests, tactics, vectors, payloads, target information  
-**Storage**: Browser localStorage (demo) or backend database (production)  
-**Retention**: User-controlled (demo) or configurable (production)
+**Storage**: PostgreSQL (`campaigns` table via Prisma) or browser `localStorage` (offline/demo fallback)  
+**Retention**: User-controlled (persisted until deleted via `/api/campaigns` or cleared in fallback mode)
 
 ### 2. User Data
 **Sensitivity**: Confidential  
-**Contains**: Email, name, role, authentication tokens  
-**Storage**: Browser localStorage (demo) or identity provider (production)  
-**Retention**: Session-based (24 hours) or per identity provider policy
+**Contains**: Email, name, role, `orgId`, `auth0Sub`, `disabledAt`  
+**Storage**: PostgreSQL (`users` table) + Auth0 (when configured)  
+**Retention**: 1-hour `HttpOnly` cookie session (plus SPA in-memory renewal); user records soft-deleted via `users.disabledAt`
 
 ### 3. Audit Logs
 **Sensitivity**: Confidential  
-**Contains**: User actions, timestamps, IP addresses, resource access  
-**Storage**: Browser localStorage (demo) or backend database (production)  
-**Retention**: 90 days (default) or configurable
+**Contains**: `orgId`, `actorId`, `action`, `target`, `details`, `ipAddress`, `userAgent`, `timestamp`  
+**Storage**: PostgreSQL (`audit_logs` table, append-only via database triggers) or browser `localStorage` (demo fallback)  
+**Retention**: Append-only in PostgreSQL (database triggers block `UPDATE`, `DELETE`, and `TRUNCATE`; archive/export per organizational policy)
 
 ### 4. System Metadata
 **Sensitivity**: Internal  
 **Contains**: Theme preferences, UI state, last access times  
-**Storage**: Browser localStorage  
+**Storage**: Browser `localStorage`  
 **Retention**: Indefinite until user clears
 
 ### 5. AI Prompts and Responses
 **Sensitivity**: Confidential  
 **Contains**: Tactic descriptions sent to AI, generated payloads  
-**Storage**: Temporary (in-memory during generation), not persisted by default  
-**Retention**: Not stored unless explicitly saved to campaign
+**Storage**: Temporary during synchronous `/api/generate-tactic` calls, or persisted in `generation_jobs`, `candidate_attempts`, `global_prompt_registry`, and `customer_prompt_vault` when using persistent generation jobs  
+**Retention**: Persisted per job/vault lifecycle or until deleted
 
 ## Data Storage by Deployment Mode
 
-### Demo Mode (Default)
+### Offline / Demo Fallback Mode
 
-**Storage Location**: Browser localStorage only
+**Storage Location**: Browser `localStorage` only
 
 **What's Stored Locally**:
-- User session (email, name, role, token)
-- Saved campaigns (attack manifests)
-- Audit logs (user activity)
 - UI preferences (theme, shortcuts)
 - Progress state (current campaign)
+- Demo campaigns and fallback activity data when backend APIs are unavailable
 
 **What's NOT Stored**:
-- Nothing persists on servers
-- No database
-- No server-side session storage
+- Nothing persists on servers in offline/demo fallback mode
+- No database writes
 - No centralized audit logs
 
 **Data Persistence**:
-- Data persists until browser localStorage is cleared
-- Session expires after 24 hours of inactivity
+- Data persists until browser `localStorage` is cleared
 - Users can delete campaigns manually
-- Clearing browser data removes all ARES data
+- Clearing browser data removes local fallback data
 
 **Security Characteristics**:
 - Data isolated per browser/device
-- No network transmission of campaign data (except AI generation)
-- Vulnerable to XSS attacks (if vulnerability exists)
-- No encryption at rest by default
+- Vulnerable to XSS attacks (if a vulnerability exists)
+- No encryption at rest in `localStorage`
 - Subject to browser storage limits (~5-10MB)
 
-### Production Mode (Recommended)
+### Production Mode (PostgreSQL + Prisma)
 
-**Storage Location**: Backend database + identity provider
+**Storage Location**: PostgreSQL database + Auth0 (OAuth2/OIDC)
 
 **What's Stored on Backend**:
-- User profiles (managed by identity provider)
-- Campaigns and attack manifests
-- Audit logs (immutable, tamper-evident)
-- Team workspace data
-- Sharing permissions
-- Configuration and settings
+- User profiles, roles, and organization memberships (`users`, `organizations`, `organization_invitations`)
+- Campaigns and attack manifests (`campaigns`)
+- Audit logs (`audit_logs` — immutable, append-only via PostgreSQL triggers)
+- Generation jobs, credit ledger, and prompt vault (`generation_jobs`, `candidate_attempts`, `user_credit_balances`, `credit_transactions`, `global_prompt_registry`, `customer_prompt_vault`)
 
 **What's NOT Stored**:
-- Plain-text passwords (OAuth only)
-- API keys in database (environment variables only)
-- Unencrypted sensitive data
+- Plain-text passwords (Auth0 OAuth2/OIDC authentication)
+- API keys in database (backend environment variables only)
 - AI training data
 
 **Data Persistence**:
-- Configurable retention policies per data type
-- Automatic expiration and deletion
-- Secure data archival options
-- Legal hold capabilities
+- Durable PostgreSQL persistence managed via Prisma migrations (`npx prisma migrate deploy`)
+- User offboarding via `DELETE /api/users` soft-delete (`users.disabledAt`), which preserves `audit_logs` integrity, revokes pending invitations, and cancels active generation jobs (releasing reserved credits)
+- Note: Automatic time-based expiration, automated 30-day purge, and legal hold workflows are **not** implemented in the application
 
 **Security Characteristics**:
-- Encryption at rest (database-level)
-- Encryption in transit (TLS 1.2+)
-- Access controls and RBAC
-- Audit logging of data access
-- Backup and disaster recovery
-- Secure deletion (NIST 800-88 guidelines)
+- Encryption at rest and key management (KMS) provided by your **PostgreSQL hosting provider / cloud infrastructure** (not implemented inside ARES application code)
+- Encryption in transit (TLS 1.2+ / HTTPS)
+- Application-level `orgId` tenant isolation and server-side RBAC
+- Append-only audit logging (`audit_logs_immutable` and `audit_logs_no_truncate` triggers when running with a non-owner, non-superuser DB role)
+- Infrastructure-level backup and disaster recovery
 
 ## Data Flow
 
@@ -176,64 +165,26 @@ Browser localStorage                  Backend Audit Database
     ↓                                      ↓
 Temporary storage                     Immutable append-only log
                                            ↓
-                                      Cryptographic signing
+                                      DB triggers block UPDATE/DELETE/TRUNCATE
 ```
 
-## Data Retention Policies
+## Data Retention & Deletion
 
-### Default Retention (Recommended)
+### Retention Behavior
 
-| Data Type | Retention Period | Rationale |
-|-----------|------------------|-----------|
-| Campaigns | User-controlled | Red team scenarios may be reused |
-| Audit Logs | 90 days | Compliance requirement (SOC 2, ISO 27001) |
-| User Sessions | 24 hours | Security best practice |
-| AI Prompts | Not stored | Privacy by design |
-| Deleted Items | 30 days (recoverable) | Accidental deletion protection |
-| Exported Reports | Not stored | User responsibility |
-
-### Configurable Retention (Production)
-
-Organizations can configure retention via environment variables:
-
-```bash
-# Audit log retention (days)
-AUDIT_LOG_RETENTION_DAYS=90
-
-# Campaign retention (days, 0 = indefinite)
-CAMPAIGN_RETENTION_DAYS=0
-
-# Soft delete recovery period (days)
-SOFT_DELETE_RECOVERY_DAYS=30
-
-# Session timeout (hours)
-SESSION_TIMEOUT_HOURS=24
-
-# Automatic archive threshold (days)
-AUTO_ARCHIVE_AFTER_DAYS=180
-```
-
-### Legal Hold
-
-When legal hold is enabled:
-- Normal retention policies suspended
-- Data preserved indefinitely until hold lifted
-- Audit trail of hold application and removal
-- Restricted access during hold period
+| Data Type | Storage | Deletion / Lifecycle Behavior |
+|-----------|---------|-------------------------------|
+| Campaigns | PostgreSQL (`campaigns`) | User/admin-controlled; deleted immediately via `DELETE /api/campaigns` |
+| Audit Logs | PostgreSQL (`audit_logs`) | Append-only; database triggers block `UPDATE`, `DELETE`, and `TRUNCATE` |
+| User Sessions | `HttpOnly` cookie / SPA memory | 1-hour JWT cookie expiration (`JWT_SECRET`) |
+| User Accounts | PostgreSQL (`users`) | Soft-deleted via `users.disabledAt` (`DELETE /api/users`) to preserve `audit_logs` integrity |
+| Generation Jobs & Vault | PostgreSQL | Persisted per job lifecycle; active jobs cancelled and credits released on user deactivation |
 
 ### Data Deletion
 
-**Soft Delete** (default):
-- Data marked as deleted but retained for recovery period
-- Not visible to users
-- Automatically purged after recovery period
-- Can be recovered by admins
-
-**Hard Delete** (after recovery period or on request):
-- Data permanently removed from database
-- Secure deletion per NIST 800-88 guidelines
-- Audit log entry created (non-deletable)
-- Cannot be recovered
+- **Campaigns**: Deleting a campaign removes the record from PostgreSQL and appends an `audit_logs` entry.
+- **User Accounts (`DELETE /api/users`)**: Sets `users.disabledAt` (soft delete), revokes pending invitations created by the user, cancels active generation jobs (releasing reserved credits), and records a `user_deactivated` audit event. Hard-deleting `users` rows is blocked by `ON DELETE RESTRICT` on `audit_logs.actorId`.
+- **Audit Logs**: Immutable at the PostgreSQL layer via `audit_logs_immutable` and `audit_logs_no_truncate` triggers. Any regulatory archival or erasure of historical audit records must be performed through documented, privileged administrative procedures outside the runtime application role.
 
 ## Privacy by Design
 
@@ -241,43 +192,25 @@ When legal hold is enabled:
 
 ARES collects only essential data:
 
-- **User Info**: Email, name, role (minimum for functionality)
+- **User Info**: Email, name, role, `orgId` (minimum for functionality)
 - **Campaigns**: Only user-created attack manifests
 - **Audit Logs**: Only necessary for compliance and security
 - **No Analytics**: No usage tracking or telemetry by default
-- **No Cookies**: Session management via localStorage or secure cookies (production)
-
-### Default Settings
-
-Privacy-protective defaults:
-
-```bash
-# Prompt storage disabled by default
-PROMPT_STORAGE=false
-
-# Logging requires explicit enablement
-LOGGING_ENABLED=false
-
-# No data sharing with third parties
-DATA_SHARING=false
-
-# Analytics and telemetry disabled
-TELEMETRY_ENABLED=false
-
-# Minimal data collection
-COLLECT_USAGE_DATA=false
-```
+- **Session Cookies**: 1-hour `HttpOnly` session cookies (plus CSRF cookie for cookie-authenticated mutations)
 
 ### User Control
 
 Users can:
 - Export all their data (JSON format)
 - Delete their campaigns
-- Clear their audit logs (subject to retention policies)
 - Revoke access tokens
 - Request account deletion (production mode)
 
+Note: Production audit logs (`audit_logs`) are append-only and immutable (enforced by database triggers blocking `UPDATE`, `DELETE`, and `TRUNCATE`); they are retained per the configured retention policy and cannot be cleared or deleted by users.
+
 ## Compliance Alignment
+
+> **Non-Certification Qualification:** The sections below describe technical controls and architectural alignment only. ARES is **not** GDPR-certified, SOC 2 Type II-certified, or ISO 27001-certified out of the box; formal compliance depends on your organization's governance, legal agreements, operational controls, and independent audit.
 
 ### GDPR (General Data Protection Regulation)
 
@@ -343,36 +276,27 @@ Users can:
 
 ### Encryption at Rest
 
-**Demo Mode**: No encryption (localStorage is plain text)
+**Demo / Fallback Mode**: No encryption (`localStorage` is plain text in the browser).
 
-**Production Mode** (recommended configuration):
-- Database encryption (AES-256)
-- Encrypted backups
-- Encrypted audit logs
-- Key management (AWS KMS, Azure Key Vault, GCP KMS)
+**Production Mode (Infrastructure Responsibility)**:
+Encryption at rest for PostgreSQL data, backups, and KMS key management are **not** implemented in ARES application code; they must be configured on your **PostgreSQL hosting provider and cloud infrastructure** (e.g., managed PostgreSQL disk/volume encryption and cloud KMS).
 
 ### Encryption in Transit
 
-**All Modes**:
-- ✅ TLS 1.2 or higher required
-- ✅ HTTPS enforced for all connections
-- ✅ Secure WebSocket connections (wss://)
-- ✅ Certificate validation
+**Production Deployments**:
+- ✅ TLS 1.2 or higher / HTTPS enforced at the hosting/reverse-proxy layer
+- ✅ Encrypted PostgreSQL connections (`DATABASE_URL` with SSL/TLS)
 - ✅ No mixed content
 
 ### Key Management
 
-**API Keys** (e.g., Gemini API key):
-- Stored in environment variables (not in code)
+**API Keys & Secrets** (e.g., `GEMINI_API_KEY`, `JWT_SECRET`, `CSRF_SECRET`, `AUTH0_CLIENT_SECRET`):
+- Stored in backend environment variables (not in code or database)
 - Never transmitted to browser
-- Rotated regularly (recommended: quarterly)
-- Revoked immediately if compromised
+- Rotated regularly per your organization's secrets management policy
 
-**Encryption Keys** (production):
-- Managed by cloud provider KMS
-- Automatic rotation
-- Audit logging of key usage
-- Separate keys for different environments (dev, staging, prod)
+**Database Encryption Keys**:
+- Managed by your PostgreSQL hosting provider / cloud KMS infrastructure
 
 ## Data Breach Response
 
@@ -425,18 +349,18 @@ Potential indicators of data breach:
 - ❌ Track users across websites
 
 ### We DO:
-- ✅ Use Google Gemini API for AI payload generation (via secure backend)
-- ✅ Store data with cloud hosting provider (Vercel, or your choice)
-- ✅ Share data with identity provider (Google, Microsoft, Okta - production mode)
-- ✅ Share data with your IT administrators (as configured)
+- ✅ Use Google Gemini API (or configured OpenAI / Anthropic / local LLM provider) for AI payload generation via the secure backend
+- ✅ Store data with your configured PostgreSQL and cloud hosting provider (e.g., Vercel)
+- ✅ Authenticate users via Auth0 (OAuth2/OIDC) when configured (SAML 2.0 is disabled in this release and returns `501 Not Implemented`)
+- ✅ Share data with your organization's administrators as configured
 
 ### Third-Party Services
 
 | Service | Purpose | Data Shared | Privacy Policy |
 |---------|---------|-------------|----------------|
 | Vercel | Hosting | Application logs, metadata | [Vercel Privacy](https://vercel.com/legal/privacy-policy) |
-| Google Gemini | AI generation | Tactic descriptions (ephemeral) | [Google AI Privacy](https://ai.google.dev/gemini-api/terms) |
-| OAuth Provider | Authentication | Email, name (per OAuth scope) | Per provider |
+| Google Gemini | AI generation | Tactic descriptions | [Google AI Privacy](https://ai.google.dev/gemini-api/terms) |
+| Auth0 | OAuth2/OIDC Authentication | Email, name, `sub` (per OIDC scope) | [Okta/Auth0 Privacy](https://www.okta.com/privacy-policy/) |
 
 **Note**: In self-hosted deployments, you control all third-party integrations.
 
@@ -446,30 +370,21 @@ Potential indicators of data breach:
 
 **Export Your Data**:
 1. Log in to ARES Dashboard
-2. Navigate to Settings > Data Export
-3. Click "Export All My Data"
-4. Receive JSON file with all your data
+2. Export campaigns as JSON from the dashboard or via `/api/campaigns`
+3. Admins can export organization audit logs via `/api/audit-logs`
 
-**Delete Your Data** (Demo Mode):
-1. Clear browser localStorage
+**Delete Your Data** (Demo / Fallback Mode):
+1. Clear browser `localStorage`
 2. Or use browser settings to clear site data
 
-**Delete Your Data** (Production Mode):
-1. Contact your organization's ARES administrator
-2. Or submit request to data protection officer
-3. Data will be deleted within 30 days
+**Deactivate Your Account / Delete Campaigns** (Production Mode):
+1. Delete campaigns directly via the UI or `DELETE /api/campaigns`
+2. Contact your organization's ARES administrator to deactivate your account via `DELETE /api/users` (which sets `users.disabledAt`, revokes pending invitations, and cancels active generation jobs while preserving immutable `audit_logs` integrity)
 
 **Correct Your Data**:
 - Edit campaigns directly in the UI
-- Update profile via identity provider
-- Contact administrator for corrections
-
-### Response Timeline
-
-- **Access Requests**: Within 7 days
-- **Deletion Requests**: Within 30 days
-- **Correction Requests**: Immediate (self-service) or within 7 days
-- **Objection Requests**: Within 14 days
+- Update profile via Auth0
+- Contact administrator for role or organization changes
 
 ## Data Portability
 
@@ -542,40 +457,14 @@ For international data transfers, we rely on:
 
 ## Configuration Reference
 
-### Environment Variables for Data Handling
+Refer to `.env.example` for supported backend environment variables (`DATABASE_URL`, `AUTH0_*`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CSRF_SECRET`, `ALLOWED_ORIGINS`, `APP_URL`, `TRUST_PROXY`, `GEMINI_API_KEY`, etc.). Retention, archival, legal hold, and database encryption-at-rest/KMS are managed at the PostgreSQL/cloud infrastructure layer rather than via application environment variables.
 
-```bash
-# Data Retention
-AUDIT_LOG_RETENTION_DAYS=90
-CAMPAIGN_RETENTION_DAYS=0  # 0 = indefinite
-SOFT_DELETE_RECOVERY_DAYS=30
-SESSION_TIMEOUT_HOURS=24
-
-# Privacy Controls
-PROMPT_STORAGE=false  # Don't store AI prompts
-LOGGING_ENABLED=false  # Explicit opt-in for logging
-COLLECT_USAGE_DATA=false  # No analytics by default
-TELEMETRY_ENABLED=false  # No telemetry
-
-# Encryption
-ENCRYPTION_AT_REST=true  # Database encryption
-ENCRYPTION_KEY_ID=kms-key-id  # KMS key for encryption
-
-# Data Processing
-AUTO_ARCHIVE_AFTER_DAYS=180  # Archive old campaigns
-ENABLE_LEGAL_HOLD=false  # Legal hold capability
-
-# Compliance
-GDPR_MODE=true  # Enable GDPR features
-CCPA_MODE=true  # Enable CCPA features
-HIPAA_MODE=false  # HIPAA mode (requires BAA)
-```
+> **Compliance & Certification Note:** ARES provides technical controls (such as RBAC, `orgId` tenant scoping, append-only audit logging, and JSON data export) that can support an organization's compliance program, **but ARES itself is not GDPR-certified, SOC 2 Type II-certified, or ISO 27001-certified**. Formal compliance requires organizational policies, legal agreements (such as DPAs/BAAs), infrastructure hardening, and independent third-party audits.
 
 ## Additional Resources
 
-- **Security**: [SECURITY.md](SECURITY.md) - Security policy and vulnerability reporting
-- **Privacy**: [PRIVACY.md](PRIVACY.md) - Privacy policy for users
-- **Compliance**: [COMPLIANCE.md](COMPLIANCE.md) - Compliance framework details
+- **Security**: [SECURITY.md](../SECURITY.md) - Security policy and vulnerability reporting
+- **SOC 2 Alignment**: [SOC2_COMPLIANCE.md](SOC2_COMPLIANCE.md) - Technical control alignment guidance
 - **Threat Model**: [THREAT_MODEL.md](THREAT_MODEL.md) - Security threat analysis
 - **Responsible Use**: [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical guidelines
 

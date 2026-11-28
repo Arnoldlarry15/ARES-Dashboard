@@ -224,11 +224,11 @@ describe('P0 Security Remediation & Worker Durability', () => {
     expect(resNoCsrf.status).toHaveBeenCalledWith(403);
 
     // Audit log POST ignores spoofed actorId and records authenticated user
-    const analyst = generateTokens({ userId: 'analyst-99', email: 'a99@ares.app', role: 'analyst' });
+    const analyst = generateTokens({ userId: 'analyst-99', email: 'a99@ares.app', role: 'analyst', organizationId: 'org1' });
     const reqAudit: any = {
       method: 'POST',
       headers: { authorization: `Bearer ${analyst.accessToken}` },
-      body: { actorId: 'spoofed-admin', action: 'export', target: 'manifest-1' },
+      body: { actorId: 'spoofed-admin', action: 'ui_export', target: 'manifest-1' },
       url: '/api/audit-logs'
     };
     const resAudit = createMockRes();

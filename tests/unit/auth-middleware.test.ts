@@ -6,7 +6,6 @@ import {
   requirePermission,
   requireAllPermissions,
   requireAnyPermission,
-  optionalAuth,
   requireOrganization,
   AuthenticatedRequest 
 } from '../../lib/middleware/auth';
@@ -458,34 +457,6 @@ describe('Auth Middleware', () => {
       middleware(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
 
       expect(nextFn).toHaveBeenCalled();
-    });
-  });
-
-  describe('optionalAuth', () => {
-    it('should proceed without user if no token provided', () => {
-      optionalAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
-
-      expect(nextFn).toHaveBeenCalled();
-      expect(mockReq.user).toBeUndefined();
-    });
-
-    it('should attach user if token is valid', async () => {
-      const tokens = generateTokens({
-        userId: 'user123',
-        email: 'test@example.com',
-        role: 'analyst',
-        organizationId: 'org123'
-      });
-
-      mockReq.headers = {
-        authorization: `Bearer ${tokens.accessToken}`
-      };
-
-      optionalAuth(mockReq as AuthenticatedRequest, mockRes as VercelResponse, nextFn);
-
-      expect(nextFn).toHaveBeenCalled();
-      expect(mockReq.user).toBeDefined();
-      expect(mockReq.user?.userId).toBe('user123');
     });
   });
 

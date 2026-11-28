@@ -6,16 +6,16 @@ ARES Dashboard supports enterprise-grade persistence using PostgreSQL for produc
 
 ## Current State
 
-- **Development**: Uses localStorage for rapid prototyping
-- **Production Ready**: PostgreSQL schema provided for enterprise deployment
+- **Primary Persistence**: PostgreSQL (with `pgvector` extension) managed via Prisma ORM (`prisma/schema.prisma` and `prisma/migrations/`)
+- **Demo / Offline Fallback**: Browser `localStorage` fallback when backend persistence is unavailable
 
 ## PostgreSQL Setup
 
 ### Prerequisites
 
-- PostgreSQL 14 or higher
+- PostgreSQL 14 or higher with the `pgvector` extension installed
+- Node.js `^24.15.0` and Prisma CLI (`npx prisma`)
 - Database connection with appropriate permissions
-- (Optional) Redis for caching and session storage
 
 ### Quick Start
 
@@ -33,11 +33,16 @@ CREATE USER ares_user WITH PASSWORD 'secure_password';
 GRANT ALL PRIVILEGES ON DATABASE ares_dashboard TO ares_user;
 ```
 
-#### 2. Apply Schema
+#### 2. Apply Schema (Authoritative Prisma Migrations)
+
+Schema deployment is managed through Prisma migrations (`prisma/schema.prisma` and `prisma/migrations/`), **not** `database/schema/postgresql.sql`:
 
 ```bash
-# Apply the schema
-psql -U ares_user -d ares_dashboard -f database/schema/postgresql.sql
+# Apply all committed Prisma migrations
+npx prisma migrate deploy
+
+# Generate the Prisma Client
+npm run db:generate
 ```
 
 #### 3. Configure Environment
@@ -48,172 +53,71 @@ Create or update your `.env` file:
 # Database Configuration
 DATABASE_URL=postgresql://ares_user:secure_password@localhost:5432/ares_dashboard
 
-# Connection Pool Settings
-DB_POOL_MIN=2
-DB_POOL_MAX=10
-
-# Redis (optional, for caching)
-REDIS_URL=redis://localhost:6379
-
-# OAuth Configuration (when implementing)
+# Auth0 OAuth2/OIDC Configuration
 AUTH0_DOMAIN=your-domain.auth0.com
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
-
-AZURE_AD_TENANT_ID=your_tenant_id
-AZURE_AD_CLIENT_ID=your_client_id
-AZURE_AD_CLIENT_SECRET=your_client_secret
-
-OKTA_DOMAIN=your-domain.okta.com
-OKTA_CLIENT_ID=your_client_id
-OKTA_CLIENT_SECRET=your_client_secret
+AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback?provider=auth0
 ```
 
 ## Schema Overview
 
+The authoritative schema is defined in `prisma/schema.prisma`.
+
 ### Tables
 
-#### Core Tables
+#### Core & Identity
 
-- **organizations**: Multi-tenant organization data
-- **users**: User accounts with RBAC
-- **sessions**: Active sessions and JWT tokens
-- **oauth_providers**: OAuth integration data
+- **organizations**: Multi-tenant organization records (`id`, `name`, `createdBy`)
+- **organization_invitations**: Hashed invitation tokens (`tokenHash`), `orgId`, `invitedEmail`, `role`, `expiresAt`, `usedAt`, `usedBy`
+- **users**: User accounts (`id`, `email`, `emailVerified`, `auth0Sub`, `name`, `role`, `orgId`, `lastLogin`, `disabledAt`)
 
-#### Campaign Management
+#### Campaign & Audit
 
-- **campaigns**: Security testing campaigns
-- **campaign_vectors**: Attack vectors
-- **campaign_payloads**: Test payloads
-- **campaign_permissions**: Sharing permissions
+- **campaigns**: Security testing campaigns (`id`, `name`, `description`, `framework`, `tacticId`, `tacticName`, `createdBy`, `selectedVectors`, `selectedPayloadIndices`, `metadata`)
+- **audit_logs**: Append-only compliance audit trail (`id`, `orgId`, `actorId`, `action`, `target`, `details`, `ipAddress`, `userAgent`, `timestamp`)
 
-#### Collaboration
+#### Generation Jobs, Credits & Prompt Vault
 
-- **workspaces**: Team workspaces
-- **workspace_members**: Membership data
-
-#### Compliance
-
-- **audit_logs**: Comprehensive audit trail
+- **generation_jobs**: Persistent tactic generation jobs (`status`, `requestedCount`, `acceptedCount`, `reservedCredits`, `workerLeaseId`, `idempotencyKey`)
+- **candidate_attempts**: Per-attempt generation, originality rejection, and evaluator audit records
+- **user_credit_balances** & **credit_transactions**: Credit balance (`availableTokens`, `reservedTokens`) and idempotent ledger
+- **global_prompt_registry**: Deduplicated prompt registry with `pgvector` embeddings (`embeddingVector`)
+- **customer_prompt_vault** & **duplicate_reports**: User-acquired vault items and duplicate investigation reports
 
 ### Key Features
 
-1. **Multi-tenancy**: Organization-based isolation
-2. **RBAC**: Four role levels (admin, red_team_lead, analyst, viewer)
-3. **OAuth Support**: Auth0, Azure AD, Okta, Google, GitHub
-4. **Audit Logging**: Full compliance trail
-5. **Campaign Sharing**: Granular permissions
+1. **Multi-tenancy**: Application-level `orgId` isolation enforced across API handlers and repositories
+2. **RBAC**: Four role levels (`admin`, `red_team_lead`, `analyst`, `viewer`)
+3. **OAuth2/OIDC Support**: Auth0 (`auth0Sub` mapping); SAML 2.0 is disabled in this release (`501 Not Implemented`)
+4. **Audit Logging**: Append-only `audit_logs` protected by PostgreSQL triggers (`audit_logs_immutable`, `audit_logs_no_truncate`)
 
 ## Migrations
 
-### Creating Migrations
-
-For schema changes, create timestamped migration files:
+Schema changes are managed exclusively through Prisma Migrate (`prisma/schema.prisma` and `prisma/migrations/`):
 
 ```bash
-# Create new migration
-mkdir -p database/migrations
-touch database/migrations/$(date +%Y%m%d%H%M%S)_add_feature.sql
+# Development: create and apply a new migration
+npx prisma migrate dev --name add_feature
+
+# Production / CI: apply committed migrations
+npx prisma migrate deploy
+
+# Regenerate Prisma Client after schema changes
+npm run db:generate
 ```
 
-### Migration Template
+## Connection Pooling & Prisma Client
 
-```sql
--- Migration: [Description]
--- Created: [Date]
-
-BEGIN;
-
--- Up Migration
--- Add your schema changes here
-
--- Example: Add new column
--- ALTER TABLE campaigns ADD COLUMN status VARCHAR(50) DEFAULT 'draft';
-
-COMMIT;
-```
-
-### Rollback Template
-
-```sql
--- Rollback: [Description]
-
-BEGIN;
-
--- Down Migration
--- Reverse your schema changes here
-
--- Example: Remove column
--- ALTER TABLE campaigns DROP COLUMN status;
-
-COMMIT;
-```
-
-## Connection Pooling
-
-### Using pg (Node.js)
-
-Install dependencies:
-
-```bash
-npm install pg
-```
-
-Create connection pool:
+ARES uses the Prisma Client singleton in `utils/db.ts` backed by `@prisma/adapter-pg` / `pg` connection pooling configured via `DATABASE_URL`:
 
 ```typescript
-// database/connection.ts
-import { Pool } from 'pg';
+// utils/db.ts (singleton pattern)
+import prisma from '../utils/db';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  min: parseInt(process.env.DB_POOL_MIN || '2'),
-  max: parseInt(process.env.DB_POOL_MAX || '10'),
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+const users = await prisma.user.findMany({
+  where: { orgId, disabledAt: null },
 });
-
-pool.on('error', (err) => {
-  console.error('Unexpected database error', err);
-  process.exit(-1);
-});
-
-export default pool;
-```
-
-### Query Helper
-
-```typescript
-// database/query.ts
-import pool from './connection';
-
-export async function query(text: string, params?: any[]) {
-  const start = Date.now();
-  const res = await pool.query(text, params);
-  const duration = Date.now() - start;
-  
-  console.log('Executed query', { text, duration, rows: res.rowCount });
-  return res;
-}
-
-export async function getClient() {
-  const client = await pool.connect();
-  const query = client.query.bind(client);
-  const release = client.release.bind(client);
-  
-  // Set a timeout of 5 seconds
-  const timeout = setTimeout(() => {
-    console.error('A client has been checked out for more than 5 seconds!');
-  }, 5000);
-  
-  client.release = () => {
-    clearTimeout(timeout);
-    client.release = release;
-    return release();
-  };
-  
-  return client;
-}
 ```
 
 ## Data Access Layer
@@ -222,47 +126,26 @@ export async function getClient() {
 
 ```typescript
 // repositories/userRepository.ts
-import { query } from '../database/query';
-import type { User } from '../types/auth';
+import prisma from '../utils/db';
 
 export class UserRepository {
-  static async findById(id: string): Promise<User | null> {
-    const result = await query(
-      'SELECT * FROM users WHERE id = $1 AND is_active = true',
-      [id]
-    );
-    return result.rows[0] || null;
+  static async findByIdInOrg(id: string, orgId: string) {
+    return prisma.user.findFirst({
+      where: { id, orgId, disabledAt: null },
+    });
   }
 
-  static async findByEmail(organizationId: string, email: string): Promise<User | null> {
-    const result = await query(
-      'SELECT * FROM users WHERE organization_id = $1 AND email = $2 AND is_active = true',
-      [organizationId, email]
-    );
-    return result.rows[0] || null;
+  static async findByEmailInOrg(email: string, orgId: string) {
+    return prisma.user.findFirst({
+      where: { email: email.toLowerCase(), orgId, disabledAt: null },
+    });
   }
 
-  static async create(userData: Partial<User>): Promise<User> {
-    const result = await query(
-      `INSERT INTO users (organization_id, email, name, role, password_hash)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [
-        userData.organization_id,
-        userData.email,
-        userData.name,
-        userData.role,
-        userData.password_hash
-      ]
-    );
-    return result.rows[0];
-  }
-
-  static async updateLastLogin(userId: string): Promise<void> {
-    await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [userId]
-    );
+  static async updateLastLogin(id: string): Promise<void> {
+    await prisma.user.update({
+      where: { id },
+      data: { lastLogin: new Date() },
+    });
   }
 }
 ```
@@ -271,50 +154,29 @@ export class UserRepository {
 
 ```typescript
 // repositories/campaignRepository.ts
-import { query } from '../database/query';
+import prisma from '../utils/db';
 
 export class CampaignRepository {
-  static async findByOrganization(organizationId: string) {
-    const result = await query(
-      `SELECT c.*, u.name as creator_name
-       FROM campaigns c
-       LEFT JOIN users u ON c.created_by = u.id
-       WHERE c.organization_id = $1 AND c.is_archived = false
-       ORDER BY c.created_at DESC`,
-      [organizationId]
-    );
-    return result.rows;
+  static async findAll(options: { skip?: number; take?: number; orgId: string }) {
+    return prisma.campaign.findMany({
+      where: { creator: { orgId: options.orgId } },
+      orderBy: { createdAt: 'desc' },
+      skip: options.skip,
+      take: options.take,
+    });
   }
 
-  static async create(campaignData: any) {
-    const result = await query(
-      `INSERT INTO campaigns (
-        organization_id, created_by, name, description,
-        framework, tactic_id, tactic_name, metadata
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *`,
-      [
-        campaignData.organization_id,
-        campaignData.created_by,
-        campaignData.name,
-        campaignData.description,
-        campaignData.framework,
-        campaignData.tactic_id,
-        campaignData.tactic_name,
-        JSON.stringify(campaignData.metadata)
-      ]
-    );
-    return result.rows[0];
-  }
-
-  static async checkPermission(campaignId: string, userId: string, permission: string): Promise<boolean> {
-    const result = await query(
-      `SELECT 1 FROM campaign_permissions
-       WHERE campaign_id = $1 AND user_id = $2 AND permission = $3`,
-      [campaignId, userId, permission]
-    );
-    return result.rowCount > 0;
+  static async create(data: {
+    name: string;
+    description?: string;
+    framework: string;
+    tacticId: string;
+    tacticName: string;
+    createdBy: string;
+    selectedVectors?: string[];
+    selectedPayloadIndices?: number[];
+  }) {
+    return prisma.campaign.create({ data });
   }
 }
 ```
@@ -352,89 +214,40 @@ pg_restore -U ares_user -d ares_dashboard -c ares_backup_20240115_120000.sql
 
 ### Indexes
 
-The schema includes optimized indexes for:
-- User lookups by email and organization
-- Session validation
-- Campaign queries
-- Audit log searches
+The Prisma schema (`prisma/schema.prisma`) includes indexes for:
+- User lookups by `email` and `orgId`
+- Campaign queries by `createdBy` and `createdAt`
+- Audit log searches by `actorId`, `(orgId, timestamp)`, `timestamp`, and `action`
+- Generation job leases and user job history (`(status, leaseExpiresAt)`, `(userId, createdAt)`)
 
 ### Query Optimization Tips
 
-1. **Use prepared statements** for repeated queries
-2. **Limit result sets** with pagination
-3. **Use connection pooling** to reduce overhead
-4. **Enable query logging** in development
-5. **Monitor slow queries** with pg_stat_statements
+1. **Use parameterized Prisma queries** for type safety and SQL injection prevention
+2. **Limit result sets** with `skip` / `take` pagination
+3. **Use Prisma `$transaction`** for atomic multi-step mutations
+4. **Monitor slow queries** with `pg_stat_statements`
 
-### Connection Pooling Best Practices
-
-```typescript
-// Good: Use connection pool
-const result = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
-
-// Better: Use transactions for multiple operations
-const client = await pool.connect();
-try {
-  await client.query('BEGIN');
-  await client.query('INSERT INTO campaigns ...');
-  await client.query('INSERT INTO campaign_vectors ...');
-  await client.query('COMMIT');
-} catch (e) {
-  await client.query('ROLLBACK');
-  throw e;
-} finally {
-  client.release();
-}
-```
-
-## Redis Integration (Optional)
-
-### Session Storage
+### Transaction Best Practices
 
 ```typescript
-import { createClient } from 'redis';
-
-const redis = createClient({
-  url: process.env.REDIS_URL
+// Use Prisma transactions for atomic multi-table operations
+await prisma.$transaction(async (tx) => {
+  const campaign = await tx.campaign.create({ data: campaignData });
+  await tx.auditLog.create({ data: auditData });
+  return campaign;
 });
-
-redis.on('error', (err) => console.error('Redis Client Error', err));
-
-await redis.connect();
-
-// Store session
-await redis.setEx(`session:${token}`, 86400, JSON.stringify(sessionData));
-
-// Get session
-const session = await redis.get(`session:${token}`);
-
-// Delete session
-await redis.del(`session:${token}`);
-```
-
-### Caching
-
-```typescript
-// Cache campaign data
-await redis.setEx(
-  `campaign:${campaignId}`,
-  3600, // 1 hour
-  JSON.stringify(campaignData)
-);
-
-// Invalidate on update
-await redis.del(`campaign:${campaignId}`);
 ```
 
 ## Security Considerations
 
 1. **Use environment variables** for credentials
 2. **Enable SSL/TLS** for database connections
-3. **Implement row-level security** for multi-tenancy
-4. **Regularly update** PostgreSQL and dependencies
-5. **Monitor for SQL injection** attempts
-6. **Encrypt sensitive data** at rest and in transit
-7. **Audit database access** logs
+3. **Enforce application-level `orgId` isolation** across all API handlers and database queries (PostgreSQL Row-Level Security is not enabled in the Prisma schema; multi-tenancy is enforced at the application layer)
+4. **Use a non-owner, non-superuser runtime database role** so append-only triggers on `audit_logs` cannot be bypassed
+5. **Regularly update** PostgreSQL and dependencies
+6. **Monitor for SQL injection** attempts
+7. **Encrypt sensitive data** at rest and in transit
+8. **Audit database access** logs
 
 ## Monitoring
 
@@ -458,68 +271,43 @@ await redis.del(`campaign:${campaignId}`);
 
 ### Audit Logging
 
-The audit_logs table tracks:
-- User actions (login, logout, create, update, delete)
-- Resource access
-- IP addresses and user agents
-- Timestamps
+The `audit_logs` table tracks:
+- User actions (`login`, `logout`, `create`, `update`, `delete`, etc.)
+- Resource targets (`target`), organization (`orgId`), and actor (`actorId`)
+- IP addresses (`ipAddress`) and user agents (`userAgent`)
+- Timestamps (`timestamp`)
+
+`audit_logs` is **append-only** at the database layer via two PostgreSQL triggers:
+- `audit_logs_immutable`: blocks `UPDATE` and `DELETE` operations on `audit_logs`.
+- `audit_logs_no_truncate`: blocks `TRUNCATE` operations on `audit_logs`.
+
+Run the application with a **non-owner, non-superuser** PostgreSQL role so these triggers cannot be disabled or bypassed at runtime.
+
+```sql
+-- Query audit logs by actor and organization
+SELECT id, "orgId", "actorId", action, target, timestamp
+FROM audit_logs
+WHERE "orgId" = 'org-uuid' AND "actorId" = 'user-uuid'
+ORDER BY timestamp DESC;
+```
 
 ### Data Retention
 
-```sql
--- Delete old audit logs (keep 2 years)
-DELETE FROM audit_logs
-WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '2 years';
+Because `audit_logs` is immutable (`audit_logs_immutable` and `audit_logs_no_truncate`), do not attempt to `DELETE` or `TRUNCATE` rows in `audit_logs`. Archive or export historical records to cold storage according to your retention policy. Campaigns can be exported as JSON or deleted via the `/api/campaigns` API.
 
--- Archive old campaigns
-UPDATE campaigns
-SET is_archived = true
-WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '1 year';
-```
+### User Offboarding & Soft Deletion (`DELETE /api/users`)
 
-### GDPR Compliance
+To preserve the immutable audit trail (`audit_logs.actorId` references `users.id` with `ON DELETE RESTRICT`), `DELETE /api/users?id=<userId>` (admin-only) performs an atomic Prisma transaction (`prisma.$transaction`) that:
 
-```sql
--- Delete user data (right to be forgotten)
-DELETE FROM audit_logs WHERE user_id = 'user-uuid';
-DELETE FROM campaign_permissions WHERE user_id = 'user-uuid';
-DELETE FROM workspace_members WHERE user_id = 'user-uuid';
-UPDATE campaigns SET created_by = NULL WHERE created_by = 'user-uuid';
-DELETE FROM users WHERE id = 'user-uuid';
-```
+1. **Enforces safety guards**: Blocks self-deactivation (`400 Bad Request`) and acquires an organization admin lock (`UserRepository.acquireOrgAdminLock`) to prevent deactivating the last active `admin` in the organization (`409 Conflict`).
+2. **Soft-deletes the user**: Sets `users.disabledAt` via `UserRepository.deleteInOrg(targetId, orgId, tx)`.
+3. **Revokes pending invitations**: Revokes any unused invitations created by the user via `UserRepository.revokePendingInvitationsByCreator(targetId, orgId, tx)`.
+4. **Cancels active generation jobs & releases credits**: Calls `cancelActiveJobsForUserInTx` to cancel active `generation_jobs` and release reserved credits back to the balance/ledger.
+5. **Logs the action**: Appends a `user_deactivated` record (with `mode: 'soft_delete'`, `revokedPendingInvitations`, `cancelledActiveJobs`, and `releasedCredits`) via `AuditLogRepository.create`.
 
 ## Migration from localStorage
 
-To migrate from localStorage to PostgreSQL:
-
-1. Export data from localStorage
-2. Transform to match database schema
-3. Import using bulk insert
-4. Verify data integrity
-5. Update application configuration
-6. Test thoroughly before production
-
-Example migration script:
-
-```typescript
-// migrations/migrate-from-localstorage.ts
-import { query } from '../database/query';
-
-async function migrateFromLocalStorage() {
-  // Get data from localStorage export
-  const campaigns = JSON.parse(localStorage.getItem('ares_campaigns') || '[]');
-  
-  for (const campaign of campaigns) {
-    await query(
-      `INSERT INTO campaigns (name, framework, tactic_id, tactic_name, metadata, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [campaign.name, campaign.framework, campaign.tacticId, campaign.tacticName, campaign.metadata, userId]
-    );
-  }
-  
-  console.log(`Migrated ${campaigns.length} campaigns`);
-}
-```
+If you have existing campaigns stored in browser `localStorage` from offline/demo mode, export them as JSON from the UI and import them after signing in with PostgreSQL persistence enabled via `/api/campaigns`.
 
 ## Troubleshooting
 
@@ -549,23 +337,20 @@ ALTER SYSTEM SET max_connections = 200;
 ALTER SYSTEM SET log_min_duration_statement = 1000; -- Log queries > 1s
 
 -- Analyze query performance
-EXPLAIN ANALYZE SELECT * FROM campaigns WHERE organization_id = 'xxx';
+EXPLAIN ANALYZE SELECT * FROM campaigns WHERE "createdBy" = 'xxx';
 ```
 
 ## Next Steps
 
-1. Set up PostgreSQL database
-2. Apply schema
-3. Configure environment variables
-4. Implement data access layer
-5. Update API endpoints to use database
-6. Set up backups
-7. Configure monitoring
-8. Test thoroughly
+1. Set up PostgreSQL database with `pgvector`
+2. Configure `DATABASE_URL` and environment variables
+3. Apply Prisma migrations (`npx prisma migrate deploy`) and generate client (`npm run db:generate`)
+4. Set up automated backups
+5. Configure monitoring
+6. Test thoroughly
 
 ## Resources
 
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [node-postgres Documentation](https://node-postgres.com/)
-- [Redis Documentation](https://redis.io/documentation)
+- [Prisma Documentation](https://www.prisma.io/docs)
 - [Database Security Best Practices](https://cheatsheetseries.owasp.org/cheatsheets/Database_Security_Cheat_Sheet.html)

@@ -2,9 +2,9 @@
 
 ## Overview
 
-This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Service Criteria, providing guidance for organizations implementing ARES in their security program.
+This document outlines how ARES Dashboard's implemented technical controls align with SOC 2 Type II Trust Service Criteria, providing guidance for organizations integrating ARES into their security program.
 
-**Disclaimer**: This documentation provides a framework for SOC 2 compliance. Organizations should consult with qualified auditors and compliance professionals for formal certification.
+**Disclaimer**: ARES Dashboard does **not** by itself satisfy or certify compliance with SOC 2, ISO 27001, or GDPR. Technical controls in the application (such as RBAC, organization scoping, and audit logging) must be combined with organizational policies, infrastructure controls, and independent external audits for formal compliance or certification.
 
 ## Trust Service Criteria
 
@@ -85,16 +85,16 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 **Evidence**:
 - `services/authService.ts`
 - `services/auth/OAUTH_INTEGRATION.md`
-- Session expiration (24 hours)
+- Session expiration (1 hour access token; 7-day refresh token)
 
 **Authorization**:
 - Backend permission enforcement
 - Resource-level access control
-- Multi-tenant isolation (database schema)
+- Multi-tenant isolation (application-level `orgId` scoping)
 
 **Evidence**:
-- Permission middleware
-- Database row-level security policies
+- Permission middleware (`lib/middleware/auth.ts`)
+- Application-level `orgId` scoping across API handlers and repositories (Note: PostgreSQL Row-Level Security is not enabled)
 - Authorization tests
 
 #### CC7: System Operations
@@ -144,9 +144,9 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 - Rate limiting
 
 **Evidence**:
-- `api/middleware/validation.ts`
-- `api/middleware/security.ts`
-- Parameterized database queries
+- `lib/middleware/validation.ts`
+- `lib/middleware/security.ts`
+- Parameterized database queries (Prisma)
 - Security tests
 
 ### Availability
@@ -165,7 +165,7 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 
 **Evidence**:
 - Vercel deployment logs
-- Health check endpoints (to be implemented)
+- Health check endpoint implemented at `api/health.ts` (`/api/health`), which checks PostgreSQL connectivity (`SELECT 1` and `pgvector` extension presence) and external AI/Auth0 configuration; note that its `checkCache` check is currently a simulated placeholder returning `status: 'healthy'` rather than testing an external cache service
 
 ### Processing Integrity
 
@@ -206,13 +206,13 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 - Vercel HTTPS enforcement
 
 **Access Restrictions**:
-- Organization-based isolation
+- Organization-based isolation (`orgId` scoping)
 - Permission-based access
 - Session management
 
 **Evidence**:
-- Multi-tenant database schema
-- Permission middleware
+- Application-level `orgId` scoping in API endpoints and repositories
+- Permission middleware (`lib/middleware/auth.ts`)
 - Session expiration
 
 ### Privacy
@@ -237,20 +237,22 @@ This document outlines ARES Dashboard's alignment with SOC 2 Type II Trust Servi
 
 **User Rights**:
 - Access to own data
-- Right to deletion
-- Data portability
+- Account deactivation / soft deletion (`users.disabledAt`)
+- Data portability (campaign and audit exports)
 
-**Implementation**:
-```sql
--- User data deletion
-DELETE FROM audit_logs WHERE user_id = 'user-uuid';
-DELETE FROM campaign_permissions WHERE user_id = 'user-uuid';
-DELETE FROM users WHERE id = 'user-uuid';
-```
+**Audit Log Immutability & Schema**:
+- The `audit_logs` table (`prisma/schema.prisma`) stores `id`, `orgId`, `actorId`, `action`, `target`, `details`, `ipAddress`, `userAgent`, and `timestamp` (note: there is no `user_id` column, and `audit_logs.actorId` references `users.id` with `ON DELETE RESTRICT`).
+- `audit_logs` is enforced as append-only at the PostgreSQL level via:
+  - `audit_logs_immutable`: `BEFORE UPDATE OR DELETE ON "audit_logs" FOR EACH ROW` trigger (`prevent_audit_log_mutation()`).
+  - `audit_logs_no_truncate`: `BEFORE TRUNCATE ON "audit_logs" FOR EACH STATEMENT` trigger (`prevent_audit_log_truncate()`).
+- **Runtime DB Role Requirement**: For append-only triggers to be effective in production, the application must connect using a **separate non-owner, non-superuser PostgreSQL role** (a table owner or superuser can disable triggers).
+- Because `audit_logs` is append-only, user offboarding (`DELETE /api/users`) uses soft deletion (`users.disabledAt` via `UserRepository.deleteInOrg`), enforces a last-admin `409 Conflict` guard, revokes pending invitations created by the user, and cancels active generation jobs (`cancelActiveJobsForUserInTx`) while releasing reserved credits back to the user's balance/ledger. Any regulatory erasure of historical audit records must be handled through documented, privileged administrative procedures outside the runtime application role.
 
 **Evidence**:
-- DATA_HANDLING.md
-- Database schema with cascading deletes
+- `prisma/schema.prisma` (`AuditLog`, `User.disabledAt`)
+- `prisma/migrations/20261127090000_audit_log_org_and_immutability/migration.sql`
+- `prisma/migrations/20261127100000_onboarding_legacy_org_and_audit_truncate/migration.sql`
+- `DATA_HANDLING.md`
 
 #### P3: Data Quality
 
@@ -291,12 +293,13 @@ DELETE FROM users WHERE id = 'user-uuid';
 
 **Evidence**:
 ```typescript
-// services/authService.ts - logAuditEvent()
-AuthService.logAuditEvent({
-  user_id: user.id,
-  action: 'login',
-  resource_type: 'session',
-  details: { demo_mode: true }
+// repositories/auditLogRepository.ts - AuditLogRepository.create()
+await AuditLogRepository.create({
+  orgId,
+  actorId: authUser.userId,
+  action: 'user_deactivated',
+  target: targetId,
+  details: { mode: 'soft_delete' },
 });
 ```
 
@@ -448,10 +451,12 @@ AuthService.logAuditEvent({
 - Business continuity test
 - Policy review
 
-## Attestation Template
+## Example Attestation Template
+
+> **Note**: This template is an example for organizations documenting their own internal controls; it does not constitute a SOC 2 attestation or certification of ARES Dashboard itself.
 
 ```
-ARES Dashboard SOC 2 Compliance Statement
+[Your Organization] Internal Control Attestation (Using ARES Dashboard)
 
 Organization: [Your Organization]
 Period: [Start Date] to [End Date]

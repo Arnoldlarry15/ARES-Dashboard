@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { logger } from '../logger';
 import { verifyCsrfToken } from '../../services/auth/jwt';
@@ -122,19 +123,83 @@ export function csrfProtection(req: AuthenticatedRequest, res: VercelResponse, n
   next();
 }
 
+function parseIpList(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  const raw = Array.isArray(value) ? value.join(',') : value;
+  return raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function getTrustedProxyHops(): number {
+  const raw = process.env.TRUSTED_PROXY_HOPS;
+  if (!raw) {
+    return 1;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return parsed;
+}
+
+function extractValidIp(candidate: string | undefined): string | undefined {
+  if (!candidate) {
+    return undefined;
+  }
+  const trimmed = candidate.trim();
+  return isIP(trimmed) !== 0 ? trimmed : undefined;
+}
+
+/**
+ * Extracts the client IP address.
+ * Proxy headers are only trusted when TRUST_PROXY === 'true'.
+ * - `x-vercel-forwarded-for` is only read when running on Vercel (`VERCEL === '1'`).
+ * - `x-forwarded-for` is parsed from the right using `TRUSTED_PROXY_HOPS` (default 1).
+ * - `x-real-ip` is used as a fallback when `x-forwarded-for` is absent.
+ * - All candidate IPs and `req.socket?.remoteAddress` are validated with `net.isIP`.
+ */
+export function getClientIp(req: VercelRequest): string {
+  if (process.env.TRUST_PROXY === 'true') {
+    if (process.env.VERCEL === '1') {
+      const vercelIps = parseIpList(req.headers?.['x-vercel-forwarded-for']);
+      if (vercelIps.length > 0) {
+        const validVercelIp = extractValidIp(vercelIps[0]);
+        if (validVercelIp) {
+          return validVercelIp;
+        }
+      }
+    }
+
+    const xffIps = parseIpList(req.headers?.['x-forwarded-for']);
+    if (xffIps.length > 0) {
+      const trustedHops = getTrustedProxyHops();
+      const targetIndex = Math.max(0, xffIps.length - trustedHops);
+      const validXffIp = extractValidIp(xffIps[targetIndex]);
+      if (validXffIp) {
+        return validXffIp;
+      }
+    }
+
+    const realIpList = parseIpList(req.headers?.['x-real-ip']);
+    if (realIpList.length > 0) {
+      const validRealIp = extractValidIp(realIpList[0]);
+      if (validRealIp) {
+        return validRealIp;
+      }
+    }
+  }
+
+  return extractValidIp(req.socket?.remoteAddress) || 'unknown';
+}
+
 // Request logging middleware
 export function requestLogger(req: VercelRequest, res: VercelResponse, next: () => void) {
   const start = Date.now();
-  const forwardedFor = req.headers['x-forwarded-for'];
-  const realIp = req.headers['x-real-ip'];
-  
-  // Handle x-forwarded-for which can be a string or string array
-  let ip = 'unknown';
-  if (forwardedFor) {
-    ip = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim();
-  } else if (realIp) {
-    ip = Array.isArray(realIp) ? realIp[0] : realIp;
-  }
+  const ip = getClientIp(req);
   
   // Log incoming request
   logger.info('Incoming request', {

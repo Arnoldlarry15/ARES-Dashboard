@@ -12,12 +12,12 @@ This document defines what ARES Dashboard is, who it's for, and what it is NOT. 
 
 ## Official Positioning Statement
 
-**ARES is an Enterprise AI Risk Governance and Red-Teaming Platform designed to conduct structured, compliant AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks with auditability and collaboration built in.**
+**ARES is an Enterprise AI Risk Governance and Red-Teaming Platform designed to conduct structured, auditable AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks with collaboration built in.**
 
 This positioning statement accomplishes:
 1. **Identifies the category**: Enterprise AI Risk Governance and Red-Teaming Platform
 2. **Defines the audience**: Security teams, compliance officers, AI governance professionals
-3. **Emphasizes governance**: Structured, compliant, auditable—essential for enterprise adoption
+3. **Emphasizes governance**: Structured, auditable, framework-aligned—essential for enterprise adoption
 4. **Highlights key capabilities**: Assessments, scenario generation, risk documentation, collaboration
 
 ---
@@ -40,11 +40,11 @@ This positioning statement accomplishes:
 
 ### One-Sentence Elevator Pitch
 
-"ARES enables security teams to conduct structured, compliant AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks with auditability and collaboration built in."
+"ARES enables security teams to conduct structured, auditable AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks with collaboration built in."
 
 **Why this pitch works:**
 - Identifies target audience (security teams)
-- Emphasizes governance (structured, compliant)
+- Emphasizes governance (structured, auditable)
 - Lists concrete capabilities (assessments, scenarios, documentation)
 - Addresses buyer concerns (frameworks, auditability, collaboration)
 - Differentiates from ad-hoc tools
@@ -96,9 +96,9 @@ Result: Comprehensive test scenario library
 #### 3. Audit Trail Creation
 **What it does:**
 - Log all planning and configuration activities
-- Maintain immutable audit trail
-- Export evidence for compliance
-- Support SOC 2, ISO 27001, GDPR requirements
+- Maintain an append-only PostgreSQL audit trail (via `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` triggers when connected with a non-owner runtime DB role; demo `localStorage` fallback is for local evaluation only)
+- Export evidence for compliance programs
+- Support evidence collection for SOC 2, ISO 27001, and GDPR programs (ARES itself does not certify compliance)
 
 **Real-world use:**
 ```
@@ -379,75 +379,6 @@ Result: Integrated security testing workflow
 
 ---
 
-## Relationship to Red Set
-
-**Important distinction:** ARES Dashboard and Red Set are complementary but distinct products.
-
-### Red Set (Higher-Order Framework)
-- **What it is:** AI security governance and risk management framework
-- **Scope:** Strategic, organization-wide AI security posture
-- **Audience:** CISOs, governance teams, executive leadership
-- **Focus:** Policy, risk management, strategic controls
-
-### ARES Dashboard (Operations Console)
-- **What it is:** Tactical execution tool for red team operations
-- **Scope:** Day-to-day security testing and documentation
-- **Audience:** Red team operators, security engineers, researchers
-- **Focus:** Attack scenarios, testing, evidence generation
-
-### How They Relate
-```
-┌─────────────────────────────────────────────┐
-│           Red Set Framework                 │
-│  (Strategic AI Security Governance)         │
-│  - Policies and standards                   │
-│  - Risk management                          │
-│  - Compliance framework                     │
-└───────────────────┬─────────────────────────┘
-                    │ Informs and directs
-                    ↓
-┌─────────────────────────────────────────────┐
-│          ARES Dashboard                     │
-│  (Tactical Red Team Operations)             │
-│  - Attack scenario planning                 │
-│  - Security testing execution               │
-│  - Evidence and audit trails                │
-└─────────────────────────────────────────────┘
-```
-
-**Analogy:** 
-- **Red Set** = The aircraft (strategy, governance, comprehensive framework)
-- **ARES Dashboard** = The cockpit (operations, tactical execution, day-to-day work)
-
-### Strategic Benefits of Separation
-
-#### 1. Clear Scope
-- ARES focused on operations, not governance
-- Red Set focused on strategy, not tactics
-- No confusion about purpose
-
-#### 2. Independent Value
-- ARES useful without Red Set
-- Red Set useful without ARES
-- Combined: more powerful
-
-#### 3. Open Source Strategy
-- ARES can be open-sourced safely
-- Red Set can be commercialized separately
-- Clean monetization boundary
-
-#### 4. Reduced Legal Risk
-- ARES: Operations tool (lower risk)
-- Red Set: Governance framework (enterprise offering)
-- Clear liability boundaries
-
-#### 5. Export Control Clarity
-- ARES: Security tool (standard export rules)
-- Red Set: Framework/methodology (lower risk)
-- Easier international distribution
-
----
-
 ## Use Case Mapping
 
 ### Primary Use Cases
@@ -484,22 +415,22 @@ Result: Integrated security testing workflow
 ### What to Say
 
 #### Elevator Pitch (30 seconds)
-"ARES is an Enterprise AI Risk Governance and Red-Teaming Platform. It enables security teams to conduct structured, compliant AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks like OWASP and MITRE—with auditability and collaboration built in."
+"ARES is an Enterprise AI Risk Governance and Red-Teaming Platform. It enables security teams to conduct structured, auditable AI red-team assessments, generate attack scenarios, and manage risk documentation across enterprise frameworks like OWASP and MITRE—with collaboration built in."
 
 #### Value Proposition (1 minute)
-"Security teams need more than ad-hoc prompt tests—they need structured, repeatable, audited workflows for AI security. ARES provides governance-first AI red-teaming with campaigns, framework alignment, comprehensive audit trails, and team collaboration. Whether you're preparing for a SOC 2 audit, validating AI security before deployment, or conducting enterprise red team operations, ARES gives you the structured, auditable approach that compliance officers and auditors require."
+"Security teams need more than ad-hoc prompt tests—they need structured, repeatable, audited workflows for AI security. ARES provides governance-first AI red-teaming with campaigns, framework alignment, append-only PostgreSQL audit trails, and team collaboration. Whether you're preparing evidence for a SOC 2 audit, validating AI security before deployment, or conducting enterprise red team operations, ARES gives you the structured, auditable approach that compliance officers and auditors require."
 
 #### Detailed Description (3 minutes)
-"ARES addresses the critical challenge of governance-ready AI security testing. As organizations deploy AI systems, they face pressure from both security teams and compliance officers to validate security—and they need documentation that satisfies auditors. ARES solves this by providing:
+"ARES addresses the critical challenge of governance-ready AI security testing. As organizations deploy AI systems, they face pressure from both security teams and compliance officers to validate security—and they need documentation that supports audit reviews. ARES solves this by providing:
 
 1. **Structured Campaign Management**: Organize AI security testing into campaigns aligned with OWASP LLM Top 10, MITRE ATLAS, and ATT&CK
 2. **Risk Documentation**: Generate comprehensive risk assessments and attack manifests with full traceability
-3. **Immutable Audit Trails**: Comprehensive activity logging for SOC 2, ISO 27001, and GDPR compliance
+3. **Append-Only Audit Trails**: Activity logging backed by PostgreSQL `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` triggers (when connected with a non-owner runtime DB role) to support SOC 2, ISO 27001, and GDPR evidence collection
 4. **Team Collaboration**: Multi-user workspaces with role-based access control (Admin, Lead, Analyst, Viewer)
 5. **Framework Integration**: Export evidence for compliance reporting and tool integration
 6. **Flexible Deployment**: Static fallback mode means no AI provider lock-in or adoption barriers
 
-This is a governance and compliance-oriented AI security platform, not just a red-team dashboard. It's designed for security buyers, compliance teams, and auditors—the people with budgets who need repeatable, auditable AI security processes."
+This is a governance and compliance-oriented AI security tool, not just a red-team dashboard. It's designed for security teams, compliance officers, and auditors who need repeatable, auditable AI security processes."
 
 ### Value Language for Marketing & Positioning
 
@@ -513,7 +444,7 @@ When positioning ARES for enterprise buyers, emphasize these key points:
 
 #### 2. Auditable, Repeatable Evaluation
 **Not single assessments—ongoing, documented security validation**
-- "Comprehensive audit trails and immutable logging satisfy SOC 2, ISO 27001, and GDPR requirements"
+- "Comprehensive, append-only PostgreSQL audit trails help support SOC 2, ISO 27001, and GDPR evidence requirements"
 - "Repeatable workflows ensure consistent security posture across AI deployments"
 - Speaks to: Auditors, compliance teams, security architects
 
@@ -535,7 +466,7 @@ When positioning ARES for enterprise buyers, emphasize these key points:
 - "Optional AI enhancement when you're ready—no lock-in"
 - Speaks to: Budget-conscious buyers, risk-averse organizations, regulated industries
 
-**These points speak directly to security buyers, compliance teams, and auditors—the stakeholders with budgets and decision-making authority.**
+**These points speak directly to security teams, compliance officers, and auditors.**
 
 ### What NOT to Say
 
@@ -565,83 +496,6 @@ When positioning ARES for enterprise buyers, emphasize these key points:
 
 ---
 
-## Target Markets
-
-### Primary Markets (TAM)
-
-#### 1. Enterprise Security Teams
-**Size:** Organizations with 500+ employees  
-**Need:** AI security testing capability  
-**ARES fit:** Day-to-day operations tool  
-**Competition:** Manual processes, consulting firms
-
-#### 2. Regulated Industries
-**Sectors:** Financial services, healthcare, government  
-**Need:** Compliance documentation for AI deployments  
-**ARES fit:** Audit trail and framework alignment  
-**Competition:** Manual documentation, consulting firms
-
-#### 3. Technology Companies
-**Focus:** Companies deploying AI products  
-**Need:** Pre-deployment security validation  
-**ARES fit:** SDLC integration, DevSecOps workflows  
-**Competition:** In-house tools, commercial scanners
-
-#### 4. Security Research Community
-**Focus:** Academic and industry researchers  
-**Need:** Structured research methodology  
-**ARES fit:** Framework alignment, reproducibility  
-**Competition:** Manual processes, custom scripts
-
-### Secondary Markets
-
-#### 5. Consulting Firms
-**Need:** Tools for client engagements  
-**ARES fit:** Engagement documentation, efficiency  
-**Opportunity:** Potential partners
-
-#### 6. Educational Institutions
-**Need:** Teaching AI security concepts  
-**ARES fit:** Hands-on learning tool  
-**Opportunity:** Community building
-
----
-
-## Sales & GTM Considerations
-
-### Open Source Strategy
-
-#### Community Edition (ARES Dashboard)
-**What:** Core operations console  
-**License:** MIT (or compatible open source)  
-**Target:** Security professionals, researchers  
-**Monetization:** None (community-driven)
-
-#### Enterprise Considerations
-**Potential:** Custom deployments, support contracts  
-**Future:** Professional services, training  
-**Clear boundary:** Operations tool (open source) vs. governance framework (commercial opportunity with Red Set)
-
-### Adoption Funnel
-
-#### Awareness
-**How:** Open source visibility, security conferences, research papers  
-**Message:** "Structured AI red teaming operations"
-
-#### Trial
-**How:** Quick deploy via Vercel, Docker  
-**Message:** "Try it in minutes, no commitment"
-
-#### Adoption
-**How:** Documentation, community support  
-**Message:** "Integrate into your security program"
-
-#### Advocacy
-**How:** Case studies, testimonials, contributions  
-**Message:** "Share your experience, contribute back"
-
----
-
 ## FAQ: Positioning Clarifications
 
 ### Q: Is ARES a red teaming platform?
@@ -652,9 +506,6 @@ When positioning ARES for enterprise buyers, emphasize these key points:
 
 ### Q: Is ARES only for AI systems?
 **A:** Yes. ARES is specifically designed for AI/ML security testing using frameworks like OWASP LLM Top 10 and MITRE ATLAS.
-
-### Q: Do I need Red Set to use ARES?
-**A:** No. ARES is independently useful for tactical red team operations. Red Set is a complementary strategic framework.
 
 ### Q: Is ARES suitable for small organizations?
 **A:** ARES is designed for security professionals. Small organizations may benefit if they have dedicated security staff and AI deployments to test.
@@ -670,11 +521,3 @@ When positioning ARES for enterprise buyers, emphasize these key points:
 - [SECURITY_BOUNDARIES.md](SECURITY_BOUNDARIES.md) - Who should/should not use ARES
 - [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) - Ethical guidelines
 - [README.md](../README.md) - Product overview
-
----
-
-**Document Owner**: ARES Product Management  
-**Next Review**: Quarterly or with strategic changes  
-**Approval Required**: Product lead and marketing for positioning changes
-
-**Clear positioning enables safe open-sourcing, enterprise adoption, and community contribution.**

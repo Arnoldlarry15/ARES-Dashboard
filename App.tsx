@@ -15,7 +15,7 @@ import {
 import { GeminiService, GeminiGenerationError } from './services/geminiService';
 import { StorageManager } from './utils/storage';
 import { AiModelSettings } from './utils/storage';
-import { CampaignManager, Campaign } from './utils/campaigns';
+import { CampaignManager, CampaignAuthError, Campaign } from './utils/campaigns';
 import { AuthService } from './services/authService';
 import { UserRole } from './types/auth';
 import { AuthLogin } from './components/AuthLogin';
@@ -25,7 +25,7 @@ import { PayloadEditor } from './components/PayloadEditor';
 import { GenerationJobsPanel } from './components/GenerationJobsPanel';
 import { PromptVaultPanel } from './components/PromptVaultPanel';
 import { ThemeManager, Theme } from './utils/themeManager';
-import { useAuthManager } from './hooks/useAuthManager';
+import { useAuthManager, isOnboardingRequiredError } from './hooks/useAuthManager';
 import { 
   Activity, 
   ChevronRight, 
@@ -71,9 +71,15 @@ export default function App() {
     isAuthenticated,
     isLoading: authLoading,
     user: currentUser,
+    authError,
+    clearAuthError,
+    onboardingRequired,
+    setOnboardingRequired,
+    completeOnboarding,
     loginWithAuth0,
     loginLocal, // Used in AuthLogin component
     logout,
+    getAccessToken,
   } = useAuthManager();
 
   const [activeTab, setActiveTab] = useState<Framework>(Framework.OWASP);
@@ -311,8 +317,32 @@ export default function App() {
 
   // Campaign Management Functions
   useEffect(() => {
-    CampaignManager.getAllCampaigns().then(setCampaigns);
-  }, []);
+    if (authLoading || !isAuthenticated || onboardingRequired) {
+      return;
+    }
+    let cancelled = false;
+    CampaignManager.getAllCampaigns()
+      .then((loadedCampaigns) => {
+        if (!cancelled) {
+          setCampaigns(loadedCampaigns);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (isOnboardingRequiredError(err)) {
+          setOnboardingRequired(true);
+        } else if (err instanceof CampaignAuthError) {
+          console.error('Campaign authentication/authorization error:', err);
+          setNotification(err.message || 'Authentication required to load campaigns');
+          setTimeout(() => setNotification(null), 4000);
+        } else {
+          console.error('Failed to load campaigns:', err);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated, onboardingRequired, setOnboardingRequired]);
 
   // Handle local login (for development)
   const handleLocalLogin = (role?: UserRole) => {
@@ -425,8 +455,19 @@ export default function App() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <AuthLogin onLogin={handleLocalLogin} onAuth0Login={loginWithAuth0} />;
+  if (onboardingRequired || !isAuthenticated) {
+    return (
+      <AuthLogin
+        onLogin={handleLocalLogin}
+        onAuth0Login={loginWithAuth0}
+        authError={authError}
+        onDismissError={clearAuthError}
+        onboardingRequired={onboardingRequired}
+        onOnboardingComplete={completeOnboarding}
+        getAccessToken={getAccessToken}
+        onLogout={isAuthenticated ? logout : undefined}
+      />
+    );
   }
 
   const toggleVector = (vector: string) => {
@@ -551,8 +592,16 @@ export default function App() {
       setCampaignDescription('');
       setNotification(`Campaign "${campaign.name}" saved`);
       setTimeout(() => setNotification(null), 2000);
-    } catch {
-      setNotification("Failed to save campaign");
+    } catch (err) {
+      if (isOnboardingRequiredError(err)) {
+        setOnboardingRequired(true);
+        return;
+      }
+      const message =
+        err instanceof CampaignAuthError
+          ? err.message
+          : "Failed to save campaign";
+      setNotification(message);
       setTimeout(() => setNotification(null), 2000);
     }
   };
@@ -597,25 +646,41 @@ export default function App() {
   };
 
   const deleteCampaign = async (id: string, name: string) => {
-    const success = await CampaignManager.deleteCampaign(id);
-    if (success) {
-      // Defer non-critical updates using startTransition
-      startTransition(() => {
-        // Audit log
-        AuthService.logAuditEvent({
-          user_id: currentUser?.id || 'unknown',
-          user_email: currentUser?.email || 'unknown',
-          action: 'delete',
-          resource_type: 'campaign',
-          resource_id: id,
-          details: { campaign_name: name }
+    try {
+      const success = await CampaignManager.deleteCampaign(id);
+      if (success) {
+        // Defer non-critical updates using startTransition
+        startTransition(() => {
+          // Audit log
+          AuthService.logAuditEvent({
+            user_id: currentUser?.id || 'unknown',
+            user_email: currentUser?.email || 'unknown',
+            action: 'delete',
+            resource_type: 'campaign',
+            resource_id: id,
+            details: { campaign_name: name }
+          });
         });
-      });
-        
-      // Reload campaigns from database
-      const updatedCampaigns = await CampaignManager.getAllCampaigns();
-      setCampaigns(updatedCampaigns);
-      setNotification(`Campaign "${name}" deleted`);
+          
+        // Reload campaigns from database
+        const updatedCampaigns = await CampaignManager.getAllCampaigns();
+        setCampaigns(updatedCampaigns);
+        setNotification(`Campaign "${name}" deleted`);
+        setTimeout(() => setNotification(null), 2000);
+      } else {
+        setNotification(`Failed to delete campaign "${name}"`);
+        setTimeout(() => setNotification(null), 2000);
+      }
+    } catch (err) {
+      if (isOnboardingRequiredError(err)) {
+        setOnboardingRequired(true);
+        return;
+      }
+      const message =
+        err instanceof CampaignAuthError
+          ? err.message
+          : `Failed to delete campaign "${name}"`;
+      setNotification(message);
       setTimeout(() => setNotification(null), 2000);
     }
   };
@@ -738,16 +803,18 @@ export default function App() {
                <ShieldCheck className="w-3.5 h-3.5 relative z-10" />
                <span className="hidden sm:inline font-bold relative z-10">VAULT</span>
              </button>
-             <button 
-               onClick={() => setShowTeamManagement(true)}
-               className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
-                 theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-300 hover:text-white'
-               }`}
-               title="Team management"
-             >
-               <Users className="w-3.5 h-3.5 relative z-10" />
-               <span className="hidden sm:inline font-bold relative z-10">TEAM</span>
-             </button>
+             {currentUser?.role === UserRole.ADMIN && (
+               <button 
+                 onClick={() => setShowTeamManagement(true)}
+                 className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
+                   theme === 'light' ? 'text-slate-700 hover:text-slate-900 border border-slate-200' : 'text-slate-300 hover:text-white'
+                 }`}
+                 title="Team management"
+               >
+                 <Users className="w-3.5 h-3.5 relative z-10" />
+                 <span className="hidden sm:inline font-bold relative z-10">TEAM</span>
+               </button>
+             )}
              <button 
                onClick={() => setShowCampaignModal(true)}
                className={`flex items-center gap-2 px-4 py-2 glass hover:glass-strong rounded-xl transition-all group relative ${
@@ -1672,8 +1739,12 @@ export default function App() {
       </footer>
 
       {/* Team Management Modal */}
-      {showTeamManagement && (
-        <TeamManagement onClose={() => setShowTeamManagement(false)} theme={theme} />
+      {showTeamManagement && currentUser?.role === UserRole.ADMIN && (
+        <TeamManagement
+          onClose={() => setShowTeamManagement(false)}
+          theme={theme}
+          currentUser={currentUser}
+        />
       )}
 
       {/* AI Settings Modal */}

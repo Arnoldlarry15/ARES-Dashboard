@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import { 
   generateTokens, 
@@ -5,6 +6,15 @@ import {
   verifyRefreshToken,
   extractTokenFromHeader 
 } from '../../services/auth/jwt';
+
+function signCustomHs256AccessToken(claims: Record<string, unknown>): string {
+  const secret = process.env.JWT_SECRET!;
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  const signingInput = `${header}.${payload}`;
+  const sig = crypto.createHmac('sha256', secret).update(signingInput).digest('base64url');
+  return `${signingInput}.${sig}`;
+}
 
 describe('JWT Utilities', () => {
   describe('generateTokens', () => {
@@ -102,6 +112,53 @@ describe('JWT Utilities', () => {
       const decoded = verifyAccessToken('not.a.valid.jwt');
 
       expect(decoded).toBeNull();
+    });
+
+    it('should return null for signed HS256 token missing exp claim', () => {
+      const tokenWithoutExp = signCustomHs256AccessToken({
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        iss: process.env.JWT_ISSUER || 'ares-api',
+        aud: process.env.JWT_AUDIENCE || 'ares-dashboard',
+      });
+
+      expect(verifyAccessToken(tokenWithoutExp)).toBeNull();
+    });
+
+    it('should return null for signed HS256 token with non-numeric or non-finite exp claim', () => {
+      const baseClaims = {
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        iss: process.env.JWT_ISSUER || 'ares-api',
+        aud: process.env.JWT_AUDIENCE || 'ares-dashboard',
+      };
+
+      const stringExpToken = signCustomHs256AccessToken({
+        ...baseClaims,
+        exp: String(Math.floor(Date.now() / 1000) + 3600),
+      });
+      const nullExpToken = signCustomHs256AccessToken({
+        ...baseClaims,
+        exp: null,
+      });
+
+      expect(verifyAccessToken(stringExpToken)).toBeNull();
+      expect(verifyAccessToken(nullExpToken)).toBeNull();
+    });
+
+    it('should return null for signed HS256 token with expired exp claim', () => {
+      const expiredSignedToken = signCustomHs256AccessToken({
+        userId: 'user123',
+        email: 'test@example.com',
+        role: 'analyst',
+        iss: process.env.JWT_ISSUER || 'ares-api',
+        aud: process.env.JWT_AUDIENCE || 'ares-dashboard',
+        exp: Math.floor(Date.now() / 1000) - 10,
+      });
+
+      expect(verifyAccessToken(expiredSignedToken)).toBeNull();
     });
   });
 

@@ -1,5 +1,14 @@
+import dns from 'node:dns/promises';
+import net from 'node:net';
+import {
+  Agent as UndiciAgent,
+  fetch as undiciFetch,
+  type RequestInit as UndiciRequestInit,
+  type Response as UndiciResponse
+} from 'undici';
 import { Framework, RedTeamTactic, TacticMetadata, AttackPayload } from '../../types';
 import { getFallbackPayloadsForFamily, isJailbreakVector, isPayloadDeliveryVector, AttackFamily, getTechniqueByName, classifyAttackFamily } from '../taxonomy/attackTaxonomy';
+import { isProductionEnvironment } from '../../services/auth/jwt';
 
 export type AiProvider = 'gemini' | 'openai' | 'anthropic' | 'local';
 
@@ -344,10 +353,276 @@ function isUsableCredentialKey(key?: string): key is string {
   return Boolean(key && key.trim() && key.trim() !== 'PLACEHOLDER_API_KEY');
 }
 
+function isPrivateLocalLlmAllowed(): boolean {
+  const nodeEnv = process.env.NODE_ENV;
+  const vercelEnv = process.env.VERCEL_ENV;
+  const isDevOrTest = nodeEnv === 'development' || nodeEnv === 'test';
+  const isVercelProdOrPreview = vercelEnv === 'production' || vercelEnv === 'preview';
+  return (
+    isDevOrTest &&
+    !isVercelProdOrPreview &&
+    !isProductionEnvironment() &&
+    process.env.ALLOW_PRIVATE_LOCAL_LLM === 'true'
+  );
+}
+
+function normalizeHostname(rawHostname: string): string {
+  return rawHostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+}
+
+function hasNonStandardIpv4Notation(rawUrl: string): boolean {
+  const match = rawUrl.trim().match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^/?#]+)/);
+  if (!match) return false;
+
+  let authority = match[1];
+  const atIdx = authority.lastIndexOf('@');
+  if (atIdx !== -1) {
+    authority = authority.slice(atIdx + 1);
+  }
+  if (authority.startsWith('[')) {
+    return false;
+  }
+
+  const colonIdx = authority.indexOf(':');
+  const rawHost = normalizeHostname(colonIdx !== -1 ? authority.slice(0, colonIdx) : authority);
+  if (!rawHost) return false;
+
+  // Reject integer-only (e.g. 2130706433) or hex-only (e.g. 0x7f000001) hostnames
+  if (/^(?:0x[0-9a-f]+|\d+)$/i.test(rawHost)) {
+    return true;
+  }
+
+  // Reject dotted numeric hostnames with non-4-part, octal (leading 0), or hex (0x) octets
+  const parts = rawHost.split('.');
+  if (parts.length >= 2 && parts.every(part => /^(?:0x[0-9a-f]+|0[0-7]*|\d+)$/i.test(part))) {
+    if (parts.length !== 4) {
+      return true;
+    }
+    if (parts.some(part => /^0x/i.test(part) || (part.length > 1 && part.startsWith('0')))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isNonPublicIpv4(ip: string): boolean {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return true;
+  }
+  const [a, b, c] = parts;
+  if (a === 0) return true; // 0.0.0.0/8 ("this network")
+  if (a === 10) return true; // 10.0.0.0/8 (RFC1918)
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 (CGNAT)
+  if (a === 127) return true; // 127.0.0.0/8 (loopback)
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 (link-local / metadata)
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 (RFC1918)
+  if (a === 192 && b === 0 && c === 0) return true; // 192.0.0.0/24 (IETF Protocol Assignments)
+  if (a === 192 && b === 0 && c === 2) return true; // 192.0.2.0/24 (TEST-NET-1)
+  if (a === 192 && b === 88 && c === 99) return true; // 192.88.99.0/24 (6to4 Relay Anycast)
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16 (RFC1918)
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 (Benchmarking)
+  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24 (TEST-NET-2)
+  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24 (TEST-NET-3)
+  if (a >= 224 && a <= 239) return true; // 224.0.0.0/4 (multicast)
+  if (a >= 240) return true; // 240.0.0.0/4 (reserved / broadcast)
+  return false;
+}
+
+function parseIpv6ToBytes(rawIp: string): Uint8Array | null {
+  const ip = rawIp.toLowerCase().split('%')[0];
+  if (!ip) return null;
+
+  const doubleColonParts = ip.split('::');
+  if (doubleColonParts.length > 2) {
+    return null;
+  }
+
+  const expandSide = (side: string): number[] | null => {
+    if (!side) return [];
+    const tokens = side.split(':');
+    const groups: number[] = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (!token) return null;
+      if (token.includes('.')) {
+        if (i !== tokens.length - 1) return null;
+        const octets = token.split('.').map(Number);
+        if (octets.length !== 4 || octets.some(n => !Number.isInteger(n) || n < 0 || n > 255)) {
+          return null;
+        }
+        groups.push((octets[0] << 8) | octets[1]);
+        groups.push((octets[2] << 8) | octets[3]);
+      } else {
+        if (!/^[0-9a-f]{1,4}$/i.test(token)) return null;
+        groups.push(parseInt(token, 16));
+      }
+    }
+    return groups;
+  };
+
+  const left = expandSide(doubleColonParts[0]);
+  if (!left) return null;
+
+  let fullGroups: number[];
+  if (doubleColonParts.length === 2) {
+    const right = expandSide(doubleColonParts[1]);
+    if (!right) return null;
+    const missing = 8 - (left.length + right.length);
+    if (missing < 1) return null;
+    fullGroups = [...left, ...new Array(missing).fill(0), ...right];
+  } else {
+    if (left.length !== 8) return null;
+    fullGroups = left;
+  }
+
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 8; i++) {
+    bytes[i * 2] = (fullGroups[i] >> 8) & 0xff;
+    bytes[i * 2 + 1] = fullGroups[i] & 0xff;
+  }
+  return bytes;
+}
+
+function isNonPublicIpv6(rawIp: string): boolean {
+  const bytes = parseIpv6ToBytes(rawIp);
+  if (!bytes) return true;
+
+  const isAllZero = bytes.every(b => b === 0);
+  if (isAllZero) return true; // :: (unspecified)
+
+  const isLoopback = bytes.slice(0, 15).every(b => b === 0) && bytes[15] === 1;
+  if (isLoopback) return true; // ::1
+
+  // 100::/64 (discard-only prefix, RFC 6666)
+  if (bytes[0] === 0x01 && bytes[1] === 0x00 && bytes.slice(2, 8).every(b => b === 0)) return true;
+
+  // 64:ff9b::/96 (NAT64 well-known prefix, RFC 6052)
+  if (
+    bytes[0] === 0x00 &&
+    bytes[1] === 0x64 &&
+    bytes[2] === 0xff &&
+    bytes[3] === 0x9b &&
+    bytes.slice(4, 12).every(b => b === 0)
+  ) {
+    return true;
+  }
+
+  // 64:ff9b:1::/48 (NAT64 local-use prefix, RFC 8215)
+  if (
+    bytes[0] === 0x00 &&
+    bytes[1] === 0x64 &&
+    bytes[2] === 0xff &&
+    bytes[3] === 0x9b &&
+    bytes[4] === 0x00 &&
+    bytes[5] === 0x01
+  ) {
+    return true;
+  }
+
+  // 2001::/32 (Teredo tunneling, RFC 4380)
+  if (bytes[0] === 0x20 && bytes[1] === 0x01 && bytes[2] === 0x00 && bytes[3] === 0x00) return true;
+
+  // 2001:2::/48 (Benchmarking, RFC 5180)
+  if (
+    bytes[0] === 0x20 &&
+    bytes[1] === 0x01 &&
+    bytes[2] === 0x00 &&
+    bytes[3] === 0x02 &&
+    bytes[4] === 0x00 &&
+    bytes[5] === 0x00
+  ) {
+    return true;
+  }
+
+  // 2001:db8::/32 (Documentation, RFC 3849)
+  if (bytes[0] === 0x20 && bytes[1] === 0x01 && bytes[2] === 0x0d && bytes[3] === 0xb8) return true;
+
+  // 2002::/16 (6to4, RFC 3056)
+  if (bytes[0] === 0x20 && bytes[1] === 0x02) return true;
+
+  if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 (ULA)
+  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 (link-local)
+  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0xc0) return true; // fec0::/10 (site-local, deprecated)
+  if (bytes[0] === 0xff) return true; // ff00::/8 (multicast)
+
+  // ::ffff:0:0/96 (IPv4-mapped IPv6, dotted or hex forms)
+  const isV4Mapped =
+    bytes.slice(0, 10).every(b => b === 0) &&
+    bytes[10] === 0xff &&
+    bytes[11] === 0xff;
+  if (isV4Mapped) return true;
+
+  // ::/96 (IPv4-compatible IPv6)
+  if (bytes.slice(0, 12).every(b => b === 0)) return true;
+
+  return false;
+}
+
+function isNonPublicIpAddress(ip: string): boolean {
+  const normalized = ip.replace(/^\[|\]$/g, '');
+  const version = net.isIP(normalized);
+  if (version === 4) {
+    return isNonPublicIpv4(normalized);
+  }
+  if (version === 6) {
+    return isNonPublicIpv6(normalized);
+  }
+  return true;
+}
+
+function isMetadataIpAddress(ip: string): boolean {
+  const normalized = ip.replace(/^\[|\]$/g, '');
+  if (normalized === '169.254.169.254' || normalized === '100.100.100.200') {
+    return true;
+  }
+  if (net.isIP(normalized) === 6) {
+    const bytes = parseIpv6ToBytes(normalized);
+    if (!bytes) return false;
+
+    // AWS IPv6 IMDS: fd00:ec2::254
+    if (
+      bytes[0] === 0xfd &&
+      bytes[1] === 0x00 &&
+      bytes[2] === 0x0e &&
+      bytes[3] === 0xc2 &&
+      bytes.slice(4, 14).every(b => b === 0) &&
+      bytes[14] === 0x02 &&
+      bytes[15] === 0x54
+    ) {
+      return true;
+    }
+
+    // IPv4-mapped metadata IPv6: ::ffff:169.254.169.254 or ::ffff:100.100.100.200
+    const isV4Mapped =
+      bytes.slice(0, 10).every(b => b === 0) &&
+      bytes[10] === 0xff &&
+      bytes[11] === 0xff;
+    if (isV4Mapped) {
+      const isAwsImds = bytes[12] === 169 && bytes[13] === 254 && bytes[14] === 169 && bytes[15] === 254;
+      const isAlibabaImds = bytes[12] === 100 && bytes[13] === 100 && bytes[14] === 100 && bytes[15] === 200;
+      if (isAwsImds || isAlibabaImds) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function validateLocalEndpointUrl(rawUrl: string): string {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
+    throw new ProviderConfigurationError('Invalid LOCAL_LLM_BASE_URL format', 'INVALID_LOCAL_URL', 400);
+  }
+
+  const trimmed = rawUrl.trim();
+  if (hasNonStandardIpv4Notation(trimmed)) {
+    throw new ProviderConfigurationError('Non-standard IPv4 notations are forbidden', 'INVALID_LOCAL_URL', 400);
+  }
+
   let parsed: URL;
   try {
-    parsed = new URL(rawUrl.trim());
+    parsed = new URL(trimmed);
   } catch {
     throw new ProviderConfigurationError('Invalid LOCAL_LLM_BASE_URL format', 'INVALID_LOCAL_URL', 400);
   }
@@ -356,22 +631,36 @@ export function validateLocalEndpointUrl(rawUrl: string): string {
     throw new ProviderConfigurationError('Local endpoint URL must use http or https', 'INVALID_LOCAL_PROTOCOL', 400);
   }
 
-  const host = parsed.hostname.toLowerCase();
-  if (host === '169.254.169.254' || host === 'metadata.google.internal' || host.endsWith('.internal')) {
+  if (parsed.username !== '' || parsed.password !== '') {
+    throw new ProviderConfigurationError('Credentials in endpoint URL are forbidden', 'FORBIDDEN_URL_CREDENTIALS', 400);
+  }
+
+  const host = normalizeHostname(parsed.hostname);
+  if (!host) {
+    throw new ProviderConfigurationError('Invalid LOCAL_LLM_BASE_URL format', 'INVALID_LOCAL_URL', 400);
+  }
+
+  if (
+    isMetadataIpAddress(host) ||
+    host === 'metadata.google.internal' ||
+    host.endsWith('.internal')
+  ) {
     throw new ProviderConfigurationError('Cloud metadata endpoints are forbidden for local inference', 'FORBIDDEN_LOCAL_HOST', 400);
   }
 
-  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRIVATE_LOCAL_LLM !== 'true') {
-    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1';
-    const isPrivateIpv4 =
-      /^10\./.test(host) ||
-      /^192\.168\./.test(host) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
-      /^169\.254\./.test(host);
-
-    if (isLoopback || isPrivateIpv4) {
+  const allowPrivate = isPrivateLocalLlmAllowed();
+  if (!allowPrivate) {
+    if (host === 'localhost' || host.endsWith('.localhost')) {
       throw new ProviderConfigurationError(
-        'Private/loopback local inference URLs are disabled in production unless ALLOW_PRIVATE_LOCAL_LLM=true',
+        'Private/loopback local inference URLs are disabled unless ALLOW_PRIVATE_LOCAL_LLM=true in non-production',
+        'FORBIDDEN_PRIVATE_LOCAL_URL',
+        400
+      );
+    }
+
+    if (net.isIP(host) !== 0 && isNonPublicIpAddress(host)) {
+      throw new ProviderConfigurationError(
+        'Private/non-public IP addresses are forbidden for outbound endpoints',
         'FORBIDDEN_PRIVATE_LOCAL_URL',
         400
       );
@@ -379,6 +668,192 @@ export function validateLocalEndpointUrl(rawUrl: string): string {
   }
 
   return parsed.toString().replace(/\/$/, '');
+}
+
+/**
+ * Validates an outbound endpoint URL including DNS resolution checks to block SSRF
+ * against private/loopback/link-local/metadata IP ranges.
+ */
+export async function validateOutboundEndpointUrl(rawUrl: string): Promise<string> {
+  const normalizedUrl = validateLocalEndpointUrl(rawUrl);
+  const parsed = new URL(normalizedUrl);
+  const host = normalizeHostname(parsed.hostname);
+  const allowPrivate = isPrivateLocalLlmAllowed();
+
+  // IP literals have already been checked by validateLocalEndpointUrl
+  if (net.isIP(host) !== 0) {
+    return normalizedUrl;
+  }
+
+  let resolved: Array<{ address: string; family: number }>;
+  try {
+    resolved = await dns.lookup(host, { all: true });
+  } catch {
+    if (allowPrivate) {
+      return normalizedUrl;
+    }
+    throw new ProviderConfigurationError('Failed to resolve outbound endpoint hostname', 'DNS_RESOLUTION_FAILED', 400);
+  }
+
+  if (!Array.isArray(resolved) || resolved.length === 0) {
+    if (allowPrivate) {
+      return normalizedUrl;
+    }
+    throw new ProviderConfigurationError('Outbound endpoint hostname resolved to no addresses', 'DNS_RESOLUTION_FAILED', 400);
+  }
+
+  for (const entry of resolved) {
+    if (isMetadataIpAddress(entry.address)) {
+      throw new ProviderConfigurationError('Cloud metadata endpoints are forbidden for local inference', 'FORBIDDEN_LOCAL_HOST', 400);
+    }
+    if (!allowPrivate && isNonPublicIpAddress(entry.address)) {
+      throw new ProviderConfigurationError(
+        'Outbound endpoint hostname resolved to a non-public IP address',
+        'FORBIDDEN_PRIVATE_LOCAL_URL',
+        400
+      );
+    }
+  }
+
+  return normalizedUrl;
+}
+
+/**
+ * Creates an undici Agent that performs connection-time DNS resolution and validates
+ * every resolved IP before any TCP socket is opened, preventing DNS rebinding / TOCTOU SSRF
+ * while preserving the original hostname in the URL for TLS certificate & SNI verification.
+ */
+export function createPinnedFetchDispatcher(allowPrivate: boolean = isPrivateLocalLlmAllowed()): UndiciAgent {
+  return new UndiciAgent({
+    connect: {
+      lookup: (hostname, options, callback) => {
+        const normalizedHost = normalizeHostname(hostname);
+        if (!normalizedHost) {
+          callback(new ProviderConfigurationError('Invalid outbound hostname', 'INVALID_LOCAL_URL', 400), '');
+          return;
+        }
+
+        if (
+          isMetadataIpAddress(normalizedHost) ||
+          normalizedHost === 'metadata.google.internal' ||
+          normalizedHost.endsWith('.internal')
+        ) {
+          callback(
+            new ProviderConfigurationError('Cloud metadata endpoints are forbidden for local inference', 'FORBIDDEN_LOCAL_HOST', 400),
+            ''
+          );
+          return;
+        }
+
+        if (!allowPrivate && (normalizedHost === 'localhost' || normalizedHost.endsWith('.localhost'))) {
+          callback(
+            new ProviderConfigurationError(
+              'Private/loopback local inference URLs are disabled unless ALLOW_PRIVATE_LOCAL_LLM=true in non-production',
+              'FORBIDDEN_PRIVATE_LOCAL_URL',
+              400
+            ),
+            ''
+          );
+          return;
+        }
+
+        const ipVersion = net.isIP(normalizedHost);
+        if (ipVersion !== 0) {
+          if (!allowPrivate && isNonPublicIpAddress(normalizedHost)) {
+            callback(
+              new ProviderConfigurationError(
+                'Private/non-public IP addresses are forbidden for outbound endpoints',
+                'FORBIDDEN_PRIVATE_LOCAL_URL',
+                400
+              ),
+              ''
+            );
+            return;
+          }
+          if (options && typeof options === 'object' && options.all) {
+            (callback as (err: NodeJS.ErrnoException | null, addresses: Array<{ address: string; family: number }>) => void)(
+              null,
+              [{ address: normalizedHost, family: ipVersion }]
+            );
+          } else {
+            callback(null, normalizedHost, ipVersion);
+          }
+          return;
+        }
+
+        dns
+          .lookup(normalizedHost, { all: true })
+          .then((resolved) => {
+            if (!Array.isArray(resolved) || resolved.length === 0) {
+              callback(
+                new ProviderConfigurationError('Outbound endpoint hostname resolved to no addresses', 'DNS_RESOLUTION_FAILED', 400),
+                ''
+              );
+              return;
+            }
+
+            for (const entry of resolved) {
+              if (isMetadataIpAddress(entry.address)) {
+                callback(
+                  new ProviderConfigurationError('Cloud metadata endpoints are forbidden for local inference', 'FORBIDDEN_LOCAL_HOST', 400),
+                  ''
+                );
+                return;
+              }
+              if (!allowPrivate && isNonPublicIpAddress(entry.address)) {
+                callback(
+                  new ProviderConfigurationError(
+                    'Outbound endpoint hostname resolved to a non-public IP address',
+                    'FORBIDDEN_PRIVATE_LOCAL_URL',
+                    400
+                  ),
+                  ''
+                );
+                return;
+              }
+            }
+
+            if (options && typeof options === 'object' && options.all) {
+              (callback as (err: NodeJS.ErrnoException | null, addresses: Array<{ address: string; family: number }>) => void)(
+                null,
+                resolved.map((entry) => ({ address: entry.address, family: entry.family }))
+              );
+            } else {
+              callback(null, resolved[0].address, resolved[0].family);
+            }
+          })
+          .catch(() => {
+            callback(
+              new ProviderConfigurationError('Failed to resolve outbound endpoint hostname', 'DNS_RESOLUTION_FAILED', 400),
+              ''
+            );
+          });
+      }
+    }
+  });
+}
+
+/**
+ * Executes an outbound HTTP/HTTPS request with pre-flight URL validation,
+ * connection-time DNS/IP pinning, and redirect: 'manual'.
+ */
+export async function pinnedOutboundFetch(
+  url: string,
+  init: RequestInit = {},
+  options?: { allowPrivate?: boolean }
+): Promise<UndiciResponse> {
+  const normalizedUrl = validateLocalEndpointUrl(url);
+  const allowPrivate = options?.allowPrivate ?? isPrivateLocalLlmAllowed();
+  const dispatcher = createPinnedFetchDispatcher(allowPrivate);
+  try {
+    return await undiciFetch(normalizedUrl, {
+      ...(init as UndiciRequestInit),
+      dispatcher,
+      redirect: 'manual'
+    });
+  } finally {
+    void dispatcher.close().catch(() => {});
+  }
 }
 
 export function resolveProviderSelection(params: {
@@ -411,6 +886,24 @@ export function resolveProviderSelection(params: {
   const server = params.serverEnv || {};
   const byok = params.byokKeys || {};
 
+  if (params.credentialMode === 'byok' && preferred === 'local') {
+    const rawUrl = byok.localBaseUrl || '';
+    if (!rawUrl.trim()) {
+      throw new ProviderConfigurationError(
+        'BYOK local inference endpoint URL is not configured',
+        'MISSING_PROVIDER_CREDENTIAL',
+        400
+      );
+    }
+    return {
+      provider: 'local',
+      credentialMode: 'byok',
+      apiKey: byok.localApiKey || '',
+      localBaseUrl: validateLocalEndpointUrl(rawUrl),
+      localModel: byok.localModel || 'llama3.1:8b-instruct'
+    };
+  }
+
   if (preferred === 'local' || params.credentialMode === 'local') {
     if (preferred !== 'auto' && preferred !== 'local') {
       throw new ProviderConfigurationError(
@@ -423,10 +916,11 @@ export function resolveProviderSelection(params: {
     if (!rawUrl.trim()) {
       throw new ProviderConfigurationError('Local inference endpoint URL is not configured', 'LOCAL_URL_MISSING', 400);
     }
+    const hasClientSuppliedUrl = Boolean(byok.localBaseUrl && byok.localBaseUrl.trim());
     return {
       provider: 'local',
-      credentialMode: 'local',
-      apiKey: byok.localApiKey || server.localApiKey || '',
+      credentialMode: params.credentialMode === 'server_managed' ? 'server_managed' : 'local',
+      apiKey: hasClientSuppliedUrl ? (byok.localApiKey || '') : (byok.localApiKey || server.localApiKey || ''),
       localBaseUrl: validateLocalEndpointUrl(rawUrl),
       localModel: byok.localModel || server.localModel || 'llama3.1:8b-instruct'
     };

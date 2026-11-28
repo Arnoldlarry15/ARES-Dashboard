@@ -6,7 +6,7 @@ Thank you for your interest in contributing to ARES Dashboard! This document pro
 
 ### Prerequisites
 
-- Node.js 20.x
+- Node.js 24 (`^24.15.0`)
 - npm (comes with Node.js)
 - Git
 - (Optional) Vercel CLI for local API testing
@@ -134,7 +134,7 @@ Our GitHub Actions CI pipeline runs on:
 - Pushes to `main` branch
 
 The pipeline:
-- Uses Node.js 20.x
+- Uses Node.js 24 (`^24.15.0`)
 - Installs dependencies with `npm ci`
 - Runs lint, typecheck, and build in sequence
 - Must complete successfully before merge

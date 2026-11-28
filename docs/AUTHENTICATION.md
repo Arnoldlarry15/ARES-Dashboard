@@ -2,13 +2,14 @@
 
 ## Overview
 
-ARES Dashboard now includes **enterprise-grade server-side authentication and Role-Based Access Control (RBAC)**. This implementation provides:
+ARES Dashboard includes **server-side authentication and Role-Based Access Control (RBAC)**. This implementation provides:
 
-- ✅ **Real Authentication**: OAuth2/OIDC integration ready (Auth0, Azure AD, Clerk)
-- ✅ **Server-Side RBAC**: Backend enforcement of roles and permissions
-- ✅ **JWT with Scoped Claims**: Secure token-based authentication
-- ✅ **SSO Ready**: Enterprise identity provider integration
+- ✅ **Real Authentication**: OAuth2/OIDC integration via Auth0 (both backend OAuth2 callback flow and SPA RS256 Bearer flow)
+- ✅ **Server-Side RBAC**: Backend enforcement of database-resolved roles and permissions
+- ✅ **JWT with Scoped Claims**: Secure token-based authentication (`HttpOnly` cookies or RS256 Bearer tokens)
+- ✅ **Multi-Tenant Isolation**: Organization-scoped access with onboarding & invitation workflows
 - ✅ **Auditable**: Complete authentication event logging
+- ⚠️ **SAML 2.0 Status**: SAML 2.0 SSO is **disabled in this release** (`501 Not Implemented` on `/api/auth/login?provider=saml` and `/api/auth/callback?provider=saml`)
 
 ## Architecture
 
@@ -35,12 +36,13 @@ ARES Dashboard now includes **enterprise-grade server-side authentication and Ro
 │  - Get user info                      │
 │  - Generate JWT                       │
 └────────┬───────────────────────────────┘
-         │ 4. Return JWT tokens
+         │ 4. Set HttpOnly session cookies & redirect
          ↓
-┌─────────────────┐
-│  Frontend App   │
-│  Store tokens   │
-└────────┬────────┘
+┌──────────────────────────────────┐
+│  Frontend App                    │
+│  Browser sends HttpOnly cookies  │
+│  (or SPA RS256 Bearer token)     │
+└────────┬─────────────────────────┘
          │ 5. API requests with JWT
          ↓
 ┌──────────────────────────────┐
@@ -58,55 +60,85 @@ ARES Dashboard now includes **enterprise-grade server-side authentication and Ro
 Add these variables to your Vercel project or `.env.local`:
 
 ```bash
-# Auth0 Configuration
+# Backend OAuth2 Callback Flow (Regular Web Application)
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
 AUTH0_CALLBACK_URL=https://your-domain.com/api/auth/callback?provider=auth0
 
+# Frontend SPA RS256 Bearer Flow (Single Page Application)
+VITE_AUTH0_DOMAIN=your-tenant.auth0.com
+VITE_AUTH0_CLIENT_ID=your_spa_client_id
+# Required for SPA RS256 Bearer mode (must match AUTH0_AUDIENCE so Auth0 issues a JWT rather than an opaque token)
+VITE_AUTH0_AUDIENCE=https://your-api-identifier
+AUTH0_AUDIENCE=https://your-api-identifier
+
 # JWT Secrets (generate with: openssl rand -base64 32)
 JWT_SECRET=your_secure_random_secret_here
 JWT_REFRESH_SECRET=your_secure_refresh_secret_here
 
-# Optional: Restrict CORS origins
+# Optional: Restrict CORS origins & canonical origin
 ALLOWED_ORIGINS=https://your-domain.com,https://app.your-domain.com
+APP_URL=https://your-domain.com
 ```
 
-### 2. Auth0 Setup
+### 2. Auth0 Setup (Two Supported Flows)
 
-1. Create an Auth0 account at [auth0.com](https://auth0.com)
-2. Create a new **Regular Web Application**
-3. Configure Application URIs:
+ARES supports two Auth0 integration patterns (see [Auth0 Setup Guide](./AUTH0_SETUP_GUIDE.md) for full SPA details):
+
+#### Option A: Backend OAuth2 Callback Flow (Regular Web Application)
+Used when authenticating through `/api/auth/login?provider=auth0` and `/api/auth/callback?provider=auth0`, which exchanges the authorization code server-side and sets `HttpOnly`, `SameSite=Lax` session cookies:
+1. Create a **Regular Web Application** in your Auth0 tenant.
+2. Configure Application URIs:
    - **Allowed Callback URLs**: `https://your-domain.com/api/auth/callback?provider=auth0`
    - **Allowed Logout URLs**: `https://your-domain.com`
    - **Allowed Web Origins**: `https://your-domain.com`
-4. Copy your **Domain**, **Client ID**, and **Client Secret**
-5. (Optional) Configure custom claims for roles and permissions in Auth0 Rules/Actions
+3. Set `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, and `AUTH0_CALLBACK_URL` in your backend environment.
 
-### 3. Custom Claims in Auth0
+#### Option B: React SPA RS256 Bearer Flow (Single Page Application)
+Used by `@auth0/auth0-react` in the browser (`VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and required `VITE_AUTH0_AUDIENCE` matching backend `AUTH0_AUDIENCE`), which acquires an RS256 access token in memory and sends `Authorization: Bearer <token>` to `/api/*` endpoints (verified against Auth0 JWKS):
+1. Create a **Single Page Web Application** in your Auth0 tenant (do **not** use a Regular Web App client ID for the SPA PKCE flow).
+2. Configure **Allowed Callback URLs**, **Allowed Logout URLs**, and **Allowed Web Origins** to your frontend origin (e.g., `http://localhost:5173` or `https://your-domain.com`).
+3. See [AUTH0_SETUP_GUIDE.md](./AUTH0_SETUP_GUIDE.md) for step-by-step SPA configuration.
 
-To include roles and permissions in your JWTs, add this Auth0 Action:
+### 3. Custom Claims & Database-Resolved Roles
+
+To propagate organization membership from Auth0 into both the ID token and Access token, add this Auth0 **Post-Login Action**:
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
   const namespace = 'https://ares.app/';
-  
-  // Add role from user metadata
-  if (event.user.app_metadata.role) {
-    api.idToken.setCustomClaim(`${namespace}roles`, [event.user.app_metadata.role]);
-  }
-  
-  // Add organization ID
-  if (event.user.app_metadata.organizationId) {
-    api.idToken.setCustomClaim(`${namespace}org_id`, event.user.app_metadata.organizationId);
-  }
-  
-  // Add permissions
-  if (event.user.app_metadata.permissions) {
-    api.idToken.setCustomClaim(`${namespace}permissions`, event.user.app_metadata.permissions);
+  const appMetadata = event.user.app_metadata || {};
+
+  // Add organization ID to BOTH ID token and Access token from app_metadata
+  if (appMetadata.organizationId) {
+    api.idToken.setCustomClaim(`${namespace}org_id`, appMetadata.organizationId);
+    api.accessToken.setCustomClaim(`${namespace}org_id`, appMetadata.organizationId);
   }
 };
 ```
+
+> **Database-Resolved Roles**: In ARES, a user's `role` (and resulting RBAC permissions) is **resolved authoritatively from the PostgreSQL database** (`User` record scoped to their organization), not trusted from client-editable token metadata.
+>
+> **Security Warning**: Always read `organizationId` from `event.user.app_metadata` (admin/backend-controlled). **Never** use `event.user.user_metadata` for tenant or authorization claims, because `user_metadata` can be modified by end users and would allow cross-tenant spoofing or privilege escalation.
+
+### 4. Organization Onboarding Flows
+
+ARES enforces strict multi-tenant organization isolation. Users without an `organizationId` are placed into an onboarding state (`?onboarding=required` or `ONBOARDING_REQUIRED` API responses) until they belong to an organization. Three onboarding flows are supported:
+
+1. **(A) Create New Organization (`/api/onboarding`)**
+   - For first-time users creating a new workspace/tenant.
+   - The frontend Organization Onboarding UI submits `POST /api/onboarding` with `{ "action": "create_organization", "organizationName": "<name>" }` (including `credentials: 'include'` and `Authorization: Bearer <token>` if an Auth0 SPA access token is present).
+   - The backend creates the organization, assigns the user as `admin` of that organization, updates their session/metadata, and completes login.
+
+2. **(B) Invited User (`/api/users?resource=invitations` + `/api/onboarding`)**
+   - An organization administrator creates an invitation via `/api/users?resource=invitations` and shares the resulting invitation token with the new user.
+   - After authenticating, the invited user selects **Join with Token** in the Organization Onboarding UI, which submits `POST /api/onboarding` with `{ "action": "accept_invitation", "token": "<invitation_token>" }`.
+   - The backend validates the invitation token, links the user to the target organization with the invited role, and completes login.
+
+3. **(C) Returning User / Auth0 `app_metadata.organizationId` Claim**
+   - Returning users who already belong to an organization have `app_metadata.organizationId` set in Auth0 (or persisted in the ARES database).
+   - On login, the Auth0 Post-Login Action injects `https://ares.app/org_id` into both the ID token and Access token, and `/api/auth/callback` issues the scoped session directly without triggering onboarding.
 
 ## API Reference
 
@@ -116,13 +148,13 @@ exports.onExecutePostLogin = async (event, api) => {
 Initiates authentication flow with the specified provider.
 
 **Query Parameters**:
-- `provider` - Authentication provider (`auth0` or `saml`)
+- `provider` - Authentication provider (`auth0`; `saml` is **disabled in this release** and returns `501 Not Implemented`)
 
-**Response**: Redirects to provider login page
+**Response**: Redirects to provider login page (or returns `501 Not Implemented` for `provider=saml`)
 
 **Examples**:
 - Auth0: `GET /api/auth/login?provider=auth0`
-- SAML: `GET /api/auth/login?provider=saml`
+- SAML: `GET /api/auth/login?provider=saml` → `501 Not Implemented` (disabled in this release)
 
 ---
 
@@ -130,42 +162,16 @@ Initiates authentication flow with the specified provider.
 Handles authentication callback from the specified provider.
 
 **Query Parameters**:
-- `provider` - Authentication provider (`auth0` or `saml`)
+- `provider` - Authentication provider (`auth0`; `saml` is **disabled in this release** and returns `501 Not Implemented`)
 - For Auth0:
   - `code` - Authorization code from Auth0
   - `state` - CSRF protection state parameter
-- For SAML (POST):
-  - `SAMLResponse` - SAML assertion response
-  - `RelayState` - Post-auth redirect URL
 
-**Response**: Redirects to app with JWT tokens in secure cookies
+**Response**: Redirects to app with JWT tokens in `HttpOnly`, `SameSite=Lax` cookies (or redirects to `?onboarding=required` if the user has no organization yet)
 
 **Examples**:
 - Auth0: `GET /api/auth/callback?provider=auth0&code=...&state=...`
-- SAML: `POST /api/auth/callback?provider=saml` (with form data)
-
----
-
-#### `POST /api/auth/refresh`
-Refreshes an expired access token using a refresh token.
-
-**Request Body**:
-```json
-{
-  "refreshToken": "your_refresh_token_here"
-}
-```
-
-**Response**:
-```json
-{
-  "accessToken": "new_access_token",
-  "refreshToken": "new_refresh_token",
-  "expiresIn": 3600
-}
-```
-
-**Rate Limit**: 20 requests per minute
+- SAML: `POST /api/auth/callback?provider=saml` → `501 Not Implemented` (disabled in this release)
 
 ---
 
@@ -310,26 +316,26 @@ Tokens are automatically set as secure HttpOnly cookies by the OAuth callback en
 ```typescript
 // Tokens are stored in secure cookies (set by backend)
 // - HttpOnly: Not accessible via JavaScript
-// - Secure: Only sent over HTTPS
-// - SameSite=Strict: CSRF protection
+// - Secure: Only sent over HTTPS (in production)
+// - SameSite=Lax: CSRF protection
 
 // Frontend doesn't need to handle tokens manually
 // Cookies are automatically sent with requests
-fetch('/api/protected', {
+fetch('/api/campaigns', {
   credentials: 'include' // Include cookies in request
 });
 ```
 
 **Alternative: Authorization Header (for SPAs)**
 
-If using Authorization header pattern:
+If using the Auth0 SPA RS256 Bearer token pattern (`getAccessToken()`):
 
 ```typescript
-// Extract token from cookie (if accessible) or secure storage
-const token = getCookieValue('access_token');
+// Acquire RS256 access token in memory via @auth0/auth0-react
+const token = await getAccessToken();
 
 // Include in API requests
-fetch('/api/protected', {
+fetch('/api/campaigns', {
   headers: {
     'Authorization': `Bearer ${token}`
   }
@@ -337,9 +343,9 @@ fetch('/api/protected', {
 ```
 
 **Security Guidelines**:
-- ✅ Use HttpOnly cookies for token storage (default in our implementation)
+- ✅ Use HttpOnly cookies for token storage (default in our OAuth2 callback implementation)
 - ✅ Enable Secure flag for HTTPS-only transmission
-- ✅ Set SameSite=Strict for CSRF protection
+- ✅ Set SameSite=Lax for CSRF protection (paired with double-submit `csrf_token` / `X-CSRF-Token` validation)
 - ✅ Use short expiration times (1 hour for access tokens)
 - ❌ Never store tokens in localStorage (vulnerable to XSS)
 - ❌ Never send tokens in URL query parameters
@@ -350,42 +356,20 @@ fetch('/api/protected', {
 
 1. **Access Token**: 1 hour expiration
    - Short-lived for security
-   - Use for all API requests
-   
-2. **Refresh Token**: 7 days expiration
-   - Long-lived, stored securely
-   - Use only to obtain new access tokens
-
-3. **Token Refresh Flow**:
-   ```typescript
-   async function refreshAccessToken() {
-     const refreshToken = localStorage.getItem('refresh_token');
-     
-     const response = await fetch('/api/auth/refresh', {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({ refreshToken })
-     });
-     
-     const { accessToken, refreshToken: newRefresh } = await response.json();
-     
-     localStorage.setItem('access_token', accessToken);
-     localStorage.setItem('refresh_token', newRefresh);
-   }
-   ```
+   - Used for all API requests (via `HttpOnly` cookie or in-memory SPA Bearer token)
+   - In the SPA flow, Auth0 handles silent token renewal in memory via `@auth0/auth0-react`.
+   - In the backend OAuth2 callback flow, re-authenticate via `/api/auth/login?provider=auth0` when the 1-hour session cookie expires.
 
 ### Rate Limiting
 
 All authentication endpoints are rate-limited:
 - Login/Callback: Standard rate limits
-- Token Refresh: 20 requests/minute
 - Protected APIs: 100 requests/minute (configurable)
 
 ### Audit Logging
 
 All authentication events are logged:
 - Login attempts (success/failure)
-- Token refresh
 - Permission denied events
 - Role changes
 
@@ -429,16 +413,11 @@ npm run test:unit tests/unit/jwt.test.ts
 
 ```bash
 # Test OAuth flow
-curl -X GET https://your-domain.com/api/auth/login/auth0
+curl -i "https://your-domain.com/api/auth/login?provider=auth0"
 
-# Test protected endpoint
-curl -X GET https://your-domain.com/api/protected-example \
+# Test protected endpoint with Bearer token
+curl -X GET "https://your-domain.com/api/campaigns" \
   -H "Authorization: Bearer <access_token>"
-
-# Test token refresh
-curl -X POST https://your-domain.com/api/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refreshToken":"<refresh_token>"}'
 ```
 
 ---
@@ -461,9 +440,8 @@ curl -X POST https://your-domain.com/api/auth/refresh \
 - Verify Bearer token format: `Authorization: Bearer <token>`
 
 ### "Forbidden" despite valid token
-- Check user role matches `requireRole()` allowed roles
-- Verify permissions are set in Auth0 custom claims
-- Ensure role/permission claims use correct namespace
+- Check the user's `role` in the PostgreSQL `users` table (scoped to `orgId`) matches `requireRole()` allowed roles—ARES resolves roles and permissions authoritatively from the database, not from Auth0 token claims
+- Verify the user's `orgId` (`https://ares.app/org_id` via `app_metadata.organizationId`, or completed `/api/onboarding`) and confirm `users.disabledAt` is `NULL`
 
 ---
 
@@ -490,11 +468,11 @@ See [OAuth Integration Guide](../services/auth/OAUTH_INTEGRATION.md) for detaile
 
 ## Compliance & Audit
 
-This implementation supports:
-- ✅ **SOC 2 Type II**: Complete audit trail
-- ✅ **ISO 27001**: Access control requirements
-- ✅ **GDPR**: User authentication and consent
-- ✅ **OWASP**: Authentication best practices
+These technical controls are designed to support organizational security and compliance programs (see [SOC2_COMPLIANCE.md](./SOC2_COMPLIANCE.md)); they do not by themselves constitute formal SOC 2, ISO 27001, or GDPR certification:
+- **SOC 2 Type II Alignment**: Append-only `audit_logs` (enforced via DB triggers when using a non-owner runtime role) and server-side RBAC
+- **ISO 27001 Alignment**: Role-based and organization-scoped access control (`orgId`)
+- **GDPR Support**: Authentication, session controls, and soft-delete offboarding (`users.disabledAt`)
+- **OWASP Alignment**: `HttpOnly`, `SameSite=Lax` cookies, CSRF protection, and JWKS/JWT verification
 
 Export audit logs for compliance:
 ```typescript
